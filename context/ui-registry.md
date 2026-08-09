@@ -45,6 +45,12 @@ and its props are accurate here.
 purpose: each is needed in more than one place, and the second use is where duplication
 normally starts.
 
+**Most of these wrap a HeroUI component rather than replacing one** — `ScoreInput` is a
+`RadioGroup` whose shape depends on the user's score format, `MediaSearchInput` is an
+`Autocomplete` wired to a provider adapter, `ShareModal` is a `Modal`. The registry entry
+exists for the project behaviour on top, not for the widget underneath. If a wrapper turns
+out to add nothing, delete it and use the HeroUI component directly.
+
 **`ScoreBadge` and `ScoreInput` must share one formatting module** (`src/lib/score.ts`).
 Five formats across the tray, the public page, the dashboard, and the OG card is fifteen
 chances to render `2/3` for a smiley rating if each surface improvises.
@@ -65,7 +71,9 @@ Then delete its row from **Planned**.
 
 These are deliberately not in the registry, and adding them would be wrong:
 
-- DaisyUI classes (`btn`, `modal`, `card`) — the library is the registry for those
+- HeroUI components (`Button`, `Modal`, `Card`) used directly — the library is the registry
+  for those. A registry entry is for something *we* built, including a thin wrapper around a
+  HeroUI component when the wrapper carries real project behaviour
 - One-off layout wrappers used in a single file
 - Anything under `src/app/**`. Pages and routes are not reusable UI; they belong in
   `user-flow.md`.

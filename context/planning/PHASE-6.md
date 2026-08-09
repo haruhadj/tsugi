@@ -69,11 +69,16 @@ export default async function Image({ params }: { params: Promise<{ slug: string
 }
 ```
 
-**Satori does not run Tailwind or DaisyUI.** The card is built from inline styles with a
-hardcoded palette, matched to `night` by eye. This is the single sanctioned exception to the
-no-hardcoded-colours invariant, recorded in `../ui-tokens.md`. Flex layout only — Satori
-supports a subset of CSS, and `display: grid` is not in it. The multi-cover layouts are
-therefore nested flex rows, not a grid.
+**Satori does not run Tailwind or HeroUI.** The card is built from inline styles with a
+hardcoded palette, matched to HeroUI's dark tokens — the values are tabulated in
+`../ui-tokens.md`. This is the single sanctioned exception to the no-hardcoded-colours
+invariant. Flex layout only — Satori supports a subset of CSS, and `display: grid` is not in
+it. The multi-cover layouts are therefore nested flex rows, not a grid.
+
+**Convert the tokens to hex or `rgb()` first.** HeroUI's palette is authored in `oklch()`,
+which Satori does not parse — an unparsed colour silently renders as black, which on a
+near-black card means invisible text rather than an error. Keep the `oklch()` original in a
+comment beside each converted value.
 
 **Scores on the card go through `src/lib/score.ts`, like everywhere else.** Five formats
 reach this renderer too, and a `POINT_3` smiley rendered as `2/3` on the card is the most
@@ -183,6 +188,7 @@ localhost.
 |---|---|
 | Writing `params` synchronously from Next 15 memory | Criterion 19 greps for it; called out in three files |
 | Satori silently dropping unsupported CSS, producing a blank card | Criteria 3–5 require visual inspection of the actual PNG, not a passing build |
+| `oklch()` copied straight from `ui-tokens.md` into the card, rendering black on black | Convert to hex. Criterion 3 is a visual check, which is the only thing that catches invisible text |
 | Relative `og:image` URLs, which most unfurlers reject | Criterion 12 checks for absolute |
 | Fonts unavailable in the Satori runtime, falling back to something ugly | Inspect the rendered PNG at criterion 3. If a custom font is needed it must be loaded explicitly — record how in `../tech-stack.md`. |
 | A `POINT_3` score printed as `2/3` on the most public surface there is | Criterion 8. All score text goes through `src/lib/score.ts` |

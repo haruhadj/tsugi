@@ -6,53 +6,81 @@ component" false, and nobody notices until one button is the wrong colour.
 
 ## How theming works here
 
-Tailwind 4 and DaisyUI 5 are configured in CSS. There is no `tailwind.config.ts`.
+Tailwind 4 and HeroUI are configured in CSS. There is no `tailwind.config.ts`.
 
-`src/app/globals.css`:
+`src/app/globals.css` is **one line**:
 
 ```css
-@import "tailwindcss";
-
-@plugin "daisyui" {
-  themes: night --default;
-}
+@import "@heroui/styles";
 ```
 
-`night` is a DaisyUI built-in dark theme: deep blue-black grounds with a saturated blue
-primary. It gives the "vibrant accent on dark" look the brief asks for without us
-hand-authoring a palette in Phase 0.
+That file imports Tailwind itself. **Do not also `@import "tailwindcss"`** — that is a double
+import, and it is the most likely way to get a confusingly broken build here.
 
-**`night` is used unmodified.** The custom-theme syntax is verified and recorded in
-[`tech-stack.md`](./tech-stack.md) — including the trick of redeclaring a built-in theme's
-name to override only a few tokens — but Tsugi does not use it. Introducing a custom palette
-is a design decision that needs a decision-log entry, not an edit to this file.
+HeroUI ships a light palette on `:root` and a dark one under `.dark` / `[data-theme="dark"]`.
+Tsugi sets `data-theme="dark"` on `<html>` and uses the **dark palette unmodified**
+(**Q3**, re-resolved after the move off DaisyUI — **D37**). Introducing a custom palette is a
+design decision that needs a decision-log entry, not an edit to this file.
 
 ## Colour — semantic names only
+
+HeroUI exposes its tokens through Tailwind's theme layer (`@theme inline` maps
+`--color-background: var(--background)` and so on), so every token below is usable as an
+ordinary utility: `bg-background`, `text-foreground`, `border-border`.
 
 Use the semantic token. Never the underlying value.
 
 | Token | Use for |
 |---|---|
-| `base-100` | page background |
-| `base-200` | raised surfaces — cards, the search result list |
-| `base-300` | borders, dividers, input outlines |
-| `base-content` | body text on any `base-*` surface |
-| `primary` / `primary-content` | the one action that matters on a screen |
-| `secondary` | supporting actions |
-| `accent` | the score badge, and highlights that should feel energetic |
-| `neutral` | quiet chrome |
-| `info` / `success` / `warning` / `error` | status only, never decoration |
+| `background` | page background |
+| `background-secondary` / `overlay` | raised surfaces — cards, the search result list, the modal |
+| `border` | borders, dividers, input outlines |
+| `foreground` | body text on any background |
+| `muted` | secondary text — metadata, helper lines, the view count |
+| `accent` / `accent-foreground` | the one action that matters on a screen, and the score badge |
+| `accent-soft` | a quieter accent surface — a selected row, a highlighted chip |
+| `default` | quiet chrome, secondary buttons |
+| `field-*` | input interiors, borders, and focus states. Do not rebuild these from `border` |
+| `focus` | focus rings. Aliased to `accent` in the dark palette |
+| `success` / `warning` / `danger` | status only, never decoration |
 
 ```html
 <!-- yes -->
-<div class="bg-base-200 text-base-content border-base-300">
+<div class="bg-background-secondary text-foreground border-border">
 
 <!-- no — both of these break retheming -->
 <div style="background:#1a1a2e">
 <div class="bg-[#1a1a2e]">
 ```
 
-**One primary per screen.** If two things are `btn-primary`, neither is primary.
+**One accent action per screen.** If two things are the primary colour, neither is primary.
+
+**There is no `primary` token.** DaisyUI had one; HeroUI's equivalent is `accent`. Writing
+`bg-primary` produces nothing at all — Tailwind emits no rule for an undefined token, so the
+element silently renders unstyled rather than erroring. This is the single most likely
+leftover from the DaisyUI era.
+
+## The dark palette, for reference
+
+Verified by reading `@heroui/styles@3.2.4`'s `themes/default/variables.css`. **Do not copy
+these into components** — they exist here so the OG card (below) can be matched by eye, and
+so a future palette change has a starting point.
+
+| Token | Dark value |
+|---|---|
+| `background` | `oklch(12% 0.005 285.823)` — near-black, faint blue-violet cast |
+| `overlay`, `field-background` | `oklch(21.03% 0.0059 285.89)` |
+| `border` | `oklch(28% 0.006 286.033)` |
+| `default` | `oklch(27.4% 0.006 286.033)` |
+| `muted` | `oklch(70.5% 0.015 286.067)` |
+| `foreground` | `oklch(99.11% 0 0)` |
+| `accent` | `oklch(62.04% 0.195 253.83)` — saturated blue |
+| `danger` | `oklch(59.4% 0.1967 24.63)` |
+| `success` | `oklch(73.29% 0.1935 150.81)` |
+| `warning` | `oklch(82.03% 0.1388 76.34)` |
+
+A deep near-black ground with a saturated blue accent — which is the "dark theme with vibrant
+accents" the brief asked for, without anyone authoring a palette.
 
 ## Type scale
 
@@ -77,29 +105,38 @@ reason in a comment. Vertical rhythm inside a card is `gap-3`; between sections 
 
 ## Radius and elevation
 
-Radius comes from DaisyUI's component defaults — `rounded-box` for surfaces, `rounded-btn`
-for actions, `rounded-full` for score badges and avatars. Do not set `rounded-lg` by hand on
-a DaisyUI component; it will disagree with the theme.
+Radius comes from HeroUI's own component defaults, and from `--field-radius` for inputs. Do
+not set `rounded-lg` by hand on a HeroUI component; it will disagree with the theme. For
+plain layout elements that are not HeroUI components, match the nearest one rather than
+inventing a value.
 
-Elevation is one step: `shadow-lg` on the modal, nothing on anything else. On a dark theme,
-shadows read as murk. Separation comes from `base-200` against `base-100`, not from shadows.
+Elevation is one step: the modal's own shadow, nothing on anything else. On a dark theme,
+shadows read as murk. Separation comes from `background-secondary` against `background`, not
+from shadows. Note that HeroUI's dark overlay carries a 1px inset light ring
+(`--overlay-shadow`) instead of a drop shadow — that is the intended treatment; do not add a
+shadow on top of it.
 
 ## Motion
 
 - Transitions: `transition-colors duration-150` on interactive elements.
-- Entrances: DaisyUI's own modal animation. Do not add a second one on top of it.
+- Entrances: HeroUI's own component animations. Do not add a second one on top.
 - Nothing on the create path animates for longer than 200 ms. Perceived speed *is* the
   product.
-- Respect `prefers-reduced-motion`; DaisyUI's modal already does.
+- Respect `prefers-reduced-motion`. HeroUI ships `motion-reduce` and `motion-safe` variants
+  and its components already honour the preference.
 
 ## The OG card is not themed
 
 `/r/[slug]/opengraph-image` renders through Satori, which does **not** run Tailwind or
-DaisyUI — it takes inline styles only. Its palette is therefore hardcoded in that one file,
+HeroUI — it takes inline styles only. Its palette is therefore hardcoded in that one file,
 and that is the single sanctioned exception to the rule at the top of this document.
 
-Keep the values visually matched to `night` by eye, and note in that file that it is a
-deliberate copy. If the theme ever changes, this file must be updated by hand — the OG card
-is the one place where a rebrand is not automatic.
+Match it to the dark values in the table above, and note in that file that it is a deliberate
+copy. If the theme ever changes, this file must be updated by hand — the OG card is the one
+place where a rebrand is not automatic.
+
+**Satori does not understand `oklch()`.** Convert the values above to hex or `rgb()` when
+writing that file, and keep the original `oklch()` beside them in a comment so the two can be
+compared later.
 
 Related: [`ui-rules.md`](./ui-rules.md) · [`ui-registry.md`](./ui-registry.md)

@@ -32,8 +32,9 @@ happened last time.
 ### Immediate next steps
 
 1. Scaffold Next 16 + Bun per [`planning/PHASE-0.md`](./planning/PHASE-0.md).
-2. Confirm the Tailwind 4 / DaisyUI 5 CSS-first setup actually loads DaisyUI — Phase 0
-   exit criterion 7, the one that catches a silently-unstyled page.
+2. Confirm the Tailwind 4 / HeroUI 3 CSS-first setup actually loads `@heroui/styles` —
+   Phase 0 exit criterion 7, the one that catches a silently-unstyled page. Install all five
+   `react-aria` peers; they are not optional (**D37**).
 3. **Create a GitHub remote and push `main`.** Phase 0 criterion 12 cannot be observed
    without one, and it is the only external thing this phase needs.
 4. Phase 1 is unblocked: `.env` holds working pooler and direct connection strings.
@@ -49,6 +50,11 @@ Decisions keep their reasoning so they are not relitigated. Amendments are recor
 amendments, with the condition that would justify revisiting them.
 
 ### D1 — Tailwind 4 + DaisyUI 5, no `tailwind.config.ts`
+> ⚠️ **Half superseded by [D37](#d37--heroui-replaces-daisyui), 2026-08-09.** DaisyUI is
+> gone. **Tailwind 4 and the absence of `tailwind.config.ts` survive** — HeroUI 3 requires
+> Tailwind ≥4 as a hard peer, so the library change reached the same conclusion by a
+> different route. The half that mattered held.
+
 *Amendment to the client brief (requirement 2 and execution step 2).*
 
 The brief specifies `plugins: [require('daisyui')]` in `tailwind.config.ts`. Verification on
@@ -553,6 +559,60 @@ the shared bucket a non-issue in practice. Both are measurable once anything is 
 
 ---
 
+## The UI library change — 2026-08-09
+
+### D37 — HeroUI replaces DaisyUI
+*Requested by the owner, after the blueprint was closed a second time. Amends the client
+brief's requirement 2 and execution step 2, and voids the DaisyUI half of **D1** and the
+original answer to **Q3**.*
+
+Verified before re-planning, by reading `@heroui/react@3.2.4` and `@heroui/styles@3.2.4`
+from the published tarballs rather than the documentation site.
+
+**What survives unchanged:** Tailwind 4, and the absence of `tailwind.config.ts` — HeroUI 3
+declares `tailwindcss: >=4.0.0` as a hard peer, so **D1**'s conclusion was reached again by a
+different route. The `night` decision (**Q3**) is void, because HeroUI has light and dark
+rather than named themes; re-resolved to HeroUI's dark palette, unmodified, on the same
+reasoning that picked `night` — no palette work on the critical path.
+
+**What this actually costs.** DaisyUI is CSS classes on plain HTML: zero JavaScript, usable
+inside Server Components. HeroUI is React Aria: 87 files carrying `"use client"`. The create
+screen is the one timed surface in the product, so `code-standards.md`'s "Server Components
+by default" moves from aspiration to load-bearing — a page that imports a `Button` at the top
+level has become a client tree. **Phase 5 criterion 1 is what settles whether this is fine**,
+and it is timed on every subsequent phase, so a regression cannot hide.
+
+**What it buys, which is larger than it looks.** `ui-rules.md` previously hand-specified
+`role="listbox"` with `aria-activedescendant`, radio-group arrow-key movement, modal focus
+trapping and restoration, and live-region announcements. React Aria implements all of it.
+Those rules survive as *requirements* rather than as instructions to build the mechanics, and
+a requirement satisfied by the library is a requirement that stays true.
+
+**Four findings from reading the package**, each of which would otherwise have cost time:
+- **Five `react-aria` peers are not optional** — the package declares no
+  `peerDependenciesMeta`, so all of them must be explicit dependencies or Phase 0's
+  zero-peer-warnings criterion fails immediately.
+- **No `@source` directive is needed**, contrary to every other Tailwind component library
+  and to NextUI v2. HeroUI 3 emits semantic class names (`.button`, `data-slot`) and ships
+  authored CSS resolved through `@apply` at import time — confirmed by grepping the compiled
+  components for colour utilities and finding none. Adding a content path into
+  `node_modules` would be cargo cult.
+- **No provider component.** v3 dropped `HeroUIProvider`; the root export has none. The root
+  layout stays a server component.
+- **No `framer-motion`.** NextUI v2 required it. v3 does not, and adding it would be dead
+  weight.
+
+**The trap to expect:** DaisyUI class names emit **no CSS at all** under HeroUI rather than
+erroring. `btn`, `bg-base-100`, and especially `bg-primary` — HeroUI's accent token is
+`accent`, and there is no `primary` — all render unstyled elements while the build stays
+green and the types stay clean. Named in `AGENTS.md`, and Phase 0 criterion 7 is what catches
+it on the placeholder page.
+
+**Revisit if:** the client bundle measurably threatens Phase 5 criterion 1, in which case
+the answer is to shrink the client boundary rather than to change libraries again.
+
+---
+
 ## External prerequisites
 
 | Needed by | Service | Status |
@@ -580,7 +640,7 @@ the one you forgot. `scripts/check-db-reachable.sh` warns if a second file appea
 |---|---|---|
 | Q1 | Which external accounts exist? | ✅ **Resolved 2026-08-09** — Supabase only. See the table above. |
 | Q2 | Is `tsugi.app` registered? | ✅ **Neutralised** — `NEXT_PUBLIC_APP_URL` is defined in Phase 0 and falls back to `VERCEL_URL`. Registering a domain is now a config change, not a code change. Still worth answering before Phase 6, where the link goes public. |
-| Q3 | Custom DaisyUI theme or built-in `night`? | ✅ **Resolved** — unmodified `night`. Custom syntax is verified and recorded in `tech-stack.md` for a future change. |
+| Q3 | Custom palette or the library's own dark theme? | ✅ **Re-resolved 2026-08-09** — HeroUI's dark palette, unmodified. The original answer (DaisyUI `night`) was voided by **D37**; the reasoning was not, and it reached the same shape of answer. Single-token override syntax is recorded in `tech-stack.md`. |
 | Q4 | Should the page and OG card show which source a rec came from? | ✅ **Resolved 2026-08-09** — page yes (credited and linked out), card no. |
 
 **No open questions remain.** The blueprint is closed; Phase 0 can begin.
@@ -701,6 +761,31 @@ always was — MAL's `plain`-only PKCE (**D30**) and Satori's CSS subset — and
 knowable before the code exists.
 
 **Next:** Phase 0. Still nothing blocking but the GitHub remote.
+
+### 2026-08-09 — DaisyUI replaced by HeroUI
+
+The owner changed the UI library outright. Verified `@heroui/react@3.2.4` and
+`@heroui/styles@3.2.4` by reading the tarballs, then propagated through twelve files →
+**D37**, with **D1** half-superseded and **Q3** re-resolved.
+
+Tailwind 4 and the missing `tailwind.config.ts` both survived, since HeroUI hard-requires
+Tailwind ≥4. What changed in kind rather than in name: every colour token
+(`bg-base-100` → `bg-background`, and there is **no** `primary` — it is `accent`), the
+composition rule (DaisyUI *classes* became HeroUI *components*), the accessibility section
+(React Aria now provides the listbox, radio-group, and focus-management mechanics that were
+previously specified by hand), and the RSC boundary (HeroUI components are client
+components, so `"use client"` placement is now load-bearing).
+
+Reading the package first paid for itself four times: the five `react-aria` peers are not
+optional; no `@source` directive is needed, unlike every comparable library; there is no
+provider in v3; and `framer-motion` is not a dependency. Each of those is a plausible wrong
+assumption that would have cost a debugging session.
+
+Phase 0's criteria 6 and 7 were rewritten around HeroUI, plus a new 7a for the focus ring —
+the fastest signal that the stylesheet loaded. The OG card gained a warning that HeroUI's
+palette is `oklch()`, which Satori cannot parse and renders as black.
+
+**Next:** Phase 0, unchanged in shape. GitHub remote first.
 
 ### 2026-08-09 — Planning
 - Read the client brief at `context/ai-prompt.xml`.

@@ -81,7 +81,9 @@ Project-specific rules. General TypeScript style is assumed, not restated.
 ## React and components
 
 - Server Components by default. `"use client"` only where interaction actually lives, and as
-  far down the tree as possible.
+  far down the tree as possible. **HeroUI made this rule load-bearing rather than aspirational
+  (D37):** its components are client components, so importing one into a page turns that page
+  into a client tree. Fetch above the boundary, pass plain data across it.
 - No data fetching inside Client Components on the create path except the AniList typeahead,
   which is deliberate (see `architecture.md`).
 - Component files: one component per file, named the same as the file.

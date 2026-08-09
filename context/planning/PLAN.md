@@ -28,7 +28,7 @@ The phase map and the reasoning behind its shape. Versions live in
 
 | Phase | Delivers | External prerequisite |
 |---|---|---|
-| [0](./PHASE-0.md) | Scaffold, Tailwind 4 + DaisyUI 5, test harness, CI | GitHub remote ❌ |
+| [0](./PHASE-0.md) | Scaffold, Tailwind 4 + HeroUI 3, test harness, CI | GitHub remote ❌ |
 | [1](./PHASE-1.md) | Schema: groups, items, score pairs, auth tables, RLS | Supabase ✅ |
 | [2](./PHASE-2.md) | AniList · MAL · Google sign-in, the Hono app, `/settings` | 3 OAuth apps ❌ |
 | [3](./PHASE-3.md) | `UnifiedMediaResult`, both search adapters | — |
@@ -89,7 +89,7 @@ instructions unimplementable, and the product has since been deliberately re-sco
 reasoning is the decision log in [`../progress-tracker.md`](../progress-tracker.md).
 
 **Unimplementable as written:**
-- DaisyUI 5 requires Tailwind 4, where `tailwind.config.ts` no longer exists (**D1**)
+- The brief's `tailwind.config.ts` no longer exists — Tailwind 4 configures in CSS (**D1**)
 - Next 16 removed `next lint` and made `params` a Promise (**D2**)
 - `@vercel/og` is redundant — `next/og` ships with the framework (**D5**)
 - Auto-fallback between providers resolves a *different title* — the id spaces are disjoint
@@ -97,6 +97,8 @@ reasoning is the decision log in [`../progress-tracker.md`](../progress-tracker.
 - Edge runtime for the OG image — `postgres.js` cannot run there (**D21**)
 
 **Deliberately re-scoped by the user:**
+- DaisyUI replaced by HeroUI 3, so requirement 2's component library is gone entirely
+  (**D37**)
 - Anonymous creation removed; accounts required (**D23**)
 - GitHub replaced by AniList, MyAnimeList, and Google (**D24**)
 - One title per recommendation replaced by 1..10 grouped items (**D26**, capped by **D36**)

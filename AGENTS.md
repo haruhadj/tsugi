@@ -51,9 +51,10 @@ These hold in every phase. A violation is a bug regardless of what you were work
    `src/server/**`. A component importing Drizzle is always wrong.
 4. **Every API input is validated at the Hono boundary** with `@hono/zod-validator` and a
    schema from `src/lib/validators/`. No hand-rolled `c.req.json()` parsing.
-5. **Every visual value comes from a DaisyUI semantic token** (`bg-base-100`,
-   `text-primary`, …). No raw hex, no `rgb()`, no arbitrary values like `bg-[#1a1a2e]` in
-   components.
+5. **Every visual value comes from a HeroUI semantic token** (`bg-background`,
+   `text-foreground`, `bg-accent`, …). No raw hex, no `rgb()`, no arbitrary values like
+   `bg-[#1a1a2e]` in components. There is **no `primary` token** — HeroUI's equivalent is
+   `accent`, and `bg-primary` silently emits no CSS at all rather than erroring (**D37**).
 6. **A score is a `(raw, format)` pair, never a bare number.** The five AniList scales —
    `POINT_100`, `POINT_10_DECIMAL`, `POINT_10`, `POINT_5`, `POINT_3` — are preserved as the
    user rated them; MAL is `POINT_10`. A number without its format is meaningless: `5` could
@@ -115,7 +116,9 @@ These hold in every phase. A violation is a bug regardless of what you were work
 **UI**
 - Check `context/ui-registry.md` before building a component. If it exists, use it.
 - Register a new component in the same change that creates it. Not later.
-- DaisyUI component classes first; Tailwind utilities only for layout and spacing.
+- HeroUI components first; Tailwind utilities only for layout and spacing.
+- HeroUI components are client components. Keep `"use client"` on the smallest thing that
+  actually needs it, or a page becomes a client tree by accident.
 
 **Supabase skills are installed** in `.agents/skills/` (208K, committed). Load
 `supabase-postgres-best-practices` **before** any schema, migration, RLS, or index work —
@@ -135,6 +138,11 @@ that is its stated trigger, and Phase 1 is exactly the case it exists for.
   with what it replaces and why the platform cannot do it.
 - `@vercel/og` is **not** a dependency of this project. Use `next/og`.
 - There is **no `tailwind.config.ts`**. Tailwind 4 is configured in CSS.
+- **DaisyUI is not in this project.** It was replaced by HeroUI (**D37**). `btn`,
+  `bg-base-100`, `data-theme="night"` and friends are all from the old stack — if you find
+  one, it is a leftover, not a pattern to follow.
+- `globals.css` is `@import "@heroui/styles";` and nothing else. That import pulls in
+  Tailwind, so importing `tailwindcss` as well is a double import.
 
 ---
 

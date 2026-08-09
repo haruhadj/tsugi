@@ -6,9 +6,10 @@ version number. If you need one, link here.
 ## Verification status
 
 All versions below were checked against the npm registry on **2026-08-09** with
-`npm view <pkg> version peerDependencies`. Re-verify before starting a new phase, or any
-time an install produces a peer-dependency warning. A version matrix without a date is a
-rumour.
+`npm view <pkg> version peerDependencies`, and the HeroUI rows were additionally verified by
+reading the published tarballs — see the HeroUI section for what that turned up. Re-verify
+before starting a new phase, or any time an install produces a peer-dependency warning. A
+version matrix without a date is a rumour.
 
 ## Version matrix — verified 2026-08-09
 
@@ -18,7 +19,12 @@ rumour.
 | `react` / `react-dom` | 19.2.8 | Next 16 App Router runs React 19.2 features |
 | `typescript` | ^5 | 5.1 is the floor for Next 16 |
 | `tailwindcss` | 4.3.3 | CSS-first config. **No `tailwind.config.ts` exists.** |
-| `daisyui` | 5.7.16 | Requires Tailwind 4. Installed via `@plugin` in CSS. |
+| `@heroui/react` | 3.2.4 | Requires Tailwind **≥4** and React **≥19** as peers. ESM-only. Replaced DaisyUI (**D37**) |
+| `react-aria` | 3.51.0 | **Non-optional peer** of `@heroui/react` (`^3.51.0`) |
+| `react-aria-components` | 1.20.0 | Non-optional peer (`^1.20.0`) |
+| `@react-aria/i18n` | 3.13.1 | Non-optional peer (`^3.13.1`) |
+| `@react-aria/ssr` | 3.10.1 | Non-optional peer (`^3.10.1`) |
+| `@react-aria/utils` | 3.34.1 | Non-optional peer (`^3.34.1`) |
 | `hono` | 4.13.1 | |
 | `@hono/zod-validator` | 0.9.0 | peers: `hono >=4.11.2`, `zod ^3.25.0 \|\| ^4.0.0` |
 | `zod` | 4.4.3 | v4 — accepted by the validator's peer range |
@@ -41,7 +47,11 @@ there is nothing to version or upgrade. (**D16**)
 | Package | Why not |
 |---|---|
 | `@vercel/og` | Next ships `ImageResponse` at `next/og`. The separate package is for non-Next runtimes. Adding it duplicates the renderer. The client brief lists it — the brief is wrong. |
-| `tailwind.config.ts` | Not a package, but worth stating: DaisyUI 5 deprecates it. Configuration lives in `src/app/globals.css`. |
+| `daisyui` | **Removed 2026-08-09** by **D37**, replaced by HeroUI. If you see `btn`, `bg-base-100`, or `data-theme="night"` anywhere, it is a leftover. |
+| `framer-motion` | NextUI v2 required it; **HeroUI v3 does not** — confirmed absent from `@heroui/react@3.2.4`'s dependencies. Do not add it. |
+| `@heroui/theme`, `@heroui/system` | Published, but not needed. `@heroui/react` depends on `@heroui/styles`, which is the whole CSS layer. |
+| `tw-animate-css` | Needed, but **do not install it** — it is a dependency of `@heroui/styles` and resolves on its own. Listing it directly pins a transitive we do not own. |
+| `tailwind.config.ts` | Not a package, but worth stating: Tailwind 4 configures in CSS. Configuration lives in `src/app/globals.css`. |
 | `next lint` | Removed in Next 16. `next build` no longer lints. CI calls `eslint` directly. |
 
 ## Per-library rules
@@ -58,31 +68,67 @@ there is nothing to version or upgrade. (**D16**)
   `cdn.myanimelist.net`. `images.domains` is deprecated.
 - `images.qualities` now defaults to `[75]` only.
 
-### Tailwind 4 + DaisyUI 5
-- Configuration is CSS. In `src/app/globals.css`:
+### Tailwind 4 + HeroUI 3
+
+Everything below was verified on **2026-08-09** by reading `@heroui/react@3.2.4` and
+`@heroui/styles@3.2.4` from the published tarballs.
+
+- **Configuration is one CSS line.** `src/app/globals.css`:
   ```css
-  @import "tailwindcss";
-  @plugin "daisyui" {
-    themes: night --default;
-  }
+  @import "@heroui/styles";
   ```
-- Verified syntax: the `themes:` list with `--default` / `--prefersdark` modifiers.
-- **Verified 2026-08-09** — the custom-theme block, should it ever be needed. Note the
-  second form: redeclaring a *built-in* theme's name overrides only the tokens you list,
-  which is the cheap way to tint `night` without authoring twenty colours.
-  ```css
-  @plugin "daisyui";
-  @plugin "daisyui/theme" {
-    name: "night";          /* same name as a built-in = partial override */
-    default: true;
-    --color-accent: oklch(72% 0.19 25);
-  }
-  ```
-  Full custom themes take `name`, `default`, `prefersdark`, `color-scheme`, ~20
-  `--color-*` tokens in OKLCH, plus `--radius-selector` / `--radius-field` /
-  `--radius-box`, `--border`, `--depth`, `--noise`.
-- **Tsugi uses unmodified `night`** (decision **Q3**, resolved). The above is recorded so a
-  future change is a five-minute edit rather than a research task.
+  That file's own first lines are `@layer theme, base, components, utilities;` followed by
+  `@import "tailwindcss"` and `@import "tw-animate-css"`. **So do not import `tailwindcss`
+  yourself** — it is already in there, and importing it twice reorders the cascade.
+- **Tailwind 4 is a hard peer**, `tailwindcss: >=4.0.0`. HeroUI 3 cannot run on Tailwind 3,
+  so **D1**'s conclusion survives the library change intact.
+- **No provider component.** v3 removed the `HeroUIProvider` that NextUI v2 required — the
+  root export has no provider at all, only `ToastProvider` for toasts, which we do not use.
+  The root layout stays a plain server component.
+- **No `framer-motion`.** NextUI v2 required it; v3's dependency list is `@heroui/styles`,
+  `tailwind-variants`, `tailwind-merge`, `@radix-ui/react-avatar`, `input-otp`, and two
+  `@react-types` packages. Do not add motion libraries.
+- **No `@source` directive is needed, and this is the surprising part.** Most Tailwind
+  component libraries emit utility strings at runtime, so Tailwind has to scan
+  `node_modules` — which it does not do by default, producing a silently unstyled page.
+  HeroUI 3 does not work that way: its components emit **semantic class names** (`.button`,
+  `data-slot="..."`) and ship authored CSS that uses `@apply` internally, resolved when
+  `@heroui/styles` is imported. Verified by grepping the compiled components for colour
+  utilities and finding none. Nothing to configure.
+- **Five peers are not optional.** `@heroui/react` declares no `peerDependenciesMeta`, so
+  every peer is required: `react-aria`, `react-aria-components`, `@react-aria/i18n`,
+  `@react-aria/ssr`, `@react-aria/utils` — plus react, react-dom, and tailwindcss, which we
+  already have. Install all five explicitly or `bun install` warns, and Phase 0's criterion 1
+  fails on day one.
+- **ESM-only.** The package exports declare `import` with no `require` condition.
+- **Components are client components** — 87 files in `dist` carry `"use client"`. See
+  `code-standards.md`; this is why the `"use client"` boundary now has to be placed
+  deliberately.
+
+**Theming.** HeroUI ships a light palette on `:root` / `[data-theme="light"]` /
+`[data-theme="default"]`, and a dark one under `.dark` / `[data-theme="dark"]`. Tokens are
+exposed to Tailwind through an `@theme inline` block that maps `--color-background:
+var(--background)` and so on, so every token is usable as a utility — `bg-background`,
+`text-foreground`, `bg-accent`, `border-border`.
+
+**Tsugi sets `data-theme="dark"` on `<html>` and uses the dark palette unmodified**
+(**Q3**, re-resolved; **D37**). To tint it later, redefine single tokens under the dark
+selector — one line, no theme authoring:
+
+```css
+@import "@heroui/styles";
+
+[data-theme="dark"] {
+  --accent: oklch(72% 0.19 25);
+}
+```
+
+The palette values are tabulated in [`ui-tokens.md`](./ui-tokens.md), which is also where the
+OG card's hardcoded copy is reconciled.
+
+**There is no `primary` token.** DaisyUI had one; HeroUI's equivalent is `accent`. Tailwind
+emits nothing for an undefined token rather than erroring, so `bg-primary` renders an
+unstyled element — the likeliest leftover from the DaisyUI era.
 
 ### Drizzle + Supabase
 - **Live project: PostgreSQL 17.6**, region `ap-southeast-2`, both connections verified

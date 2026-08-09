@@ -17,7 +17,7 @@ tsugi/
 │   │   ├── r/[slug]/
 │   │   │   ├── page.tsx                public recommendation page
 │   │   │   └── opengraph-image.tsx     1200×630 PNG, next/og
-│   │   ├── globals.css                 Tailwind 4 + DaisyUI config lives HERE
+│   │   ├── globals.css                 one line: @import "@heroui/styles"
 │   │   ├── layout.tsx
 │   │   └── page.tsx                    the create flow (session required)
 │   ├── components/                     presentational + client interaction

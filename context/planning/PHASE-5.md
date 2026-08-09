@@ -28,7 +28,7 @@ landing to link-on-clipboard in **under 10 seconds**.
   starts; the create screen assumes a session and only needs the signed-out call to action.
 - List import — Phase 7. Titles get here by search only.
 - Editing (permanently) and deleting (Phase 8, once ownership is provable).
-- Animations beyond DaisyUI's defaults.
+- Animations beyond HeroUI's own component defaults.
 
 ## Deliverables
 
