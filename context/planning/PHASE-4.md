@@ -4,12 +4,11 @@
 **User-visible output:** none — but the product is functional via `curl` at the end of it
 **Prerequisites:** an **Upstash Redis database — does not exist yet** (as of 2026-08-09).
 Create it before starting. Phase 0's in-memory limiter keeps local development working, but
-criteria 16, 17, and 21–23 cannot be satisfied without the real thing.
+criteria 16, 17, 17a, and 21–23 cannot be satisfied without the real thing.
 
 ## Scope
 
 **In**
-- `src/app/api/[[...route]]/route.ts` — the Hono catch-all
 - `src/server/hono/middleware.ts` — Upstash rate limiting
 - `src/lib/validators/rec.ts` — Zod schemas shared with the Phase 5 form
 - `POST /api/recs` — validate, rate limit, resolve, generate slug, insert
@@ -17,7 +16,9 @@ criteria 16, 17, and 21–23 cannot be satisfied without the real thing.
 - Redis caching of `resolveMedia`, deferred here from Phase 3
 
 **Explicitly out**
-- `/api/auth/*` — Phase 2, though the mount point is documented now
+- `src/app/api/[[...route]]/route.ts` — **the Hono app already exists.** Phase 2 created it
+  to mount Better-Auth. This phase adds routes to that app; it does not stand up a second one
+- `/api/auth/*` — Phase 2, mounted inside the same app
 - View counting. It belongs to the page render, not the API. Phase 6.
 - Delete — Phase 8, once ownership is provable. Editing stays out permanently per `../functionality.md`.
 - Pagination or listing endpoints. Nothing lists recommendations until Phase 8.
@@ -69,8 +70,21 @@ public, which is what keeps shared links working for people who have never signe
 comment across the group and its items (invariant 8). The rule spans two tables, so Zod owns
 it — the deliberate exception recorded in `PHASE-1.md`.
 
-**Rate limiting is 5 per minute per IP on `POST /api/recs` only.** Reads are not limited;
+**Rate limiting is 5 per minute per user on `POST /api/recs` only.** Reads are not limited;
 a shared link going viral is the success case, and throttling it would be self-defeating.
+
+**The key is the session user id, not the IP** (**D34**). Creating always has a session now
+(**D23**), so the better key is available — and an IP key is wrong in two directions at
+once: it throttles unrelated people sharing a campus or mobile-carrier NAT, and behind a
+proxy the forwarded header's leftmost value is attacker-supplied. OAuth sign-up is what
+bounds account creation; the limiter only has to bound one account.
+
+```
+key = `rec:create:${session.user.id}`
+```
+
+The session check therefore runs **before** the limiter — an unauthenticated request has no
+key and gets its 401 first.
 
 **Missing Upstash configuration is fatal in production.** Phase 0's in-memory fallback exists
 for local development. Serverless instances do not share memory, so an in-memory limiter in
@@ -79,8 +93,9 @@ if `NODE_ENV=production` and the Upstash variables are absent. (**D9**)
 
 **Slug generation retries on collision.** nanoid at 12 characters over a 64-symbol alphabet
 makes collision vanishingly unlikely, but "unlikely" is not "handled". On a unique violation
-— the error code recorded in `PHASE-1.md` — regenerate and retry, up to 3 times, then 500.
-Never return a slug that was not actually inserted.
+— PostgreSQL `23505`, confirmed by `PHASE-1.md` criterion 8 — regenerate and retry, up to 3
+times, then 500. Match on the code, never on the message text. Never return a slug that was
+not actually inserted.
 
 **Cache key is `provider:mediaType:externalId`, not the search query.** Resolution is by id,
 so the key space is small and the hit rate is high — the same popular titles get recommended
@@ -121,15 +136,21 @@ Run against a local dev server.
 10. `scoreRaw` without `scoreFormat` returns **400**, and vice versa.
 11. `scoreRaw: 87` with `scoreFormat: "POINT_10"` returns **400** — out of range for its
     format. Range validation is per-format, not a single 1–10 rule.
+11a. `scoreRaw: 0` returns **400** at every format. `0` is what the trackers store for
+    *unrated*, so it is an absence rather than a rating (**D35**), and the database `CHECK`
+    from Phase 1 is the backstop.
 12. `scoreRaw: 87, scoreFormat: "POINT_100"` stores **87**, not 9. No normalisation
     (**D28**).
 13. A POST with **no score and no comment anywhere** returns **400** (invariant 8).
     A POST with only a group comment succeeds.
 14. `items: []` returns **400**. A recommendation needs at least one item.
 15. A 281-character comment returns **400**, at group and item level alike.
-16. The **6th** POST within one minute from the same IP returns **429**. The first five
-    return 201. Verify with a loop, not by hand.
+16. The **6th** POST within one minute from the same **session** returns **429**. The first
+    five return 201. Verify with a loop, not by hand.
 17. After the window elapses, a further POST returns 201 again.
+17a. A **second account posting from the same IP** is unaffected by the first account's
+    limit — it gets its own five. This is the criterion that proves the key is the user and
+    not the address (**D34**).
 18. `GET /api/recs/aaaaaaaaaaaa` returns **404** with a JSON body, not an HTML error page.
 19. With a provider forced to fail on **the third of three items**, POST returns **502** and
     **neither the rec nor any item is written** — confirm both table counts are unchanged.
@@ -151,7 +172,8 @@ Run against a local dev server.
 
 | Risk | Mitigation |
 |---|---|
-| Rate limiting keyed off a spoofable header | Derive the IP from the platform-provided forwarded header and document which one in the middleware. Note that behind a proxy the leftmost value is attacker-controlled. |
+| Rate limiting keyed off a spoofable header | Removed as a risk by **D34** — the key is the session user id, so no forwarded header is parsed at all. If an IP key is ever reintroduced, note that behind a proxy the leftmost value is attacker-controlled. |
+| One user on a shared NAT throttling strangers | Criterion 17a, with two accounts on one address |
 | The in-memory dev limiter silently reaching production | Criterion 23 makes its absence a startup failure |
 | A 502 leaving a partially-written group behind | Criterion 19 forces the failure on the third of three items and asserts both table counts |
 | Hono's catch-all swallowing routes added later | The route table in `../architecture.md` is the reference; Phase 2 adds auth inside this app, not beside it |

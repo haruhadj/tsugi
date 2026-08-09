@@ -10,8 +10,10 @@ re-proposed each session. Changing anything here is a decision that belongs in
 - Sign in with **AniList**, **MyAnimeList**, or **Google**
 - AniList and MAL additionally unlock list import; Google is sign-in only, and exists so
   that not having a tracker is not a hard wall
-- Explicit provider linking from settings — automatic linking is impossible here, since
-  neither tracker returns an email (**D25**)
+- Explicit provider linking from `/settings` — automatic linking is impossible here, since
+  neither tracker returns an email (**D25**). The screen ships minimal in Phase 2 and is
+  expanded in Phase 8 (**D33**)
+- The scale a user rates in is captured at sign-in and follows them everywhere (**D32**)
 - **Creating requires a session. Viewing never does.**
 
 ### Creation flow (the product)
@@ -47,10 +49,10 @@ re-proposed each session. Changing anything here is a decision that belongs in
 ### Dashboard (Phase 8)
 - Your recommendations, newest first
 - Delete your own
-- Manage which providers are connected
+- Unlink providers, with the last one refused
 
 ### Platform
-- Rate limiting on creation: 5 requests per minute per IP
+- Rate limiting on creation: 5 requests per minute per signed-in user (**D34**)
 - Two user-selectable media providers with **no automatic fallback** between them (**D15**)
 - RLS on every table (**D20**)
 - CI gating type errors and lint errors on every push and PR

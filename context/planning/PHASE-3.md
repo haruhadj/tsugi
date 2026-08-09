@@ -86,7 +86,8 @@ ever writes that fallback chain again.
 
 **`averageScore` is normalised to 0–100.** AniList returns 0–100; Jikan returns 0–10. Two
 scales reaching the UI would eventually be rendered with the wrong one. This is the
-*provider's* score, entirely separate from the user's 1–10 score.
+*provider's* aggregate score, entirely separate from the user's own rating — which is a
+`(scoreRaw, scoreFormat)` pair in one of five scales and is never normalised (**D28**).
 
 **A Jikan 5xx is an expected outcome, not an exception.** It is retried once against Jikan,
 then returns `{ ok: false, reason: "unavailable" }`. It never throws — one uncaught rejection

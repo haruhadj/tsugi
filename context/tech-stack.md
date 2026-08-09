@@ -197,6 +197,16 @@ export const POST = handle(app);
   Source outranks docs — verified 2026-08-09.
 - Default Drizzle output is `auth-schema.ts` at the project root. Pass `--output` to place
   it where the schema actually lives.
+- **Extra columns on `user` come from `user.additionalFields` in the config**, and the CLI
+  emits them into the generated schema. This is how `user.scoreFormat` lands in the first
+  migration (**D32**) — hand-adding a column to the generated file would be undone by the
+  next `generate` run.
+  ```ts
+  user: { additionalFields: { scoreFormat: { type: "string", required: true,
+                                             defaultValue: "POINT_10", input: false } } }
+  ```
+  `input: false` keeps it out of any client-writable payload — it is set server-side from
+  the provider, never by the user.
 - The CLI emits PostgreSQL dates as `timestamp()` — no timezone. Be deliberate if you
   compare them to `timestamptz` columns.
 
@@ -250,15 +260,20 @@ and status codes, not from documentation.
 - **Score format is a user preference**, at `Viewer.mediaListOptions.scoreFormat`, and takes
   one of five values:
 
-  | Format | Range | Notes |
-  |---|---|---|
-  | `POINT_100` | 0–100 | |
-  | `POINT_10_DECIMAL` | 0.0–10.0 | needs one decimal place |
-  | `POINT_10` | 0–10 | |
-  | `POINT_5` | 0–5 | stars |
-  | `POINT_3` | 1–3 | **smileys, not numbers** — never render as `2/3` |
+  | Format | AniList range | Tsugi range | Notes |
+  |---|---|---|---|
+  | `POINT_100` | 0–100 | 1–100 | |
+  | `POINT_10_DECIMAL` | 0.0–10.0 | 0.1–10.0 | needs one decimal place |
+  | `POINT_10` | 0–10 | 1–10 | |
+  | `POINT_5` | 0–5 | 1–5 | stars |
+  | `POINT_3` | 1–3 | 1–3 | **smileys, not numbers** — never render as `2/3` |
 
-  Read it at fetch time; users change it. Scores are stored as rated (**D28**).
+  **AniList's `0` means "unrated", not "rated zero"** — it is the value every entry carries
+  before the user scores it, and MAL's `0` means the same. Tsugi therefore floors every
+  format at 1 and stores an incoming `0` as `(null, null)` (**D35**). This is why the Tsugi
+  column differs from AniList's.
+
+  Read the format at fetch time; users change it. Scores are stored as rated (**D28**).
 
 ### MyAnimeList official API v2 — verified 2026-08-09
 
@@ -301,7 +316,7 @@ Passing a `url` param silently drops it, and the share arrives without the link,
 one thing the product exists to deliver.
 
 Discord has no public web share intent. Its button copies a formatted message instead —
-see `planning/PHASE-4.md`.
+see `planning/PHASE-5.md`.
 
 ### The two id spaces are disjoint — verified, not assumed
 

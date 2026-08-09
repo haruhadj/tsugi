@@ -63,6 +63,10 @@ Project-specific rules. General TypeScript style is assumed, not restated.
   format enum, both null or both set. Never store a normalised copy alongside them — a
   derived column drifts, and the whole point of **D28** is that the rater's own scale is the
   truth. Compute a comparable value when you actually need one.
+- **`0` is not a score, it is "unrated".** Both trackers use it that way, so every format
+  floors at 1 and a `0` arriving from an import stores as `(null, null)` (**D35**). Because
+  no valid score is falsy, `if (scoreRaw)` is safe — but write `!= null` anyway; the next
+  person will not know why it was safe.
 - Format a score through **one** shared helper. Five formats × three surfaces is fifteen
   chances to print `2/3` for a smiley rating if each surface does its own thing.
 - Timestamps are `timestamp` columns written by the database default, not by application
@@ -86,7 +90,7 @@ Project-specific rules. General TypeScript style is assumed, not restated.
 - Test files sit beside their subject as `*.test.ts`. There is no `__tests__` directory.
 - **Scope: pure logic and API behaviour.** Adapters, normalisation, validators, slug
   generation, and route responses. Component rendering is not unit-tested — the UI criteria
-  in Phase 4 are browser observations, and mocking React to assert on markup would test the
+  in Phase 5 are browser observations, and mocking React to assert on markup would test the
   mock.
 ### Three tiers
 

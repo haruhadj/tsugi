@@ -2,7 +2,8 @@
 
 **Status:** not started
 **User-visible output:** none, by design
-**Prerequisites:** none. Nothing external is required to complete this phase.
+**Prerequisites:** a **GitHub remote**, for criterion 12 only — CI cannot be observed running
+without somewhere to push. Everything else in this phase is local.
 
 This phase settles what every later phase inherits. It exists so that the Tailwind 4
 configuration, the environment contract, and the CI gate are decided once, correctly, rather
@@ -16,8 +17,8 @@ than improvised six files into Phase 5.
 - `next.config.ts` including `images.remotePatterns` for both provider CDNs
 - ESLint flat config
 - Environment variable contract: `.env.example` and a typed, validated accessor
-- `.github/workflows/ci.yml` — typecheck and lint on push and PR to `main`
-- `git init` and a first commit (the directory is not currently a repository)
+- `.github/workflows/ci.yml` — typecheck, lint, and test on push and PR to `main`
+- A GitHub remote and a pushed `main`, so CI can actually be observed running
 
 **Explicitly out**
 - Any database code — Phase 1
@@ -121,8 +122,11 @@ Each is a command with an unambiguous pass.
 12. CI runs on a pushed branch and passes, showing **three** gate steps. A commit
     introducing a deliberate type error fails it; so does one introducing a failing test.
     Confirm both once, then revert.
-13. `git log` shows at least one commit; `node_modules`, `.next`, and `.env*` (except
-    `.env.example`) are ignored.
+13. `node_modules`, `.next`, and `.env*` (except `.env.example`) are ignored, confirmed with
+    `git status --porcelain` after a build: nothing generated appears as untracked.
+
+The repository itself already exists — `git init` was done ahead of this phase, the branch is
+`main`, and the context set is committed. What Phase 0 adds is the remote and the workflow.
 
 ## Risks
 

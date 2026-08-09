@@ -112,6 +112,16 @@ rendering a title on a clean ground.
 every chat client that fetches it. Do not build a second cache layer; do make sure the
 response carries sane cache headers.
 
+**`/r/[slug]` renders per request; the OG image does not have to.** These pull in opposite
+directions and the resolution is asymmetric. The page counts views, and criteria 14–15
+require *every* load to increment — a cached page increments nothing and the counter
+silently stops, which looks exactly like "nobody clicked". So the page is dynamic. The image
+route reads the same row but counts nothing, so it is free to be cached, which is what keeps
+a viral unfurl from becoming a database read per chat client.
+
+`architecture.md` previously described the read as "cacheable" without distinguishing the
+two routes. It is the image that is cacheable.
+
 ## Exit criteria
 
 Criteria 1–13 are checked against a **deployed public URL** — social validators cannot reach
@@ -157,6 +167,10 @@ localhost.
     invariant 15).
 23. `bun x tsc --noEmit`, `bun x eslint .`, and `bun test` all exit 0.
 24. Phase 5's criterion 1 still passes — the 10-second flow has not regressed.
+25. **`/r/[slug]` and its OG image both render while signed out**, in a private window with
+    no session cookie — no redirect, no prompt, no partial render. Invariant 9. If this
+    fails, the product has no distribution. *(Moved here from `PHASE-2.md`, which asserted it
+    two phases before this route existed.)*
 
 ## Risks
 
@@ -171,5 +185,7 @@ localhost.
 | Chat clients caching a broken early card | Validate on a throwaway slug before sharing any real link |
 | View counting blocking the render under database load | Criterion 17 tests the unwritable case directly |
 | A read-modify-write counter silently losing views on a viral link | Criterion 15 runs concurrent requests; an undercount otherwise looks like a plausible number |
+| The page cached "for speed", silently freezing the view counter | Criteria 14 and 15 both fail if the page is cached. The image route is the one that may be |
+| Auth creeping onto the view path | Criterion 25, inherited from Phase 2 where it could not yet be checked |
 
 **Next:** [`PHASE-7.md`](./PHASE-7.md)

@@ -46,9 +46,16 @@ have nothing rated."
 **Imported scores arrive in the user's own scale and are preserved.** AniList exposes five:
 `POINT_100`, `POINT_10_DECIMAL`, `POINT_10`, `POINT_5`, `POINT_3`. MAL is always `POINT_10`.
 Read the format from `Viewer.mediaListOptions.scoreFormat` **at fetch time** — it is a user
-preference and can change. Store `(scoreRaw, scoreFormat)` per item exactly as rated
+preference and can change — and **write it back to `user.scoreFormat`** so the create screen
+picks up the change too (**D32**). Store `(scoreRaw, scoreFormat)` per item exactly as rated
 (**D28**). Never coerce to a single scale on the way in; that is the conversion we chose not
 to do.
+
+**A list score of `0` is an unrated entry, not a zero rating.** Both trackers use `0` as the
+default for everything on a list the user has not scored, and a plan-to-watch list is mostly
+zeroes. Import it as `(null, null)` (**D35**) — the item still imports, it just arrives
+without a score, which is exactly what **D27** made possible. Storing `0/100` on someone's
+card because they added a show to their list would be a lie about what they said.
 
 **`POINT_3` is not a number.** It is three smileys. An item imported at `POINT_3` renders as
 an icon, everywhere — including the OG card. Any code path that formats a score must handle
@@ -69,7 +76,12 @@ Criteria 1–8 are `*.db.test.ts` / manual against a real linked account.
 1. With AniList linked, the list fetch returns entries with title, cover, and the user's
    score.
 2. `scoreFormat` is read from the viewer's own options, not assumed. Verify by changing the
-   format on AniList and re-fetching — the stored format changes.
+   format on AniList and re-fetching — the stored format changes, **on both the imported
+   items and `user.scoreFormat`**, so the create screen's score input changes shape too
+   (**D32**).
+2a. An entry the user has **not** scored (AniList/MAL `0`) imports with `scoreRaw` and
+   `scoreFormat` both null — never `0` (**D35**). Check against a plan-to-watch entry, where
+   this is the common case rather than the edge one.
 3. An item imported from a `POINT_100` list stores `scoreRaw: 87, scoreFormat: POINT_100`,
    **not** `9`. Invariant 6.
 4. A `POINT_3` item renders as a smiley on the create screen, the public page, and the OG
@@ -94,6 +106,7 @@ Criteria 1–8 are `*.db.test.ts` / manual against a real linked account.
 | Risk | Mitigation |
 |---|---|
 | Normalising imported scores "for consistency", destroying the user's own scale | Criterion 3. This was a deliberate choice (**D28**), not an oversight |
+| A plan-to-watch list importing as a wall of `0/100` ratings | Criterion 2a. `0` means unrated on both trackers (**D35**) |
 | `POINT_3` rendered as `2/3` somewhere | Criterion 4 checks all three surfaces separately |
 | An expired refresh token showing an empty list instead of a prompt | Criterion 7. "You have nothing rated" is the worst possible lie here |
 | A large list timing out or blowing memory | Paginate the fetch and cap what is held. AniList returns a full collection in one query — it can be big |

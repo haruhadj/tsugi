@@ -10,6 +10,11 @@ Every screen, and every path between them. If a screen is not here, it does not 
    │              │ ◄───────────────── │  AniList · MAL           │
    └──────┬───────┘   session          │  Google                  │
           │                            └──────────────────────────┘
+          │                            ┌──────────────────────────┐
+          │  ────────────────────────► │  /settings  (Phase 2)    │
+          │                            │  connected providers     │
+          │                            │  link another            │
+          │                            └──────────────────────────┘
           │  Search  ⇄  My list (Phase 7)
           │  add 1..N items, score, comment
           ▼
@@ -37,11 +42,32 @@ never as a mid-flow interruption.
 **AniList** and **MyAnimeList** are presented first and marked as unlocking list import.
 **Google** is offered below, separately, as plain sign-in. The difference is stated on the
 screen — someone choosing Google should not later feel misled about why *My list* is
-missing. They can link a tracker afterwards from account settings.
+missing. They can link a tracker afterwards from [`/settings`](#settings--connections).
 
 Signing in with a second provider later does **not** merge accounts (**D25**); linking is a
-deliberate action in **account settings**. The sign-in screen says so, quietly, rather than
-letting someone discover it by accumulating duplicate accounts.
+deliberate action on [`/settings`](#settings--connections). The sign-in screen says so,
+quietly, rather than letting someone discover it by accumulating duplicate accounts.
+
+## `/settings` — connections
+
+Ships in **Phase 2**, minimal on purpose: which providers this account has linked, and a
+button to link another. It exists that early because `linkSocial()` needs somewhere to be
+called from, and without it a Google sign-in is a dead end rather than a deferral — the
+opposite of what **D24** promises (**D33**).
+
+```
+  Connected
+  ┌────────────────────────────────────────────┐
+  │ ✓ Google          signed in with this      │
+  │   AniList         [ Link ]  ◀ unlocks My list
+  │   MyAnimeList     [ Link ]                 │
+  └────────────────────────────────────────────┘
+```
+
+Linking states what it unlocks, because that is the only reason a signed-in person comes
+here. **Phase 8** adds unlinking, refuses the last one, and puts this beside the dashboard.
+
+Signed out, it redirects to `/sign-in` like any other authenticated screen.
 
 ## `/` — the create screen
 
@@ -102,9 +128,11 @@ own `provider`; a group may legitimately mix AniList and MAL titles. What is cle
 Each item carries its own optional score and note. Reorderable; order is what the card and
 page render.
 
-Score input uses **the user's own scale** — the format from their linked tracker, defaulting
-to 10-point for Google accounts. A `POINT_3` user sees three smileys, not a 1–10
-strip. Imported items arrive with their score already set (Phase 7).
+Score input uses **the user's own scale** — read from `user.scoreFormat` on the session,
+captured at sign-in and defaulting to 10-point for Google accounts (**D32**). A `POINT_3`
+user sees three smileys, not a 1–10 strip. No format has a zero position: clearing a score
+removes it rather than setting `0`, which is what the trackers mean by *unrated* (**D35**).
+Imported items arrive with their score already set, or with none (Phase 7).
 
 **The primary action enables when the recommendation says something** — at least one score or
 one comment, anywhere (invariant 8). Until then it is disabled and the reason is stated
@@ -167,7 +195,7 @@ to item count — a single hero cover for one title, a composed set for a group.
 ## `/dashboard` (Phase 8)
 
 Your recommendations, newest first, each showing its items and view count. Delete is here;
-edit is not (see `functionality.md`). Provider connections are managed here too, because this
-is where someone goes to ask why *My list* is missing.
+edit is not (see `functionality.md`). It sits beside `/settings`, which gains unlinking in
+the same phase — that is where someone goes to ask why *My list* is missing.
 
 Related: [`functionality.md`](./functionality.md) · [`ui-rules.md`](./ui-rules.md)

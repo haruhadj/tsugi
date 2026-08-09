@@ -1,7 +1,8 @@
 # Tsugi (次) — Agent Entry Point
 
-Fast anime/manga recommendation sharing. A user finds a title, scores it, and gets a
-shareable link with a rich social preview — in under 10 seconds, without logging in.
+Fast anime/manga recommendation sharing. A signed-in user picks one title or several, scores
+them, and gets a shareable link with a rich social preview — in under 10 seconds. **Anyone
+can open that link; only creating needs an account** (**D23**).
 
 **Read this file first, every session.** It is the index and the rulebook.
 
@@ -57,7 +58,12 @@ These hold in every phase. A violation is a bug regardless of what you were work
    `POINT_100`, `POINT_10_DECIMAL`, `POINT_10`, `POINT_5`, `POINT_3` — are preserved as the
    user rated them; MAL is `POINT_10`. A number without its format is meaningless: `5` could
    be 5/100, 5/10, or 5/5. Never render, compare, or store one alone. `POINT_3` is smileys,
-   not a number — it has no numeric rendering.
+   not a number — it has no numeric rendering. **`0` is not a score**: both trackers use it
+   to mean *unrated*, so every format floors at 1 and an imported `0` stores as `(null,
+   null)` (**D35**).
+
+   The format a user rates in lives on `user.scoreFormat`, written at sign-in and refreshed
+   on every list fetch. Read it from the session — never re-derive it per surface (**D32**).
 7. **Comments are ≤280 characters**, at both group and item level. Enforced in three places
    — the Zod schema, the database column, and the input control. All three, every time.
 8. **A recommendation must say something**: at least one score *or* one comment, at group or

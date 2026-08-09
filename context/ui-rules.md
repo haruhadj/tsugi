@@ -52,8 +52,11 @@ Rules that hold across all three:
 
 ## Forms
 
-- The primary action is enabled only when the form is genuinely submittable — a selected
-  title and a score. Disabled state is honest: it never accepts a click and then complains.
+- The primary action is enabled only when the form is genuinely submittable — **at least one
+  item in the tray, and at least one score or one comment anywhere in the group** (invariant
+  8). Scores are optional per item (**D27**); requiring one on every title would be friction
+  on a group of eight. Disabled state is honest: it never accepts a click and then complains,
+  and it states the reason inline.
 - The comment field shows a live counter as it approaches 280 and hard-stops at it. It must
   never be possible to type a comment the server will reject.
 - Enter submits from the comment field. Enter selects from the typeahead. These do not
@@ -87,9 +90,9 @@ Rules that hold across all three:
 Mobile-first; the share flow is a phone flow. Two breakpoints only, `md` and `lg` — a third
 is a sign a layout is being over-fitted.
 
-- Touch targets ≥44 px. The 1–10 score picker is the risk: ten targets in a row will not fit
-  a small screen. It wraps; it does not shrink below 44 px and it does not scroll
-  horizontally.
+- Touch targets ≥44 px. The score picker is the risk, and its width depends on the user's
+  format: `POINT_10` puts ten targets in a row, which will not fit a small screen. It wraps;
+  it does not shrink below 44 px and it does not scroll horizontally.
 - The ShareModal is a bottom sheet under `md`, a centred dialog above it.
 
 ## Accessibility

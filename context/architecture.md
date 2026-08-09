@@ -11,8 +11,9 @@ tsugi/
 ├── src/
 │   ├── app/
 │   │   ├── (auth)/sign-in/             Phase 2 — AniList · MAL · Google
-│   │   ├── (dashboard)/                Phase 8 — "my recs", connections
-│   │   ├── api/[[...route]]/route.ts   Hono catch-all — the entire API
+│   │   ├── (settings)/settings/        Phase 2 — connections; expanded Phase 8
+│   │   ├── (dashboard)/                Phase 8 — "my recs"
+│   │   ├── api/[[...route]]/route.ts   Hono catch-all — created Phase 2, the ONLY route.ts
 │   │   ├── r/[slug]/
 │   │   │   ├── page.tsx                public recommendation page
 │   │   │   └── opengraph-image.tsx     1200×630 PNG, next/og
@@ -90,11 +91,15 @@ Everything under `/api` is served by a single Hono instance mounted at
 no `hono/next`). Better-Auth mounts *inside* that app, so there is no competing Next route
 and no precedence question to reason about.
 
+**Phase 2 creates this file**, because it is the first phase with something to mount. Every
+later phase adds routes to the same app. There is exactly one `route.ts` under `src/app/api`,
+and a second one is always a bug.
+
 ```
 /api/[[...route]]  ──►  Hono
                          ├── ALL  /api/auth/*         Better-Auth handler   (Phase 2)
                          ├── POST /api/recs           create, session required
-                         │                            (rate limited 5/min/IP)
+                         │                            (rate limited 5/min/user)
                          ├── GET  /api/recs/:slug     read — public
                          ├── GET  /api/recs           your recs, session     (Phase 8)
                          ├── DELETE /api/recs/:slug   yours only             (Phase 8)
@@ -147,7 +152,7 @@ one-tap switch that flips the toggle and re-runs the same query.
   POST /api/recs
      │
      ├─ session required  ── 401 if absent          (D23)
-     ├─ rate limit (Upstash, 5/min/IP)
+     ├─ rate limit (Upstash, 5/min, keyed on user id)   (D34)
      ├─ Zod validation  ── incl. "must say something" (invariant 8)
      ├─ for each item: src/server/services/media.ts
      │     ├─ cache hit on provider:mediaType:externalId ──► return
@@ -180,14 +185,18 @@ survivable here.
 ### Public read
 
 ```
-  GET /r/[slug]
-     ├─ read recommendation  (cacheable)
+  GET /r/[slug]                        ── dynamic, rendered per request
+     ├─ read recommendation
      ├─ render page
      └─ increment views  ── fire-and-forget, never awaited, never fatal
 
-  GET /r/[slug]/opengraph-image
+  GET /r/[slug]/opengraph-image        ── cacheable
      └─ ImageResponse from next/og  —  does NOT increment views
 ```
+
+The page cannot be cached: it counts views, and a cached render counts nothing. The image
+can be, and should be — it counts nothing and is fetched by every chat client that sees the
+link.
 
 The OG route is excluded from view counting deliberately: every unfurl by every chat client
 would otherwise inflate the counter far beyond actual human visits.

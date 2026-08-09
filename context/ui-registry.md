@@ -11,9 +11,9 @@ within a week, and then there are two.
 **Empty.** No components exist yet. As of 2026-08-09 the repository contains only context
 files.
 
-The table below is the planned surface, carried from `planning/PHASE-4.md` and
-`planning/PHASE-5.md`. **Planned is not built.** Move a row into "Built" only when the
-component exists, is used, and its props are accurate here.
+The table below is the planned surface, carried from the phase specs in `planning/`.
+**Planned is not built.** Move a row into "Built" only when the component exists, is used,
+and its props are accurate here.
 
 ## Built
 
@@ -26,6 +26,7 @@ component exists, is used, and its props are accurate here.
 | Component | File | Phase | Responsibility |
 |---|---|---|---|
 | `SignInButtons` | `src/components/SignInButtons.tsx` | 2 | Three providers, trackers first and visually primary, Google separated below |
+| `ProviderConnections` | `src/components/ProviderConnections.tsx` | 2 | `/settings` — which providers are linked, and `linkSocial()` for the rest. Gains unlinking and the last-provider guard in Phase 8 (**D33**) |
 | `ProviderToggle` | `src/components/ProviderToggle.tsx` | 5 | AniList / MyAnimeList search source; defaults to AniList, persists to `localStorage` |
 | `MediaSearchInput` | `src/components/MediaSearchInput.tsx` | 5 | Debounced typeahead against the selected source, keyboard-navigable listbox, emits a `UnifiedMediaResult` |
 | `ScoreInput` | `src/components/ScoreInput.tsx` | 5 | Score entry **in the user's own format** — five AniList scales plus MAL's 10-point. `POINT_3` renders as smileys, `POINT_5` as stars |
@@ -37,6 +38,8 @@ component exists, is used, and its props are accurate here.
 | `RecView` | `src/components/RecView.tsx` | 6 | Public rendering of a recommendation and all its items on `/r/[slug]` |
 | `SourceLink` | `src/components/SourceLink.tsx` | 6 | "via AniList / MyAnimeList", linking out. Page only — never the OG card (Q4) |
 | `ListBrowser` | `src/components/ListBrowser.tsx` | 7 | Filterable view of the user's own tracker list; adds items with their existing score |
+| `RecSummaryCard` | `src/components/RecSummaryCard.tsx` | 8 | One row of the dashboard — items, view count, delete. Reuses `ScoreBadge` and `MediaCover` |
+| `ConfirmDialog` | `src/components/ConfirmDialog.tsx` | 8 | Destructive confirmation for delete and for discarding the tray. The only place a confirmation lives |
 
 `ScoreBadge`, `ScoreInput`, and `MediaCover` are listed separately from their parents on
 purpose: each is needed in more than one place, and the second use is where duplication

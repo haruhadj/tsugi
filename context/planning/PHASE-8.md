@@ -12,7 +12,9 @@ people sign in: they can find what they made.
 **In**
 - `src/app/(dashboard)` — your recommendations, newest first
 - `GET /api/recs` — session-scoped list
-- Provider connection management in account settings: link or unlink AniList / MAL / Google
+- `DELETE /api/recs/:slug` — yours only
+- **Expanding** the `/settings` screen Phase 2 stood up: unlinking, the last-provider guard,
+  and connection state worth reading. Linking already works (**D33**)
 - Deleting your own recommendation
 
 **Explicitly out**
@@ -37,9 +39,12 @@ did not.)*
 **Deleting is immediate and total.** The row and its items go; the slug is never reissued. A
 recycled slug would resurrect a dead link as someone else's recommendation.
 
-**Connection management lives here** because it is where a user goes to ask "why can't I see
-my AniList list?" Linking uses `linkSocial()` — the explicit flow from **D25**, since
-automatic linking cannot work on synthesised emails.
+**Connection management is finished here, not started here.** Phase 2 shipped `/settings` in
+minimal form — linked providers, and a link button — because `linkSocial()` had to work for
+a Google user to reach list import at all (**D33**). What this phase adds is everything that
+needed a decision Phase 2 did not have: unlinking, the last-provider refusal, and surfacing
+connection state next to the recommendations it explains. Linking still uses `linkSocial()`,
+the explicit flow from **D25**, since automatic linking cannot work on synthesised emails.
 
 **The dashboard reads, it does not resolve.** It renders stored rows. No provider calls, no
 cache warming, no refresh of cover art. It must load instantly and work with every provider
@@ -57,8 +62,8 @@ down.
 6. A user cannot delete a recommendation they do not own — attempt it by slug from a second
    account and confirm **403** and no deletion.
 7. A deleted slug is never reissued by later creations.
-8. Linking a second provider from the dashboard adds an `account` row and leaves `user`
-   unchanged.
+8. Linking a second provider from `/settings` adds an `account` row and leaves `user`
+   unchanged — still true after this phase's expansion, which is the regression this checks.
 9. Unlinking a provider removes its `account` row; the session survives.
 10. Attempting to unlink the **last** provider is refused with an explanation.
 11. `/dashboard` renders with **both tracker APIs unreachable** — it reads stored rows only.

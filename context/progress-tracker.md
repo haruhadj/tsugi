@@ -13,7 +13,7 @@ happened last time.
 | **Phase status** | Not started |
 | **Last updated** | 2026-08-09 |
 | **Application code** | None. The repository contains context files only. |
-| **Repository** | Not yet a git repository — `git init` is part of Phase 0 |
+| **Repository** | Git initialised, branch `main`, context set committed. **No remote yet** — Phase 0 criterion 12 needs one |
 
 ### Phase status
 
@@ -34,8 +34,10 @@ happened last time.
 1. Scaffold Next 16 + Bun per [`planning/PHASE-0.md`](./planning/PHASE-0.md).
 2. Confirm the Tailwind 4 / DaisyUI 5 CSS-first setup actually loads DaisyUI — Phase 0
    exit criterion 7, the one that catches a silently-unstyled page.
-3. Phase 1 is unblocked: `.env` holds working pooler and direct connection strings.
-4. **Register three OAuth apps before Phase 2** — AniList, MyAnimeList, Google. The owner
+3. **Create a GitHub remote and push `main`.** Phase 0 criterion 12 cannot be observed
+   without one, and it is the only external thing this phase needs.
+4. Phase 1 is unblocked: `.env` holds working pooler and direct connection strings.
+5. **Register three OAuth apps before Phase 2** — AniList, MyAnimeList, Google. The owner
    will supply the credentials. Start the MAL one early: it is the fiddliest, and its
    `plain`-only PKCE (**D30**) is the most likely source of an unplanned day.
 
@@ -202,9 +204,10 @@ from the browser and the toggle costs nothing architecturally.
 costing complexity for nothing.
 
 ### D15 — There is no cross-provider fallback, because it is not possible
-*Correction to this plan's own Phase 2, and a withdrawal of the brief's requirement 4.*
+*Correction to this plan's own media-provider phase — numbered 2 at the time, now **Phase
+3** — and a withdrawal of the brief's requirement 4.*
 
-An earlier version of Phase 2 had `resolveMedia` fall through from AniList to Jikan. That was
+An earlier version of that phase had `resolveMedia` fall through from AniList to Jikan. That was
 a bug, not a simplification. Verified live on 2026-08-09:
 
 ```
@@ -233,7 +236,7 @@ built in, so this costs no dependency and no config file.
 **Chosen:** `bun test`. CI gates on `tsc --noEmit` → `eslint .` → `bun test`. Adapters take
 an injectable `fetch` so failures are testable without a runtime flag. Provider tests use
 fixtures; live calls live in separate `*.contract.test.ts` files outside the CI gate.
-**Scope limit:** no component rendering tests. Phase 4–6 UI criteria are browser
+**Scope limit:** no component rendering tests. Phase 5's UI criteria are browser
 observations, and mocking React to assert on markup tests the mock.
 **Revisit if:** the UI grows logic worth testing in isolation, at which point a DOM
 environment is a considered addition rather than a default.
@@ -258,8 +261,9 @@ generate the schema. Those are incompatible. The 1.5 release blog claims `--adap
 `packages/cli/src/commands/generate.ts` runs the config lookup *before* the adapter branch
 and returns early when none is found. Source outranks documentation.
 
-**Chosen:** Phase 1 creates the smallest config the generator accepts — the Drizzle adapter,
-nothing more. No providers, no secrets, no mount. Phase 6 extends it.
+**Chosen:** Phase 1 creates the smallest config the generator accepts — the Drizzle adapter
+and the one `additionalFields` entry the schema needs (**D32**). No providers, no secrets, no
+mount. **Phase 2** extends it.
 **Guarded by:** a Phase 1 exit criterion grepping `src/lib/auth.ts` for providers and
 secrets, so the minimal config cannot quietly become real configuration early.
 
@@ -298,8 +302,8 @@ first migration, because adding it later means a window where the data is public
 **Syntax, verified by reading the installed package:** `.enableRLS()` on
 `drizzle-orm@0.45.2`. The docs site shows `pgTable.withRLS()` and calls `.enableRLS()`
 deprecated — that is the **v1** API and does not exist in our pinned version.
-**Guarded by:** Phase 1 criteria 16–19, including one that runs the actual attack against the
-public REST endpoint rather than just asserting the setting.
+**Guarded by:** Phase 1 criteria **22–25**, including one that runs the actual attack against
+the public REST endpoint rather than just asserting the setting.
 **Revisit if:** a feature ever needs genuine public read access, which would call for an
 explicit `select` policy — never for disabling RLS.
 
@@ -312,13 +316,13 @@ specifies Edge for `opengraph-image`, but that route must read the recommendatio
 database.
 
 **Chosen:** the Hono API, `/r/[slug]/page.tsx`, and `/r/[slug]/opengraph-image.tsx` all run
-on Node. Invariant 15 forbids `runtime = "edge"` on any of them; Phase 5 criterion 18 greps
-for it.
+on Node. Invariant 15 forbids `runtime = "edge"` on any of them; **Phase 6 criterion 22**
+greps for it.
 **Revisit if:** the data layer ever moves to an HTTP-based driver, which would make Edge
 possible — and would be a much larger decision than a runtime flag.
 
 ### D22 — Three test tiers; only the unit tier gates CI
-Phase 1's tests need a live database and Phase 2's contract tests need live third-party APIs.
+Phase 1's tests need a live database and Phase 3's contract tests need live third-party APIs.
 Putting either in the CI gate means builds go red for reasons unrelated to the change —
 a paused free-tier project, a Jikan 504 — and a gate that is red for unrelated reasons is a
 gate people stop reading.
@@ -349,7 +353,8 @@ product's defining feature and the reason for the 10-second promise — is remov
 **The concern I raised, and the owner's decision:** requiring AniList/MAL accounts does not
 merely add friction, it narrows *who can use Tsugi at all* to people already holding an
 account on another service. The stated audience was casual Discord conversation. The owner
-accepted this and added Discord and Google as a way in for people without a tracker.
+accepted this and added a non-tracker way in for people without one — Discord and Google in
+the first pass, then Google alone once Discord was dropped hours later (**D24**).
 
 **Chosen:** every write path checks the session; `userId` is `NOT NULL` in the database so a
 single missed check cannot create an orphan. `/r/[slug]` and its OG card stay fully open —
@@ -445,7 +450,7 @@ and because "PKCE is standard" is exactly the assumption that would cause it to.
 ### D31 — Phases reordered; auth moves to third
 Auth was Phase 6, deferred, because anonymous creation was the core. Under **D23** it becomes
 a prerequisite for everything, so it moves to Phase 2. List import becomes Phase 7 and the
-dashboard Phase 8 — nine phases where there were seven.
+dashboard Phase 8 — the plan now runs Phase 0 through Phase 8, where it ran 0 through 6.
 
 **Chosen:** the full schema still lands in Phase 1, before auth, so nothing migrates later.
 List import ships *after* the share loop is validated, because that loop is the riskiest
@@ -453,10 +458,75 @@ untested assumption in the product and plain search is enough to prove it.
 
 ---
 
+## The pre-code audit — 2026-08-09
+
+D32–D35 came out of an audit of the blueprint against itself, run before any code was
+written. They close gaps the pivot left rather than changing the product.
+
+### D32 — The user's score format is a column on `user`, written at sign-in
+*Closes a dependency the pivot created and nothing satisfied.*
+
+**D28** made every surface render five score scales, and Phase 5's score input has to know
+which one *this* user rates in before it can draw itself. The format lives at AniList's
+`Viewer.mediaListOptions.scoreFormat` — which only Phase 7 was specified to read. So Phase 5
+had a criterion (a `POINT_3` user sees smileys) that no earlier phase could satisfy, and the
+obvious late fix — add the column in Phase 7 — is a migration against a populated `user`
+table, which is the exact thing **D31** put the full schema in Phase 1 to avoid.
+
+**Chosen:** `user.scoreFormat`, an `additionalFields` entry in `src/lib/auth.ts` so the
+Better-Auth CLI emits it into the **first** migration (Phase 1), populated at sign-in
+(Phase 2), read from the session (Phase 5), refreshed on every list fetch (Phase 7).
+**Rejected:** fetching it live in Phase 5 — it puts a third-party call on the 10-second path
+for a value that changes maybe twice a year.
+**Default:** `POINT_10`, which is MAL's only scale and a reasonable guess for Google accounts
+that have no tracker to ask.
+**Revisit if:** a user links a second tracker whose format differs from the first — today
+the most recent write wins, which is fine for one preference and would not be if it became
+two.
+
+### D33 — `/settings` ships minimal in Phase 2, expanded in Phase 8
+Phase 2 required `linkSocial()` to work "from account settings" and Phase 8 owned the screen
+— two phases apart, with no screen defined in `user-flow.md` at all. Left alone, Phase 2's
+criterion 6 was unbuildable and a Google user could not reach a tracker until Phase 8, one
+phase *after* list import shipped.
+
+**Chosen:** Phase 2 builds `/settings` with exactly two capabilities — show linked providers,
+link another. Phase 8 adds unlinking, the last-provider refusal, and the dashboard beside it.
+**Why not defer it all:** D24 sells Google as "a deferral, not a dead end". Without a linking
+screen it is a dead end, and the sign-in copy would be a lie.
+
+### D34 — The create limiter keys on the user, not the IP
+The 5/min limit was specified per IP back when creation was anonymous. Under **D23** every
+`POST /api/recs` carries a session, so the accurate key is available and the IP key is now
+wrong twice over: it throttles unrelated people behind one campus or carrier NAT, and it
+means parsing a forwarded header whose leftmost value an attacker controls.
+
+**Chosen:** `rec:create:${session.user.id}`, with the session check ordered before the
+limiter so an anonymous request 401s rather than consuming a bucket. Account creation is
+bounded by OAuth sign-up, not by this.
+**Rejected:** a per-user *and* per-IP pair — two Upstash round-trips and two different 429s
+to explain, for an abuse case that has to get past three OAuth providers first.
+**Revisit if:** someone actually farms accounts to spam creation, which would argue for the
+composite after all.
+
+### D35 — `0` is "unrated", not a score
+AniList and MAL both store `0` for every entry a user has not rated, so a plan-to-watch list
+is mostly zeroes. Treating `0` as a rating would put `0/100` on the card of anyone importing
+a backlog, and it makes invariant 8's "carries at least one score" a falsy-zero trap in Zod.
+
+**Chosen:** every format floors at 1. An imported `0` stores as `(null, null)` — the item
+still comes in, it just arrives unrated, which **D27** already allows. Enforced in Zod (per
+format), by a `CHECK` on `scoreRaw > 0`, and by a score control with no zero position.
+**Consequence worth noting:** no valid score is falsy, so `if (scoreRaw)` happens to be safe
+— `code-standards.md` still requires `!= null`, because the next person will not know why.
+
+---
+
 ## External prerequisites
 
 | Needed by | Service | Status |
 |---|---|---|
+| Phase 0 | **GitHub remote** | ❌ criterion 12 observes CI running, which needs somewhere to push. The repository exists locally on `main`. |
 | Phase 1 | Supabase project | ✅ **connected and verified** — PostgreSQL 17.6, `ap-southeast-2`. Both connection strings authenticate. `public` schema empty. |
 | — | Supabase MCP server | ✅ authenticated, `.mcp.json` committed to the repo. See **D19**. |
 | Phase 2 | **AniList OAuth app** | ❌ `anilist.co/settings/developer` |
@@ -465,8 +535,9 @@ untested assumption in the product and plain search is enough to prove it.
 | Phase 4 | Upstash Redis | ❌ create before Phase 4 |
 | Phase 6 | Vercel project | ❌ create before Phase 6 |
 
-Phases 0, 1, 3, 5, 7, and 8 need nothing external. **Phase 1 can run start to finish today;
-Phase 2 is now the first hard stop**, and it needs three OAuth registrations rather than one.
+Phases 1, 3, 5, 7, and 8 need nothing external, and Phase 0 needs only a GitHub remote — a
+five-minute job, not a blocker. **Phase 1 can run start to finish today; Phase 2 is the first
+hard stop**, and it needs three OAuth registrations rather than one.
 
 **Environment lives in `.env`, and only `.env`.** Not `.env.local` — Next.js loads that at
 higher precedence, so having both means the file you edited can be silently overridden by
@@ -477,7 +548,7 @@ the one you forgot. `scripts/check-db-reachable.sh` warns if a second file appea
 | # | Question | Status |
 |---|---|---|
 | Q1 | Which external accounts exist? | ✅ **Resolved 2026-08-09** — Supabase only. See the table above. |
-| Q2 | Is `tsugi.app` registered? | ✅ **Neutralised** — `NEXT_PUBLIC_APP_URL` is defined in Phase 0 and falls back to `VERCEL_URL`. Registering a domain is now a config change, not a code change. Still worth answering before Phase 5 for the share link's appearance. |
+| Q2 | Is `tsugi.app` registered? | ✅ **Neutralised** — `NEXT_PUBLIC_APP_URL` is defined in Phase 0 and falls back to `VERCEL_URL`. Registering a domain is now a config change, not a code change. Still worth answering before Phase 6, where the link goes public. |
 | Q3 | Custom DaisyUI theme or built-in `night`? | ✅ **Resolved** — unmodified `night`. Custom syntax is verified and recorded in `tech-stack.md` for a future change. |
 | Q4 | Should the page and OG card show which source a rec came from? | ✅ **Resolved 2026-08-09** — page yes (credited and linked out), card no. |
 
@@ -488,6 +559,44 @@ the one you forgot. `scripts/check-db-reachable.sh` warns if a second file appea
 ## Session log
 
 Newest first. One entry per session: what changed, what was decided, what to pick up next.
+
+### 2026-08-09 — Pre-code audit of the blueprint
+
+Audited the whole context set against itself before Phase 0. **Re-verified every version
+claim in `tech-stack.md` against the npm registry — all 15 packages match exactly**, and the
+three load-bearing peer ranges hold (`better-auth` → `drizzle-orm ^0.45.2`, `drizzle-kit
+>=0.31.4`, `next ^14||^15||^16`). All of `better-auth`'s peers are `optional: true`, so
+Phase 0's zero-peer-warnings criterion is achievable.
+
+Five defects that would have cost real time:
+
+- **Phase 5 needed a score format nothing produced.** `POINT_3`-renders-as-smileys was a
+  Phase 5 criterion, but the format was only read in Phase 7 and had no column anywhere. The
+  late fix would have been a migration against a populated `user` table — the thing Phase 1
+  exists to prevent. → **D32**
+- **Nobody owned the Hono app.** Phase 2 mounted Better-Auth "inside the Hono app"; Phase 4
+  created it, two phases later. → Phase 2 now builds it, with a criterion counting `route.ts`
+  files.
+- **Phase 2 criterion 11 was unsatisfiable** — it asserted `/r/[slug]` renders signed out,
+  four phases before that route exists. → moved to Phase 6 criterion 25.
+- **"A score is required to submit" survived the pivot in two places** (`PHASE-5.md`
+  criterion 16, `ui-rules.md`), contradicting **D27**, invariant 8, and Phase 5's own
+  criteria 6–7. → both corrected, with a risk row saying not to restore it.
+- **`AGENTS.md` opened with the pre-pivot pitch** — "in under 10 seconds, without logging in"
+  — nine lines above invariant 9. First thing read every session. → corrected.
+
+Gaps closed: `/settings` had no owning phase (**D33**); the limiter still keyed on IP after
+accounts became mandatory (**D34**); score `0` was undefined and both trackers use it for
+*unrated* (**D35**); GitHub was an unlisted Phase 0 prerequisite; `/r/[slug]` was described
+as cacheable while two criteria required per-request view counting.
+
+Ten stale cross-references corrected from the D31 renumbering — D16, D18, D20 (said criteria
+16–19, actually 22–25), D21 (said Phase 5, actually Phase 6), D22, plus `code-standards.md`,
+`tech-stack.md`, `ui-registry.md`, and `PHASE-3.md`. `.env.example` had two wrong phase
+headers and one surviving Discord mention. PostgreSQL's unique-violation code (`23505`) is
+now recorded in Phase 1 where Phase 4 was told to find it.
+
+**Next:** Phase 0, unchanged in shape. Add a GitHub remote first.
 
 ### 2026-08-09 — Planning
 - Read the client brief at `context/ai-prompt.xml`.

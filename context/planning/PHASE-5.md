@@ -60,9 +60,17 @@ button with no explanation is a dead end.
 
 **Score input follows the user's own format**, not a fixed 1–10 strip. Ten radio options for
 `POINT_10`, five stars for `POINT_5`, three smileys for `POINT_3`, a number field for
-`POINT_100`. The format comes from the linked tracker, defaulting to `POINT_10` for
-Google accounts. Rendering a `POINT_3` rating as `2/3` is a bug (**D28**,
-invariant 6).
+`POINT_100`. Rendering a `POINT_3` rating as `2/3` is a bug (**D28**, invariant 6).
+
+**The format is read from `user.scoreFormat` on the session** — written at sign-in in Phase 2,
+defaulting to `POINT_10` for Google accounts (**D32**). It is already loaded by the time the
+page renders, so the score input never waits on a network call and never guesses. Do not
+fetch it from AniList here; that is Phase 7's refresh, and it would put a third-party call on
+the 10-second path.
+
+**No score is `0`.** Every format starts at 1, because `0` is what the trackers store for
+*unrated* (**D35**). The control has no zero position — clearing a score is removing it, and
+that produces `(null, null)`.
 
 **One formatter, every surface.** `src/lib/score.ts` is the only place a score becomes text.
 Five formats across the tray, the public page, the dashboard, and the OG card is fifteen
@@ -123,7 +131,8 @@ this screen is read as slowness, and slowness is the only thing this product can
 7. With **no score and no comment anywhere**, the submit action is disabled **and states
    why**. A disabled control with no explanation is a dead end.
 8. A `POINT_3` user sees three smileys, not a 1–10 strip, and the stored `scoreFormat` is
-   `POINT_3`.
+   `POINT_3`. The format comes from `user.scoreFormat` on the session (**D32**) — verify by
+   changing that row and reloading, with no AniList call in the network panel.
 9. A `POINT_100` score of 87 is sent as `scoreRaw: 87, scoreFormat: "POINT_100"` — verify in
    the network panel. No client-side normalisation (**D28**).
 10. Typing `frieren` shows results within 500 ms of the debounce firing, with cover art and
@@ -136,8 +145,9 @@ this screen is read as slowness, and slowness is the only thing this product can
 14. With clipboard permission denied, the modal shows "Copy your link" and **not** "Link
    copied!", and the Copy button works.
 15. The comment field hard-stops at 280 characters. Typing a 281st is impossible.
-16. The submit action is disabled until a title **and** a score are both set, and a disabled
-   click does nothing at all.
+16. The submit action is disabled while the tray is **empty**, and a disabled click does
+   nothing at all. Once an item exists, criteria 6 and 7 govern: a score is *not* required,
+   a comment or a score somewhere in the group is.
 17. A forced 429 shows an inline warning with the selection, score, and comment all intact.
 18. With the selected provider unreachable, the results area shows a quiet message plus the
     switch offer, the input stays editable, and no modal or red alert appears.
@@ -174,6 +184,8 @@ re-check by hand every phase.
 | Risk | Mitigation |
 |---|---|
 | The 10-second promise quietly failing as features accrete | Criterion 1 is timed on every subsequent phase, not just this one |
+| The score input fetching the user's format on mount, adding a round-trip to the timed flow | It is on the session already (**D32**). Criterion 8 checks the network panel is quiet |
+| Submit re-gated on "every item needs a score", undoing **D27** | Criteria 6, 7, and 16 together. This wording was wrong in an earlier draft of this file and was corrected — do not restore it |
 | Auto-copy failing silently in Safari or an insecure context | Criterion 14 tests the denied path explicitly |
 | The score picker overflowing on small screens | Criterion 25 pins 375 px and a 44 px minimum |
 | Typeahead exhausting a user's own 30/min AniList quota | Criteria 11 and 12 bound request volume; 250 ms debounce with a 2-character floor keeps a fast typist well inside it |
