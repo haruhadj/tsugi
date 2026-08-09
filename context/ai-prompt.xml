@@ -1,0 +1,154 @@
+<project_spec name="Tsugi (次)">
+  <overview>
+    Tsugi (次) is a fast, ultra-modern, edge-ready anime and manga recommendation app built for speed.
+    The primary goal is to let users generate and share a recommendation link in under 10 seconds without unnecessary friction.
+  </overview>
+
+  <core_mission>
+    <principle>Zero-friction creation: Minimal clicks to go from search -> selection -> share link.</principle>
+    <principle>Instant sharing: Auto-copy share link to clipboard upon creation with ready-to-share social buttons (Twitter/X, Discord, WhatsApp).</principle>
+    <principle>Rich previews: Every generated link (e.g. tsugi.app/r/a9Xk2L8q) MUST render a stunning social image preview (@vercel/og) when posted anywhere online.</principle>
+  </core_mission>
+
+  <tech_stack>
+    <package_manager>Bun</package_manager>
+    <framework>Next.js 14+ (App Router, React)</framework>
+    <styling>Tailwind CSS + DaisyUI</styling>
+    <api_layer>Hono.js mounted at `/api/[[...route]]`</api_layer>
+    <database>
+      <provider>Supabase PostgreSQL (Transaction Pooler port 6543)</provider>
+      <orm>Drizzle ORM</orm>
+    </database>
+    <authentication>Better-Auth with GitHub OAuth &amp; Drizzle Adapter</authentication>
+    <validation>Zod with `@hono/zod-validator`</validation>
+    <data_providers>
+      <primary>AniList GraphQL API</primary>
+      <fallback>MyAnimeList (Jikan REST API v4)</fallback>
+    </data_providers>
+    <infrastructure>
+      <hosting>Vercel</hosting>
+      <rate_limiting>Upstash Redis (`@upstash/ratelimit`)</rate_limiting>
+      <social_cards>`@vercel/og`</social_cards>
+      <ci_cd>GitHub Actions</ci_cd>
+    </infrastructure>
+  </tech_stack>
+
+  <directory_structure>
+    <![CDATA[
+tsugi/
+├── .github/
+│   └── workflows/
+│       └── ci.yml
+├── src/
+│   ├── app/
+│   │   ├── (auth)/
+│   │   ├── (dashboard)/
+│   │   ├── api/
+│   │   │   └── [[...route]]/
+│   │   │       └── route.ts
+│   │   ├── r/
+│   │   │   └── [slug]/
+│   │   │       ├── page.tsx
+│   │   │       └── opengraph-image.tsx
+│   │   ├── layout.tsx
+│   │   └── page.tsx
+│   ├── db/
+│   │   ├── index.ts
+│   │   └── schema.ts
+│   ├── lib/
+│   │   ├── auth.ts
+│   │   ├── types/
+│   │   │   └── media.ts
+│   │   └── validators/
+│   │       └── rec.ts
+│   ├── server/
+│   │   ├── hono/
+│   │   │   └── middleware.ts
+│   │   └── services/
+│   │       └── media.ts
+│   └── components/
+│       ├── QuickRecForm.tsx
+│       ├── ShareModal.tsx
+│       └── MediaSearchInput.tsx
+├── drizzle.config.ts
+├── tailwind.config.ts
+├── next.config.mjs
+├── bun.lockb
+└── package.json
+    ]]>
+  </directory_structure>
+
+  <requirements>
+    <requirement id="1">
+      <title>Quick-Share UX &amp; DaisyUI Components</title>
+      <description>
+        Design the homepage (`src/app/page.tsx`) around a lightning-fast recommendation flow:
+        1. Instant live search input for Anime/Manga.
+        2. Quick score picker (1-10 rating badges) and an optional 280-char comment field.
+        3. One-click "Generate Share Link" action that instantly pops up a DaisyUI modal containing the unique URL, a "Copy Link" button, and 1-click share buttons for Twitter/X and WhatsApp.
+      </description>
+    </requirement>
+
+    <requirement id="2">
+      <title>Styling &amp; Aesthetic</title>
+      <description>
+        Install and configure `daisyui` plugin in `tailwind.config.ts`.
+        Use dark mode DaisyUI themes (`dark`, `night`, or `dim`) with vibrant accent colors for high visual punch.
+      </description>
+    </requirement>
+
+    <requirement id="3">
+      <title>Database Schema (Drizzle ORM)</title>
+      <description>
+        Define schema in `src/db/schema.ts` including Better-Auth tables (`user`, `session`, `account`, `verification`) 
+        and the `recommendation` table with fields: `id`, `slug` (varchar 12, unique), `title`, `mediaType` (enum: anime/manga), 
+        `externalId`, `coverImage`, `score` (integer), `comment`, `views` (integer default 0), `userId` (nullable foreign key), `createdAt`.
+      </description>
+    </requirement>
+
+    <requirement id="4">
+      <title>Dual Search Media Service</title>
+      <description>
+        Implement `src/server/services/media.ts` with a unified return type `UnifiedMediaResult`.
+        Allow searching via AniList GraphQL (primary) and Jikan REST API (fallback). Include auto-fallback handling if the primary provider throws an error.
+      </description>
+    </requirement>
+
+    <requirement id="5">
+      <title>Hono API &amp; Upstash Rate Limiting</title>
+      <description>
+        Mount Hono at `src/app/api/[[...route]]/route.ts`.
+        Implement Upstash Redis rate-limiting middleware in `src/server/hono/middleware.ts` restricting POST requests on `/api/recs` to 5 requests per minute per IP.
+        Handle creation of recommendations with Nanoid slug generation and retrieval of recommendations by slug (incrementing view count).
+      </description>
+    </requirement>
+
+    <requirement id="6">
+      <title>Dynamic OG Social Cards</title>
+      <description>
+        Implement `src/app/r/[slug]/opengraph-image.tsx` using `@vercel/og` with Edge runtime.
+        Generate a 1200x630 PNG displaying the media cover image, title, media type, score, user review quote, and Tsugi branding.
+      </description>
+    </requirement>
+
+    <requirement id="7">
+      <title>GitHub Actions CI/CD Pipeline</title>
+      <description>
+        Create `.github/workflows/ci.yml` using `oven-sh/setup-bun` action to run linting and TypeScript compilation (`bun x tsc --noEmit`) on every push/PR to main.
+      </description>
+    </requirement>
+  </requirements>
+
+  <execution_instructions>
+    1. Initialize the project dependencies:
+       `bun add hono @hono/zod-validator better-auth drizzle-orm postgres zod nanoid @vercel/og @upstash/ratelimit @upstash/redis`
+       `bun add -d daisyui@latest drizzle-kit typescript @types/node`
+    2. Configure `tailwind.config.ts` to include `require('daisyui')` in plugins and select dark themes (`night`/`dim`).
+    3. Create `src/db/schema.ts` and `src/db/index.ts` configured for Supabase Transaction Pooler.
+    4. Build `src/lib/types/media.ts` and `src/server/services/media.ts` for dual-provider searching.
+    5. Set up `src/server/hono/middleware.ts` and the main Hono catch-all route handler.
+    6. Build the dynamic OG image generator (`src/app/r/[slug]/opengraph-image.tsx`) and public recommendation view page (`src/app/r/[slug]/page.tsx`).
+    7. Build the fast creation flow (`src/components/QuickRecForm.tsx` &amp; `src/components/ShareModal.tsx`).
+    8. Ensure clean type safety, zero ESLint errors, and full TypeScript compliance.
+  </execution_instructions>
+</project_spec>
