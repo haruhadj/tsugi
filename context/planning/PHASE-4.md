@@ -35,7 +35,7 @@ POST /api/recs                          ← session required
                       scoreRaw?:    number,
                       scoreFormat?: "POINT_100"|"POINT_10_DECIMAL"
                                    |"POINT_10"|"POINT_5"|"POINT_3",
-                      comment?:  string ≤280 } , … ]   1..N }
+                      comment?:  string ≤280 } , … ]   1..10 }
   201    { slug: string }
   400    Zod error, field-addressable (incl. "must say something")
   401    no session
@@ -61,6 +61,27 @@ the value must fall inside its format's range — but never re-fetched.
 **The whole group is one transaction.** All items resolve, then rec and items insert
 together, or nothing is written. A partially-written group misrepresents what the user said,
 and a five-item recommendation that silently became three is worse than an error.
+
+**Items are capped at 10, resolved 4 at a time, under one 8-second deadline** (**D36**).
+D26 made resolution fan out — one provider call per item — and server-side calls all share a
+single AniList bucket of 30/min, because Vercel egresses from a small pool of addresses.
+That is the same constraint D3 dodged for typeahead by moving it into the browser, and the
+create path cannot dodge it: D13 requires the server to resolve, or anyone could POST
+arbitrary text onto a branded card.
+
+So three bounds, each doing a different job:
+
+| Bound | Value | What it prevents |
+|---|---|---|
+| Items per recommendation | 10 | One user's 5 posts/min consuming the whole shared quota |
+| Concurrent resolutions | 4 | A 10-item group opening 10 sockets and 10 timeouts at once |
+| Whole-request deadline | 8 s | Per-call timeouts compounding — 10 × 5 s is not a create flow |
+
+On the deadline, abort the remaining resolutions and return **502**, writing nothing. That
+is the same failure the transaction rule already defines, reached by a different route, and
+the Phase 5 form preserves its state so a retry is cheap. The 24-hour cache is what makes
+this a cold-start ceiling rather than the common case: popular titles get recommended
+repeatedly, and a cache hit costs no upstream call at all.
 
 **Creating requires a session; reading does not.** `POST` returns 401 without one, and
 `userId` comes from the session — never from the body (**D23**). `GET /api/recs/:slug` stays
@@ -120,7 +141,8 @@ Run against a local dev server.
    mediaType: "anime", scoreRaw: 9, scoreFormat: "POINT_10" }]` — returns **201** with a
    `slug` matching `/^[A-Za-z0-9_-]{12}$/`.
 3. `GET /api/recs/<that slug>` returns **200**, **without a session**, with
-   `title === "Frieren: Beyond Journey's End"` — proving the server resolved it rather than
+   `title === "Frieren: Beyond Journey’s End"` (U+2019, **not** an ASCII apostrophe — see
+   `PHASE-3.md` criterion 1) — proving the server resolved it rather than
    trusting the client, and that reads are public.
 4. A **three-item** POST returns 201, and the read returns all three in `position` order.
 5. A POST mixing `provider: "anilist"` and `provider: "mal"` items in one group succeeds,
@@ -144,7 +166,14 @@ Run against a local dev server.
 13. A POST with **no score and no comment anywhere** returns **400** (invariant 8).
     A POST with only a group comment succeeds.
 14. `items: []` returns **400**. A recommendation needs at least one item.
-15. A 281-character comment returns **400**, at group and item level alike.
+14a. `items` with **11 entries** returns **400**; 10 succeeds. The cap is enforced in Zod,
+    so it is a field-addressable error and not a truncation (**D36**).
+14b. A **10-item** POST with a cold cache resolves at most **4 provider calls in flight at
+    once** — verify from the adapter's log lines, which carry elapsed ms.
+14c. With every provider call forced to hang, a 10-item POST returns **502 within ~8 s**,
+    not 50 s, and writes nothing. Assert elapsed time and both table counts.
+15. A 281-character comment returns **400**, at group and item level alike (invariant 7),
+    and a 121-character caption returns **400** too.
 16. The **6th** POST within one minute from the same **session** returns **429**. The first
     five return 201. Verify with a loop, not by hand.
 17. After the window elapses, a further POST returns 201 again.
@@ -152,6 +181,11 @@ Run against a local dev server.
     limit — it gets its own five. This is the criterion that proves the key is the user and
     not the address (**D34**).
 18. `GET /api/recs/aaaaaaaaaaaa` returns **404** with a JSON body, not an HTML error page.
+18a. **The read response contains no database ids.** `GET /api/recs/:slug` returns no `id`,
+    no `userId`, and no `recommendationId` on the group or on any item — assert on the
+    serialised JSON, not on the query. Invariant 1, which until now had no mechanical check
+    anywhere in the plan. A `select *` handed straight to `c.json()` is how this breaks, and
+    it leaks the owner's user id to every anonymous reader of a shared link.
 19. With a provider forced to fail on **the third of three items**, POST returns **502** and
     **neither the rec nor any item is written** — confirm both table counts are unchanged.
     This is the transaction criterion.
@@ -178,7 +212,10 @@ Run against a local dev server.
 | A 502 leaving a partially-written group behind | Criterion 19 forces the failure on the third of three items and asserts both table counts |
 | Hono's catch-all swallowing routes added later | The route table in `../architecture.md` is the reference; Phase 2 adds auth inside this app, not beside it |
 | A missing session check on one write path | Criterion 1 tests it at the boundary; `userId NOT NULL` in Phase 1 is the backstop, and criterion 25 keeps it session-sourced |
+| A row serialised straight to JSON, leaking `id` and the owner's `userId` to anonymous readers | Criterion 18a. Invariant 1 had no check at all before the audit — the read shape must be built explicitly, never `select *` |
 | Score range validated as a single 1–10 rule, rejecting valid `POINT_100` values | Criterion 11. Range is per-format |
 | Caching provider failures | Only cache `ok: true` results. Never cache a failure — a transient Jikan 504 would otherwise persist for 24 hours. |
+| A large group exhausting the shared AniList 30/min bucket for every other user | **D36**: 10 items max, 4 concurrent, 8 s ceiling. Criteria 14a–14c |
+| Per-item timeouts compounding into a 50-second create | Criterion 14c forces every call to hang and asserts the request still ends in ~8 s |
 
 **Next:** [`PHASE-5.md`](./PHASE-5.md)

@@ -16,7 +16,7 @@ Every screen, and every path between them. If a screen is not here, it does not 
           │                            │  link another            │
           │                            └──────────────────────────┘
           │  Search  ⇄  My list (Phase 7)
-          │  add 1..N items, score, comment
+          │  add 1..10 items, score, comment
           ▼
    ┌──────────────────────────┐
    │  ShareModal  (overlay)   │
@@ -67,7 +67,12 @@ opposite of what **D24** promises (**D33**).
 Linking states what it unlocks, because that is the only reason a signed-in person comes
 here. **Phase 8** adds unlinking, refuses the last one, and puts this beside the dashboard.
 
-Signed out, it redirects to `/sign-in` like any other authenticated screen.
+**Sign out lives here**, at the bottom, quiet. It is the only sign-out control in the
+product — the create screen must not carry one, because the only thing that screen is for is
+getting to a link. Signing out returns to `/` in its signed-out form, which explains the
+product and offers sign-in, so it is a working screen rather than a dead end.
+
+Signed out, `/settings` redirects to `/sign-in` like any other authenticated screen.
 
 ## `/` — the create screen
 
@@ -127,6 +132,10 @@ own `provider`; a group may legitimately mix AniList and MAL titles. What is cle
 
 Each item carries its own optional score and note. Reorderable; order is what the card and
 page render.
+
+**The tray holds ten.** At ten the search input says so and stops accepting additions, rather
+than letting someone build an eleventh item and lose it to a 400 (**D36**). The count in the
+header is the warning — `Items (9/10)` once it is close.
 
 Score input uses **the user's own scale** — read from `user.scoreFormat` on the session,
 captured at sign-in and defaulting to 10-point for Google accounts (**D32**). A `POINT_3`

@@ -99,10 +99,17 @@ reasoning is the decision log in [`../progress-tracker.md`](../progress-tracker.
 **Deliberately re-scoped by the user:**
 - Anonymous creation removed; accounts required (**D23**)
 - GitHub replaced by AniList, MyAnimeList, and Google (**D24**)
-- One title per recommendation replaced by 1..N grouped items (**D26**)
+- One title per recommendation replaced by 1..10 grouped items (**D26**, capped by **D36**)
 - Scores optional, and preserved in the rater's own scale rather than normalised
   (**D27**, **D28**)
 - List import added as a first-class feature (**Phase 7**)
+
+**Consequences of the above, also amending the brief:**
+- Rate limiting is per *user*, not "per IP" as requirement 5 specifies — creation now always
+  carries a session, and an IP key throttles strangers behind one NAT (**D34**)
+- View counting happens in the page render, not inside `GET /api/recs/:slug` as requirement 5
+  specifies. The API is also called by things that are not a human reading the page, and the
+  count has to mean visits (**D12**)
 
 The brief is silent on Supabase's public REST exposure, which remains the single biggest
 risk in the build. See **D20**.

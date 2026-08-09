@@ -41,7 +41,8 @@ Three tiers, and picking the wrong one is the most common UI mistake here:
 |---|---|
 | Field-level (comment too long) | Inline under the field, `text-error text-sm`. No alert. |
 | Recoverable action failure (429, create failed) | DaisyUI `alert alert-warning` **inside the form**, form state preserved. |
-| Provider unavailable (AniList unreachable) | Quiet inline sentence in the results area. Not an alert. Not red. |
+| Provider unavailable (AniList unreachable) | Quiet inline sentence in the results area, naming the source, offering the one-tap switch. Not an alert. Not red. |
+| Provider **rate-limited** (AniList's own 30/min) | Also quiet and inline, but a **different sentence** — "searching too fast, one moment" — and **no switch offer**. Waiting fixes it; changing provider does not, and would send someone to Jikan for nothing. |
 
 Rules that hold across all three:
 - Never destroy user input to display an error. A lost 280-character comment is a worse
@@ -116,7 +117,9 @@ is a sign a layout is being over-fitted.
 - The item tray is a reorderable list. Drag is an enhancement, never the only way — provide
   move-up / move-down controls that work from the keyboard.
 - Removing an item is immediate and reversible by re-adding, so it needs no confirmation.
-  Discarding the *whole* tray does need one.
+  **There is no discard-all control** — no phase builds one, and removing items individually
+  is enough for a tray capped at ten (**D36**). If one is ever added it needs a confirmation,
+  which is the same rule as deleting a recommendation in Phase 8.
 - Copy-to-clipboard announces its result in a live region. A purely visual "Copied!" is
   invisible to the people most reliant on keyboard flow.
 - Colour is never the only signal. The selected score carries a shape or a check, not just

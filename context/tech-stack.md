@@ -108,6 +108,12 @@ there is nothing to version or upgrade. (**D16**)
   slow or fail; wake the project before blaming the code.
 - Keep `drizzle-orm` at exactly the version Better-Auth peer-pins. A mismatch breaks the
   adapter's type inference in ways that surface as confusing schema errors.
+- **`numeric()` returns a string by default.** Verified by reading
+  `pg-core/columns/numeric.d.ts` in 0.45.2 — the builder is generic over
+  `'string' | 'number' | 'bigint'` and falls through to `'string'` when no mode is given.
+  `scoreRaw` therefore declares `numeric(4, 1, { mode: "number" })`; see `planning/PHASE-1.md`.
+  This is a silent trap: the schema compiles either way, and the string only becomes visible
+  when a score renders as `"87.0"/100`.
 
 ### Supabase exposes every `public` table publicly — RLS is not optional
 
@@ -228,6 +234,11 @@ and status codes, not from documentation.
 - `access-control-allow-origin: *` — callable directly from the browser. This is what makes
   the browser-side typeahead possible (decision **D3**).
 - No authentication needed for public search.
+- **Titles come back with typographic punctuation.** The English title of *Sousou no Frieren*
+  is `Frieren: Beyond Journey’s End` — U+2019 RIGHT SINGLE QUOTATION MARK, not the ASCII
+  `'`. Re-verified live 2026-08-09. Any test asserting a title equality must copy the
+  string from a fixture rather than retype it; a hand-typed apostrophe fails a comparison
+  that looks like an adapter bug.
 - Cover images are served from `s4.anilist.co`.
 - Returns **`idMal`** on media objects — the only sanctioned bridge between the two id
   spaces. See below.
@@ -237,9 +248,16 @@ and status codes, not from documentation.
   on preflight. Verified 2026-08-09. This is what lets the user-selected provider toggle
   work entirely client-side (**D14**).
 - **Intermittently returns HTTP 504** (`"Jikan failed to connect to MyAnimeList"`). Roughly
-  half of all live calls during verification failed this way, then retries succeeded. This
-  is normal behaviour for this API, not an outage. Note the CORS header is present even on
-  the 504, so a browser sees a real status rather than an opaque CORS error.
+  half of all live calls during the first verification failed this way, then retries
+  succeeded. This is normal behaviour for this API, not an outage. Note the CORS header is
+  present even on the 504, so a browser sees a real status rather than an opaque CORS error.
+- **Re-measured 2026-08-09, later the same day: six consecutive calls, six 504s.** "About
+  half" is the optimistic reading — it fails in runs, not independently, so a retry a second
+  later frequently fails too. Two consequences: the one-tap switch to AniList (**D14**) is
+  the *primary* path for MyAnimeList users, not an edge case; and **Phase 3's recorded
+  fixtures have to be captured opportunistically**, because you cannot record a fixture from
+  an API that is refusing. Capture them when Jikan answers and commit them; never make
+  fixture capture a blocking step.
 - **Consequence:** a user who selects MyAnimeList will hit failures regularly. Retry once,
   then offer the one-tap switch to AniList per **D14**. Never treat it as a crash.
 - Documented limits are roughly 3 req/sec and 60 req/min; the API returns no rate-limit
@@ -300,6 +318,15 @@ official API, which is a different service with different rules.
   which takes `authorizationUrl`, `tokenUrl`, `pkce`, and custom `getToken` / `getUserInfo`.
 - Account linking is enabled by default **but matches on verified email**, so it cannot work
   for the trackers. Use explicit `linkSocial()` (**D25**).
+- **A repeat sign-in does not refresh the user row.** `getUserInfo` is re-applied only when
+  the provider sets `overrideUserInfo: true` — verified by reading 1.6.26:
+  `dist/api/routes/callback.mjs` forwards `provider.options?.overrideUserInfoOnSignIn`, and
+  the update in `dist/oauth2/link-account.mjs` is gated on that flag. Both trackers set it,
+  so `user.scoreFormat` tracks the user's actual preference (**D32**).
+- The OAuth sign-in path does **not** run `z.email()` on the address returned by
+  `getUserInfo`. Every `z.email()` in the package is on the password, magic-link, OTP, admin,
+  or organization routes. That is why a synthesised address works at all — and why it should
+  still be syntactically valid (**D25**).
 
 ### Share intent URLs — verified 2026-08-09
 

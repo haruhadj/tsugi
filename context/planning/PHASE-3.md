@@ -112,8 +112,13 @@ Forced failures use the injectable-`fetch` seam from `../code-standards.md` — 
 parameter, never a runtime flag.
 
 1. `searchMedia("anilist", "frieren", "anime")` returns ≥1 result whose first entry has
-   `title === "Frieren: Beyond Journey's End"`, `externalId === 154587`,
+   `title === "Frieren: Beyond Journey’s End"`, `externalId === 154587`,
    `provider === "anilist"`, and a non-null `coverImage`.
+
+   **That apostrophe is U+2019**, a right single quotation mark — not the ASCII `'`. AniList
+   returns `’`, verified live 2026-08-09. Typing the assertion by hand produces a
+   failing comparison that looks like an adapter bug and is not one. Copy the string from
+   the fixture, or write `’` explicitly.
 2. `searchMedia("mal", "frieren", "anime")` returns ≥1 result with
    `provider === "mal"` and `externalId === 52991` — **a different number for the same
    show**, which is the whole point.

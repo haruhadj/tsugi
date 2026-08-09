@@ -33,7 +33,8 @@ populated tables later.
 
 ## Deliverables
 
-Two tables now, not one. A recommendation is a **container of 1..N items** (**D26**).
+Two tables now, not one. A recommendation is a **container of 1..10 items** (**D26**, capped
+by **D36**). The cap spans rows, so like invariant 8 it lives in Zod rather than a constraint.
 
 `recommendation` — the group:
 
@@ -59,7 +60,7 @@ Two tables now, not one. A recommendation is a **container of 1..N items** (**D2
 | `mediaType` | enum `anime` \| `manga`, not null | |
 | `title` | text, not null | Resolved server-side, never client-supplied |
 | `coverImage` | text, nullable | Provider art is sometimes absent |
-| `scoreRaw` | numeric(4,1), **nullable** | The value as rated. Nullable — scores are optional (**D27**) |
+| `scoreRaw` | `numeric(4,1, { mode: "number" })`, **nullable** | The value as rated. Nullable — scores are optional (**D27**). The mode is not optional — see below |
 | `scoreFormat` | enum, nullable | `POINT_100` \| `POINT_10_DECIMAL` \| `POINT_10` \| `POINT_5` \| `POINT_3` |
 | `comment` | varchar(280), nullable | Per-item note |
 
@@ -74,8 +75,15 @@ Constraints that carry real meaning:
 - `unique (recommendationId, position)` — deterministic order.
 - `unique (recommendationId, provider, externalId, mediaType)` — the same title cannot appear
   twice in one recommendation.
-- `numeric(4,1)` covers every scale: `100.0` down to `1.0`, with the one decimal place
+- `numeric(4, 1)` covers every scale: `100.0` down to `1.0`, with the one decimal place
   `POINT_10_DECIMAL` needs.
+- **`{ mode: "number" }` is mandatory.** Verified by reading
+  `drizzle-orm@0.45.2/pg-core/columns/numeric.d.ts`: `numeric()` is generic over
+  `'string' | 'number' | 'bigint'` and **defaults to `'string'`**. Without the mode,
+  `scoreRaw` is typed `string` — `"87.0"` in TypeScript, `"87.0"` in the API's JSON — while
+  Zod validates a number and `src/lib/score.ts` formats one. The mismatch surfaces as a type
+  error at best and a `"87.0"/100` on a social card at worst. `mode: "number"` is safe here
+  because the whole range is 0.1–100.0 with one decimal, far inside float64's exact range.
 
 **"A recommendation must say something"** (invariant 8) is *not* a database constraint. It
 spans two tables and would need a trigger; Zod enforces it at the API boundary instead. This
@@ -189,7 +197,9 @@ render a different anime on someone's card. Invariant 2, decision **D15**.
 10. `scoreRaw` set with `scoreFormat` null **fails**, and vice versa. Both or neither.
 11. An item with **both** null inserts fine — scores are optional (**D27**).
 12. `scoreRaw: 87, scoreFormat: POINT_100` and `scoreRaw: 8.7, scoreFormat:
-    POINT_10_DECIMAL` both store exactly, with no rounding. The decimal survives.
+    POINT_10_DECIMAL` both store exactly, with no rounding. The decimal survives, and the
+    value read back is `typeof === "number"` — **not** the string `"87.0"`. That assertion is
+    the one that catches a missing `{ mode: "number" }`.
 13. The same `(provider, externalId, mediaType)` twice in **one** recommendation fails;
     in two different recommendations it succeeds.
 14. Two items sharing `mediaType` and `externalId` but differing in `provider` both insert
@@ -248,6 +258,7 @@ connection would not exercise `prepare: false`.
 | **Shipping a table without RLS** — a writable public API bypassing every server-side guard | Criteria 22–25. Criterion 23 tests the actual attack rather than the setting |
 | Using `pgTable.withRLS()` from the docs site, which does not exist in our pinned version | Criterion 28 catches it as a type error. The correct call is `.enableRLS()` |
 | `user.scoreFormat` hand-added to the generated auth schema, then wiped by the next `generate` | It must be an `additionalFields` entry in `src/lib/auth.ts`, not an edit to the output. Criterion 27 checks the column; re-running the CLI is what would expose a hand-edit |
+| `numeric()` left in its default string mode, making every score a string | Criterion 12 asserts `typeof === "number"`. The schema compiles either way, which is what makes this silent |
 | RLS enabled but the app breaking because it cannot see its own rows | The `postgres` role owns the tables and bypasses RLS. Criterion 4 already proves a round-trip works |
 | An enum change later requiring a painful Postgres migration | `mediaType` is closed at `anime`/`manga` by `functionality.md`. Widening it is a scope decision, not a schema tweak. |
 

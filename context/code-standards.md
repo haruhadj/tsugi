@@ -59,10 +59,14 @@ Project-specific rules. General TypeScript style is assumed, not restated.
 
 - Query through Drizzle only. No raw SQL unless there is a comment explaining what Drizzle
   could not express.
-- **A score is `(scoreRaw, scoreFormat)`, never a bare number.** `numeric(4,1)` plus the
-  format enum, both null or both set. Never store a normalised copy alongside them — a
+- **A score is `(scoreRaw, scoreFormat)`, never a bare number.** `numeric(4, 1, { mode:
+  "number" })` plus the format enum, both null or both set. Never store a normalised copy alongside them — a
   derived column drifts, and the whole point of **D28** is that the rater's own scale is the
   truth. Compute a comparable value when you actually need one.
+- **`scoreRaw` is declared `numeric(4, 1, { mode: "number" })`.** Drizzle's `numeric()`
+  defaults to `'string'` mode, which would make every score a string in TypeScript and in
+  API JSON while Zod and `score.ts` expect a number. Verified against the installed package;
+  detail in `tech-stack.md`.
 - **`0` is not a score, it is "unrated".** Both trackers use it that way, so every format
   floors at 1 and a `0` arriving from an import stores as `(null, null)` (**D35**). Because
   no valid score is falsy, `if (scoreRaw)` is safe — but write `!= null` anyway; the next

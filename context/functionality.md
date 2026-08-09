@@ -20,7 +20,9 @@ re-proposed each session. Changing anything here is a decision that belongs in
 - A source toggle — AniList or MyAnimeList — defaulting to AniList and remembered
 - Live typeahead search against the selected source
 - A one-tap offer to re-run the query on the other source when the selected one is down
-- **1..N titles per recommendation.** One is the common case; a group is the same model
+- **1 to 10 titles per recommendation.** One is the common case; a group is the same model.
+  The ceiling is 10 because the server resolves every item against the provider on a shared
+  rate-limit budget (**D36**)
 - Optional score per item, **preserved in the rater's own scale** (five AniList formats plus
   MAL's 10-point)
 - Optional comment per item, ≤280 characters

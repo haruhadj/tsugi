@@ -31,7 +31,7 @@ and its props are accurate here.
 | `MediaSearchInput` | `src/components/MediaSearchInput.tsx` | 5 | Debounced typeahead against the selected source, keyboard-navigable listbox, emits a `UnifiedMediaResult` |
 | `ScoreInput` | `src/components/ScoreInput.tsx` | 5 | Score entry **in the user's own format** — five AniList scales plus MAL's 10-point. `POINT_3` renders as smileys, `POINT_5` as stars |
 | `ScoreBadge` | `src/components/ScoreBadge.tsx` | 5 | Read-only score display. Same five formats. Used by the tray, the public page, and the dashboard |
-| `ItemTray` | `src/components/ItemTray.tsx` | 5 | The 1..N item list — reorder, per-item score and note, remove |
+| `ItemTray` | `src/components/ItemTray.tsx` | 5 | The 1..10 item list — reorder, per-item score and note, remove. Refuses an eleventh (**D36**) |
 | `RecBuilder` | `src/components/RecBuilder.tsx` | 5 | Composes source + search + tray + caption + comment; owns submit, validation, and error states |
 | `ShareModal` | `src/components/ShareModal.tsx` | 5 | Displays the created link, auto-copy result, three share targets |
 | `MediaCover` | `src/components/MediaCover.tsx` | 5 | `next/image` wrapper with the required placeholder fallback |
@@ -39,7 +39,7 @@ and its props are accurate here.
 | `SourceLink` | `src/components/SourceLink.tsx` | 6 | "via AniList / MyAnimeList", linking out. Page only — never the OG card (Q4) |
 | `ListBrowser` | `src/components/ListBrowser.tsx` | 7 | Filterable view of the user's own tracker list; adds items with their existing score |
 | `RecSummaryCard` | `src/components/RecSummaryCard.tsx` | 8 | One row of the dashboard — items, view count, delete. Reuses `ScoreBadge` and `MediaCover` |
-| `ConfirmDialog` | `src/components/ConfirmDialog.tsx` | 8 | Destructive confirmation for delete and for discarding the tray. The only place a confirmation lives |
+| `ConfirmDialog` | `src/components/ConfirmDialog.tsx` | 8 | Confirmation for deleting a recommendation — the only destructive action in the product. Nothing in Phase 5 needs it; the tray has no discard-all |
 
 `ScoreBadge`, `ScoreInput`, and `MediaCover` are listed separately from their parents on
 purpose: each is needed in more than one place, and the second use is where duplication

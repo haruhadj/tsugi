@@ -14,7 +14,7 @@ landing to link-on-clipboard in **under 10 seconds**.
   `RecBuilder`, `ShareModal`, `MediaCover`
 - `src/lib/score.ts` — **the one score formatter**, five formats, shared by every surface
 - Debounced typeahead against whichever Phase 3 browser adapter the toggle selects
-- **The item tray: add, reorder, remove, per-item score and note, 1..N**
+- **The item tray: add, reorder, remove, per-item score and note, 1..10** (**D36**)
 - Group caption and comment
 - The one-tap "search the other source instead" recovery (**D14**)
 - Auto-copy on creation, with an honest fallback when the browser refuses
@@ -126,6 +126,8 @@ this screen is read as slowness, and slowness is the only thing this product can
 4. A **three-item** group — two searched from AniList, one from MAL — builds, reorders, and
    submits, and the read-back preserves the order.
 5. Removing an item from the tray removes exactly that item.
+5a. At **ten items** the tray refuses an eleventh and says why, in the search area rather
+   than as an alert. It must be impossible to build a group the API will reject (**D36**).
 6. An item with **no score** can be added and submitted, provided the group carries a
    comment (invariant 8).
 7. With **no score and no comment anywhere**, the submit action is disabled **and states
@@ -144,13 +146,19 @@ this screen is read as slowness, and slowness is the only thing this product can
    finishes appearing — paste into a text field to confirm.
 14. With clipboard permission denied, the modal shows "Copy your link" and **not** "Link
    copied!", and the Copy button works.
-15. The comment field hard-stops at 280 characters. Typing a 281st is impossible.
+15. The comment field hard-stops at 280 characters and the caption at 120. Typing one past
+   either is impossible — invariant 7's third layer, the one the user actually experiences.
 16. The submit action is disabled while the tray is **empty**, and a disabled click does
    nothing at all. Once an item exists, criteria 6 and 7 govern: a score is *not* required,
    a comment or a score somewhere in the group is.
 17. A forced 429 shows an inline warning with the selection, score, and comment all intact.
 18. With the selected provider unreachable, the results area shows a quiet message plus the
     switch offer, the input stays editable, and no modal or red alert appears.
+18a. A `reason: "rate_limited"` says **something different** from `"unavailable"`. Hitting
+    AniList's own 30/min is the likeliest failure a heavy searcher meets, and it is not the
+    same event as AniList being down: the fix is to wait a moment, not to switch providers.
+    Offering the other source here would send someone to Jikan for no reason. Force it by
+    searching past the quota and read the message.
 19. Tapping the switch offer flips the toggle visibly, re-runs the **same** query against
     the other provider, and returns results.
 20. On first load the toggle reads **AniList** and the search input is immediately typable
@@ -179,6 +187,12 @@ The share-URL builders and the provider-switch state reducer are pure functions,
 **are** `bun test` cases: criteria 22, 23, and 26 are cheap to automate and expensive to
 re-check by hand every phase.
 
+**Criteria 4, 19, 21, and 24 need Jikan to answer, and Jikan often will not** — six
+consecutive 504s during verification (`../tech-stack.md`). A failure on those four is a
+finding about MyAnimeList, not about this phase. Retry them later rather than treating the
+phase as incomplete; criterion 18, which requires the *failure* to be handled gracefully, is
+the one that can always be checked.
+
 ## Risks
 
 | Risk | Mitigation |
@@ -192,6 +206,7 @@ re-check by hand every phase.
 | A stale selection surviving a provider switch, producing an id/provider mismatch | Criteria 22 and 23. This is the one UI bug that can write a wrong anime to the database |
 | The toggle adding a click to the timed flow | Criterion 20 times the flow without touching it; the default exists for exactly this |
 | MyAnimeList users blaming Tsugi for Jikan's 504s | Criterion 18's message names the source, and criterion 19 gives a working way out |
+| A rate-limit response handled as an outage, pushing the user to the other provider pointlessly | Criterion 18a. `ProviderResult` already distinguishes `rate_limited` from `unavailable`; the UI has to as well |
 | Components built without registration, then rebuilt | Criterion 28 |
 | A WhatsApp share arriving with no link in it | Criterion 26 opens the composer and reads it. The `url`-param mistake produces a share that looks fine until someone tries to click it |
 

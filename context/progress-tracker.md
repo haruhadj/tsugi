@@ -387,8 +387,13 @@ would argue for making the fallback more prominent rather than adding another on
 ### D25 — Synthesised emails, and no automatic account linking
 Verified by introspection: **AniList's `User` type has no email field**, and MAL's
 `/users/@me` does not return one either. Better-Auth wants a unique email, so tracker
-sign-ins mint `anilist:<id>@users.tsugi.invalid` (`.invalid` is reserved by RFC 2606 and can
+sign-ins mint `anilist-<id>@users.tsugi.invalid` (`.invalid` is reserved by RFC 2606 and can
 never route).
+
+**Amended 2026-08-09 (pre-code audit):** the separator was `:`, which is not valid in an
+unquoted local part under RFC 5322. Better-Auth's OAuth path does not validate it — the
+package's `z.email()` calls are all on routes we do not use — so it would have worked until
+something else touched the address. Changed to `-`, which is valid everywhere.
 
 **Consequence:** Better-Auth links accounts by matching a *verified* email. Synthesised
 addresses never match, so signing in with AniList and later Google produces **two separate
@@ -398,6 +403,9 @@ session. Never enable `trustedProviders` for the trackers — it would link stra
 happen to collide.
 
 ### D26 — One model: a recommendation holds 1..N items
+> ⚠️ **Capped at 10 by [D36](#d36--ten-items-per-recommendation-four-at-a-time-eight-seconds-total),
+> 2026-08-09.** The model is unchanged; only N is bounded, because each item costs a provider
+> call on a shared rate-limit budget.
 Replaces the old "one row, one title". Grouping (*"AoT and Vinland Saga is my masterpiece"*)
 was explicitly out of scope before, on the grounds that lists are a different product. The
 owner wants it, and the cheapest correct shape is one model where a single title is simply
@@ -460,7 +468,7 @@ untested assumption in the product and plain search is enough to prove it.
 
 ## The pre-code audit — 2026-08-09
 
-D32–D35 came out of an audit of the blueprint against itself, run before any code was
+D32–D36 came out of two audits of the blueprint against itself, run before any code was
 written. They close gaps the pivot left rather than changing the product.
 
 ### D32 — The user's score format is a column on `user`, written at sign-in
@@ -519,6 +527,29 @@ still comes in, it just arrives unrated, which **D27** already allows. Enforced 
 format), by a `CHECK` on `scoreRaw > 0`, and by a score control with no zero position.
 **Consequence worth noting:** no valid score is falsy, so `if (scoreRaw)` happens to be safe
 — `code-standards.md` still requires `!= null`, because the next person will not know why.
+
+### D36 — Ten items per recommendation, four at a time, eight seconds total
+*Closes a capacity gap **D26** opened and nothing revisited.*
+
+Grouping made server-side resolution fan out: one provider call per item, on a path where
+**every user shares a single AniList bucket of 30/min**, because Vercel egresses from a small
+pool of addresses. That is the constraint **D3** avoided for typeahead by running it in the
+browser, and the create path cannot avoid it — **D13** requires the server to resolve, or
+anyone could POST arbitrary text and imagery onto a Tsugi-branded card. Nothing capped N,
+so one user's five allowed posts per minute could each have carried hundreds of items.
+
+**Chosen:** 10 items maximum, 4 resolutions in flight, one 8-second deadline for the whole
+request. Past the deadline: abort, **502**, write nothing — the same outcome the transaction
+rule already defines, reached differently. Enforced in Zod (field-addressable 400) and in the
+tray, which refuses an eleventh item rather than letting someone build a group the API will
+reject.
+**Why 10:** it covers "my top 10", which is the obvious thing to want to make, and a cold
+10-item group is a third of the shared minute — survivable, and rare, because the 24-hour
+resolution cache means popular titles cost no upstream call at all.
+**Cost accepted:** a 25-title seasonal list is not expressible. That needs a progress state
+rather than a spinner, and it is a different product surface.
+**Revisit if:** real usage shows groups clustering at the cap, or if the cache hit rate makes
+the shared bucket a non-issue in practice. Both are measurable once anything is deployed.
 
 ---
 
@@ -597,6 +628,79 @@ headers and one surviving Discord mention. PostgreSQL's unique-violation code (`
 now recorded in Phase 1 where Phase 4 was told to find it.
 
 **Next:** Phase 0, unchanged in shape. Add a GitHub remote first.
+
+### 2026-08-09 — Second audit pass, against the packages rather than the documents
+
+Re-ran the external verification instead of trusting the morning's dates, and read the
+published tarballs of `drizzle-orm@0.45.2` and `better-auth@1.6.26` — `node_modules` does not
+exist yet, so the "installed package outranks docs" rule had nothing to point at.
+
+**Held up:** AniList `154587` / `idMal 52991`, `x-ratelimit-limit: 30`, CORS `*`; MAL v2
+`403` without a client id and **no** `access-control-*` headers at all; `x.com/intent/post`
+200 and `wa.me` 302; `.enableRLS()` present in 0.45.2 with `withRLS` absent.
+
+**Three defects with source evidence:**
+
+- **`numeric()` returns a string.** `pg-core/columns/numeric.d.ts` is generic over
+  `'string' | 'number' | 'bigint'` and defaults to `'string'`. `scoreRaw` would have been
+  `"87.0"` in TypeScript and in API JSON while Zod and `score.ts` expect a number — and it
+  compiles either way. Now declared `numeric(4, 1, { mode: "number" })`, with Phase 1
+  criterion 12 asserting `typeof === "number"`.
+- **A repeat OAuth sign-in does not refresh the user row.** `dist/api/routes/callback.mjs`
+  forwards `provider.options?.overrideUserInfoOnSignIn` and the update is gated on it. Phase
+  2's criterion 12 (score format follows the user's preference) was unsatisfiable without
+  `overrideUserInfo: true`; the flag is now named in the phase.
+- **The Frieren assertion could not have passed.** AniList returns
+  `Frieren: Beyond Journey’s End` with **U+2019**, not an ASCII apostrophe. Both phase files
+  had the ASCII form, so a hand-typed test would fail and read as an adapter bug.
+
+**Also:** Jikan re-measured at **6 consecutive 504s** — it fails in runs, not independently,
+which makes D14's one-tap switch the primary path for MAL users and means fixture capture has
+to be opportunistic. The synthesised email used `:`, invalid in an unquoted local part;
+Better-Auth's OAuth path happens not to validate it (its `z.email()` calls are all on routes
+we do not use), so it would have worked until anything else touched the address — changed to
+`-` (**D25** amended). Sign-out had no home in any screen; it is now the one control at the
+bottom of `/settings`. Two brief amendments were undocumented and re-proposable — the
+per-user limiter key and view counting living in the page render — both now in PLAN.md.
+
+**Decided:** **D36**, the item cap and resolution budget, which is the one thing here that
+was a product question rather than a defect.
+
+**Third pass — invariant coverage, links, and the brief.** Checked every invariant in
+`AGENTS.md` for a phase criterion that actually verifies it. Thirteen of fifteen were
+covered. Two were not:
+
+- **Invariant 1 had no mechanical check anywhere.** "Database ids never appear in a URL, an
+  API response, or rendered HTML" was stated once, as a note in a schema table, on a product
+  whose read endpoint returns a row and its items to anonymous callers. A `select *` handed
+  to `c.json()` would have leaked the group's `id` and the **owner's `userId`** to every
+  reader of a shared link. Now Phase 4 criterion 18a (JSON shape) and Phase 6 criterion 19a
+  (no uuid in the HTML).
+- **The 120-character caption had no limit anywhere but the column.** Comments were enforced
+  in all three layers; the caption only in Postgres. Added to Phase 4 criterion 15 and Phase
+  5 criterion 15.
+
+Also extended invariant 12's grep to `page.tsx` — it only ever checked `opengraph-image.tsx`,
+though both take `params`. Verified every relative link across the 21 documents resolves,
+every file in the read order exists, and `scripts/check-db-reachable.sh` does what the
+tracker says. Re-read `ai-prompt.xml` in full and confirmed each of its seven requirements is
+either implemented or has a decision withdrawing it.
+
+**Fourth pass — the two largest phase specs, read end to end.** Three smaller things:
+`ui-rules.md` required a confirmation for discarding the whole tray, a control no phase
+builds — removed rather than invented, and `ConfirmDialog` is now delete-only. Four of Phase
+5's criteria (4, 19, 21, 24) need Jikan to answer, which it often will not; they are now
+marked as retryable rather than blocking, since a failure there is a finding about
+MyAnimeList. And `rate_limited` had no UI treatment distinct from `unavailable`, though it is
+the likeliest failure a heavy searcher meets and the *wrong* one to answer with "try the
+other provider" — waiting fixes it, switching does not.
+
+**The loop converged:** eleven findings in the first pass, seven in the second, three in the
+third, three in the fourth, none of them structural. Remaining risk is concentrated where it
+always was — MAL's `plain`-only PKCE (**D30**) and Satori's CSS subset — and neither is
+knowable before the code exists.
+
+**Next:** Phase 0. Still nothing blocking but the GitHub remote.
 
 ### 2026-08-09 — Planning
 - Read the client brief at `context/ai-prompt.xml`.

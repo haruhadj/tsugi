@@ -158,7 +158,12 @@ localhost.
 17. With the database made unwritable, `/r/[slug]` still renders **200**. The counter fails
     silently.
 18. `/r/aaaaaaaaaaaa` returns a real **404**, not a 500 and not a redirect.
-19. `grep -n "await params" src/app/r/\[slug\]/opengraph-image.tsx` matches. Invariant 12.
+19. `grep -rn "await params" src/app/r/\[slug\]/` matches in **both** `opengraph-image.tsx`
+    and `page.tsx`. Invariant 12 applies to every route with `params`, not only the image.
+19a. **`view-source` on `/r/[slug]` contains no uuid** —
+    `curl -s <url>/r/<slug> | grep -ciE '[0-9a-f]{8}-[0-9a-f]{4}-'` returns `0`. Invariant 1.
+    The page renders a row that has an `id` and a `userId` on it; serialising the whole
+    object into a client component's props is how both reach the HTML of a public page.
 20. `grep -rn "@vercel/og" src package.json` returns nothing.
 21. `grep -rn "headers()" src/app/r` shows the base URL is **not** derived from request
     headers — it comes from `NEXT_PUBLIC_APP_URL`.

@@ -21,7 +21,7 @@ without it.
 - The auth handler mounted inside that Hono app
 - `src/app/(auth)/sign-in` — one screen, three buttons
 - `src/app/(settings)/settings` — **a minimal connections screen**: which providers are
-  linked, and a button to link another
+  linked, a button to link another, and the product's **only sign-out control**
 - Capturing `user.scoreFormat` at sign-in (**D32**)
 - Session helpers for server components and Hono routes
 - Explicit account linking via `linkSocial` from that settings screen
@@ -59,12 +59,19 @@ email field at all — verified by introspection — and MAL's `/users/@me` does
 either. Better-Auth wants a unique email, so mint a deterministic placeholder:
 
 ```
-anilist:12345@users.tsugi.invalid
-mal:67890@users.tsugi.invalid
+anilist-12345@users.tsugi.invalid
+mal-67890@users.tsugi.invalid
 ```
 
 `.invalid` is reserved by RFC 2606 and can never be routed, so a placeholder can never
 accidentally receive mail. (**D25**)
+
+**The separator is a hyphen, not a colon** — an earlier draft used `anilist:12345@…`, and
+`:` is not valid in an unquoted local part under RFC 5322. Better-Auth's OAuth path happens
+not to validate it (checked: every `z.email()` in the package sits on the password,
+magic-link, OTP, and admin routes, none of which we use), so the colon would have worked
+today and broken the first time any other path touched the address. A hyphen is valid
+everywhere and costs nothing.
 
 **Automatic account linking is therefore off.** Better-Auth links accounts by matching a
 *verified* email. Synthesised addresses never match, so a user signing in with AniList and
@@ -84,12 +91,22 @@ D24 makes to justify offering Google at all. So: linked providers, a link button
 else. Unlinking and the last-provider guard are Phase 8's, because they need decisions this
 phase does not have. (**D33**)
 
-**The user's score format is read at sign-in.** AniList's
-`Viewer.mediaListOptions.scoreFormat` comes back from the same token exchange that creates
-the account, so writing it to `user.scoreFormat` costs one extra field on a query already
-being made. MAL is always `POINT_10`; Google keeps the `POINT_10` default. Without this,
-Phase 5 has no way to know whether to render smileys or a 1–10 strip, and Phase 7 would be
-the first phase that could tell — one phase too late. (**D32**)
+**The user's score format is read at sign-in.** Add
+`mediaListOptions { scoreFormat }` to the `Viewer` query that `getUserInfo` already makes —
+one extra field on a request that has to happen anyway, not a second round trip. MAL is
+always `POINT_10`; Google keeps the `POINT_10` default. Without this, Phase 5 has no way to
+know whether to render smileys or a 1–10 strip, and Phase 7 would be the first phase that
+could tell — one phase too late. (**D32**)
+
+**Refreshing it on re-sign-in needs `overrideUserInfo: true`.** Better-Auth does **not**
+re-apply `getUserInfo` to an existing user by default — verified by reading
+`better-auth@1.6.26`: `dist/api/routes/callback.mjs` passes
+`overrideUserInfo: provider.options?.overrideUserInfoOnSignIn`, and the update in
+`dist/oauth2/link-account.mjs` is gated on it. `genericOAuth` exposes the flag as
+`overrideUserInfo`. Without it, a user who changes their AniList score format keeps the
+stale value forever and criterion 12 fails. Set it on **both** tracker providers; the fields
+it overwrites are name, image, and our own deterministic synthesised email, so there is
+nothing to lose.
 
 **Tokens are stored, never exposed.** Better-Auth writes provider access and refresh tokens
 into the `account` table. MAL access tokens live **one hour** and refresh tokens **one
@@ -106,7 +123,8 @@ expired session dumps someone on a login page having lost a draft.
    `account`. Three separate runs; no provider is assumed to work because another did.
 2. The AniList and MAL `account` rows contain a non-empty `accessToken`.
 3. The MAL row also contains a `refreshToken` — without it Phase 7 breaks after an hour.
-4. `user.email` for tracker sign-ins matches `^(anilist|mal):\d+@users\.tsugi\.invalid$`.
+4. `user.email` for tracker sign-ins matches `^(anilist|mal)-\d+@users\.tsugi\.invalid$`
+   — a **hyphen**, not a colon, which would be an invalid local part.
 5. Signing in with AniList and then Google (same person, separate flows) produces **two
    distinct users**. This is expected, and the criterion exists so nobody later reports it
    as a bug: automatic linking cannot work without verified emails.
@@ -119,12 +137,15 @@ expired session dumps someone on a login page having lost a draft.
    throwing.
 9. **No token is ever sent to the client.** `grep -rn "accessToken\|refreshToken" src/app
    src/components` returns nothing. Invariant 10.
-10. Signing out clears the session cookie and `session` row.
+10. Signing out — from the control on `/settings`, the only one in the product — clears the
+    session cookie and the `session` row, and lands on `/` in its signed-out form.
 11. **An AniList user who rates in `POINT_5` has `user.scoreFormat = "POINT_5"` after
     sign-in** — read the row, do not infer it. A MAL sign-in stores `POINT_10`; a Google
     sign-in keeps the default. This is what makes Phase 5's criterion 8 reachable (**D32**).
 12. Changing the score format on AniList and signing in again updates the stored value. It
-    is a preference, not a fact about the account.
+    is a preference, not a fact about the account. **This requires `overrideUserInfo: true`
+    on the provider** — without it Better-Auth silently keeps the original and this criterion
+    is the only thing that catches it.
 13. `/settings` while signed out redirects to sign-in and does not 500.
 14. `bun x tsc --noEmit`, `bun x eslint .`, and `bun test` all exit 0.
 
