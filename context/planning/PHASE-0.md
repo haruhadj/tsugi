@@ -35,7 +35,8 @@ than improvised six files into Phase 5.
 | `src/app/layout.tsx` | Root layout, `data-theme="dark"` on `<html>`. No provider — HeroUI 3 needs none |
 | `src/app/page.tsx` | Placeholder proving the theme renders |
 | `next.config.ts` | `images.remotePatterns` for `s4.anilist.co`, `cdn.myanimelist.net` |
-| `eslint.config.mjs` | Flat config — Next 16 defaults to it |
+| `postcss.config.mjs` | `{ plugins: { "@tailwindcss/postcss": {} } }` — **without this, `@import "@heroui/styles"` compiles to an empty stylesheet under Turbopack**, found during implementation; see `tech-stack.md` |
+| `eslint.config.mjs` | Flat config — Next 16 defaults to it. `eslint-config-next@16.3.0` ships pre-flattened arrays (`eslint-config-next/core-web-vitals`); do not wrap it in `FlatCompat`, which is for legacy shareable configs and throws on an already-flat array |
 | `tsconfig.json` | `strict`, `noUncheckedIndexedAccess`, `@/*` → `src/*` |
 | `src/lib/env.ts` | Zod-validated environment access, fails loudly at startup |
 | `src/lib/env.test.ts` | The first test — proves the harness runs in CI |
@@ -123,10 +124,16 @@ Each is a command with an unambiguous pass.
 6. `bun dev` serves `/`, and the page renders dark: computed `background-color` of `<body>`
    resolves from `--background`, a near-black value — **not** `#ffffff`. A white page means
    `data-theme="dark"` is missing from `<html>`.
-7. A HeroUI `<Button color="accent">` on the placeholder page renders **as a styled button**
-   — filled, rounded, with a hover state — not as unstyled default-browser text. This proves
-   `@heroui/styles` loaded, not merely that Tailwind did. Inspect it: the element should
-   carry a `.button` class, and that class should have real declarations in the cascade.
+7. A HeroUI `<Button variant="primary">` on the placeholder page renders **as a styled
+   button** — filled, rounded, with a hover state — not as unstyled default-browser text.
+   This proves `@heroui/styles` loaded, not merely that Tailwind did. Inspect it: the
+   element should carry `.button` and `.button--primary` classes, and `.button--primary`
+   should resolve `--button-bg` to `var(--accent)` in the cascade.
+   > **Corrected during Phase 0 implementation, 2026-08-10:** the installed
+   > `@heroui/react@3.2.4` `Button` has no `color` prop — verified by reading
+   > `button.d.ts`/`button.styles.d.ts`. The accent-filled look is `variant="primary"`,
+   > which maps `--button-bg` to `--accent` in `button.css`. The blueprint's `color="accent"`
+   > was never checked against the package; this criterion is the corrected version.
 7a. Keyboard-focus that button: it shows a visible focus ring drawn from `--focus`. React
    Aria supplies the behaviour, so a missing ring means the stylesheet did not load rather
    than that focus handling was forgotten.

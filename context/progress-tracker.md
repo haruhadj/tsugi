@@ -613,6 +613,38 @@ the answer is to shrink the client boundary rather than to change libraries agai
 
 ---
 
+### D38 — Two HeroUI/Tailwind facts corrected against the installed package, Phase 0
+
+*Found while implementing Phase 0, 2026-08-10 — not a product decision, a correction of two
+unverified blueprint claims.*
+
+**`Button` has no `color` prop.** `PHASE-0.md` criterion 7 specified `<Button
+color="accent">`. Reading the installed `@heroui/react@3.2.4` (`button.d.ts`,
+`button.styles.d.ts`) shows the prop is `variant`, with values `primary | secondary |
+tertiary | outline | ghost | danger | danger-soft`. `variant="primary"` is the one that maps
+`--button-bg` to `--accent` in `button.css` — it is a style-role name, not a colour name, and
+it is the one that satisfies the criterion's intent. Corrected in code and in criterion 7.
+
+**`@tailwindcss/postcss` and `postcss.config.mjs` were never in the version matrix or the
+deliverables table, and Tailwind does not run without them.** `globals.css`'s one line —
+`@import "@heroui/styles"`, which itself contains `@import "tailwindcss"` — compiled to a
+**1-byte** stylesheet under Turbopack with no PostCSS plugin configured. `next build` and
+`bun dev` both stayed green throughout, because nothing about a missing stylesheet is a type
+or lint error. This is precisely the failure mode Phase 0's own risk table named ("Tailwind
+4's CSS-first config is unfamiliar and silently produces an unstyled page") from a cause the
+table never listed as a candidate.
+
+**Chosen:** `@tailwindcss/postcss@4.3.3` as a dev dependency, `postcss.config.mjs` invoking
+it. Verified fixed by refetching the built CSS chunk (415KB, real `--background`/`--accent`/
+`--focus` declarations under `[data-theme="dark"]`) and by re-reading the served HTML for
+`data-theme="dark"` and a `.button.button--primary` class on the placeholder button.
+**Neither defect would have been caught by `tsc`, `eslint`, or `bun test`** — only a rendered
+build inspected end to end catches a stylesheet that compiles to nothing. Recorded so a
+future phase does not assume Phase 0's green CI proved the page is styled; criterion 7's
+literal DOM/CSS inspection is what actually proved it.
+**Revisit if:** never — this is closed by the fix, not a tradeoff with a condition to
+reopen it.
+
 ## External prerequisites
 
 | Needed by | Service | Status |

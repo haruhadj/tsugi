@@ -19,6 +19,7 @@ version matrix without a date is a rumour.
 | `react` / `react-dom` | 19.2.8 | Next 16 App Router runs React 19.2 features |
 | `typescript` | ^5 | 5.1 is the floor for Next 16 |
 | `tailwindcss` | 4.3.3 | CSS-first config. **No `tailwind.config.ts` exists.** |
+| `@tailwindcss/postcss` | 4.3.3 | **Required**, not optional — see the Phase 0 finding below. Paired with `postcss.config.mjs`. |
 | `@heroui/react` | 3.2.4 | Requires Tailwind **≥4** and React **≥19** as peers. ESM-only. Replaced DaisyUI (**D37**) |
 | `react-aria` | 3.51.0 | **Non-optional peer** of `@heroui/react` (`^3.51.0`) |
 | `react-aria-components` | 1.20.0 | Non-optional peer (`^1.20.0`) |
@@ -88,6 +89,21 @@ Everything below was verified on **2026-08-09** by reading `@heroui/react@3.2.4`
 - **No `framer-motion`.** NextUI v2 required it; v3's dependency list is `@heroui/styles`,
   `tailwind-variants`, `tailwind-merge`, `@radix-ui/react-avatar`, `input-otp`, and two
   `@react-types` packages. Do not add motion libraries.
+- **`@tailwindcss/postcss` and `postcss.config.mjs` are both required — discovered missing
+  during Phase 0 implementation, 2026-08-10.** `globals.css`'s single line,
+  `@import "@heroui/styles"`, itself contains `@import "tailwindcss"`. Turbopack's default
+  CSS handling treats a bare `@import` as a literal module reference, not an instruction to
+  run Tailwind — with no PostCSS plugin configured, the entire chain resolved to an empty
+  stylesheet (a **1-byte** `.css` chunk) while `next build` and `bun dev` both stayed green.
+  This is the exact "silently unstyled page" failure Phase 0's own risk table warned about,
+  from a cause the blueprint never named. **Fix:** `@tailwindcss/postcss` as a dev
+  dependency, plus
+  ```js
+  // postcss.config.mjs
+  export default { plugins: { "@tailwindcss/postcss": {} } };
+  ```
+  Verified fixed: the same build then emits a 400KB+ stylesheet with real `--background`,
+  `--accent`, and `--focus` declarations under `[data-theme="dark"]`.
 - **No `@source` directive is needed, and this is the surprising part.** Most Tailwind
   component libraries emit utility strings at runtime, so Tailwind has to scan
   `node_modules` — which it does not do by default, producing a silently unstyled page.
