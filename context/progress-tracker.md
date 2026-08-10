@@ -9,10 +9,10 @@ happened last time.
 
 | | |
 |---|---|
-| **Current phase** | **Phase 1 — Data layer** ([spec](./planning/PHASE-1.md)) |
-| **Phase status** | Phase 0 complete; Phase 1 not started |
+| **Current phase** | **Phase 2 — Authentication** ([spec](./planning/PHASE-2.md)) |
+| **Phase status** | Phase 1 complete (criterion 25 partial — see below); Phase 2 not started |
 | **Last updated** | 2026-08-10 |
-| **Application code** | Phase 0 scaffold: Next 16 App Router, HeroUI 3 placeholder page, `src/lib/env.ts`, CI. No database, no components beyond the placeholder. |
+| **Application code** | Phase 0 scaffold plus Phase 1's full data layer: `recommendation` + `recommendation_item` + four Better-Auth tables, RLS on all six, two migrations applied. No auth runtime, no components beyond the Phase 0 placeholder. |
 | **Repository** | `main` pushed to `github.com/haruhadj/tsugi` (private). CI green. |
 
 ### Phase status
@@ -20,8 +20,8 @@ happened last time.
 | Phase | Status |
 |---|---|
 | 0 — Foundation & CI | **Complete** — 2026-08-10 |
-| 1 — Data layer | Not started ← **current** |
-| 2 — Authentication | Not started — moved up by **D23/D31** |
+| 1 — Data layer | **Complete** — 2026-08-10 (criterion 25 unverified, see Immediate next steps) |
+| 2 — Authentication | Not started ← **current** — moved up by **D23/D31** |
 | 3 — Media providers | Not started |
 | 4 — API surface | Not started |
 | 5 — Create & share UX | Not started |
@@ -31,11 +31,17 @@ happened last time.
 
 ### Immediate next steps
 
-1. **Phase 1 — data layer.** `.env` already holds working pooler and direct connection
-   strings; nothing external blocks it. See [`planning/PHASE-1.md`](./planning/PHASE-1.md).
-2. **Register three OAuth apps before Phase 2** — AniList, MyAnimeList, Google. The owner
-   will supply the credentials. Start the MAL one early: it is the fiddliest, and its
-   `plain`-only PKCE (**D30**) is the most likely source of an unplanned day.
+1. **Phase 2 — authentication.** Schema is already in place; this phase wires providers, the
+   Hono mount, and session handling. See [`planning/PHASE-2.md`](./planning/PHASE-2.md).
+2. **Register three OAuth apps before Phase 2 can finish** — AniList, MyAnimeList, Google.
+   The owner will supply the credentials. Start the MAL one early: it is the fiddliest, and
+   its `plain`-only PKCE (**D30**) is the most likely source of an unplanned day.
+3. **Run Phase 1 criterion 25 when a Supabase MCP session is available.** `get_advisors(type:
+   "security")` needs the MCP connection, which this session did not have. Criteria 17 and
+   22–24 were verified directly against the live database and the PostgREST endpoint instead
+   — a real row inserted as the `postgres` role was confirmed invisible to an anon read and
+   an anon write was rejected outright (`42501`) — so the substance is covered; the advisor
+   check is a second, automated opinion on the same thing, not a gap in what was tested.
 
 ---
 
@@ -640,12 +646,59 @@ literal DOM/CSS inspection is what actually proved it.
 **Revisit if:** never — this is closed by the fix, not a tradeoff with a condition to
 reopen it.
 
+### D39 — Four facts corrected during Phase 1, none of them product decisions
+
+*Found implementing and testing the data layer, 2026-08-10.*
+
+**`server-only` throws unconditionally under a plain Node/Bun `require` — it is not a no-op
+outside a bundler.** It only resolves to a no-op via the `react-server` package export
+condition, which Next's bundler sets automatically and nothing else does by default. This
+broke two things: `drizzle-kit generate` (which loads `schema.ts` directly) and `bun test`
+(which loads `db/index.ts` for the db test tier). **Fixed two ways:** `server-only` was moved
+off `schema.ts`/`auth-schema.ts`/`enums.ts` — inert table metadata, no secrets, no connection
+— and kept only on `db/index.ts` (the file that actually holds credentials); and every test
+invocation now passes `--conditions=react-server` — in `ci.yml`, in `package.json`'s `test`
+script, and in `AGENTS.md`'s documented commands, because `bun test` is a Bun subcommand that
+bypasses `package.json` scripts entirely and there is no single place that covers it once.
+Full detail in `code-standards.md`.
+
+**Bun's `describe.skip` still runs the block's `beforeAll`/`afterAll`** — verified against
+1.3.14, and the opposite of Jest/Vitest. This mattered because `code-standards.md` prescribed
+exactly the pattern that breaks: `describeDb = DATABASE_URL ? describe : describe.skip`. A
+db-tier `beforeAll` that dynamically imports `db/index.ts` runs anyway when "skipped",
+re-triggering the `server-only` crash above and breaking CI's plain `bun test` on the first
+real push. **Fixed:** a plain `if (hasDb) { describe(...) }` around the whole block, which is
+the only thing that actually prevents registration. `code-standards.md`'s example corrected.
+
+**Drizzle wraps driver errors — `.code` is not where the blueprint assumed.** `PHASE-1.md`
+criterion 8 said postgres.js surfaces a constraint violation as `err.code`, true only for the
+raw driver. A query run through Drizzle's query builder or `db.execute()` throws a
+`DrizzleQueryError`; the real `PostgresError` and its `.code` live at **`err.cause.code`**.
+Confirmed live (`23502`, `23503`, `23505`, `23514`, `22001`, `22P02` all observed with the
+wrapper). Phase 4's slug-retry loop, and anything else matching on a Postgres error code, must
+check `err.cause?.code`. `PHASE-1.md` and `PHASE-4.md` corrected.
+
+**The `comment_length` CHECK constraints in `schema.ts` could never fire.** Both `comment`
+columns are `varchar(280)`, which Postgres itself rejects an oversized value against (`22001`)
+before any row-level CHECK is evaluated — the CHECK was dead code from the moment it was
+written. Removed in migration `0001_low_gideon`; `varchar(280)` alone satisfies "the database
+column" layer of the three-layer enforcement rule (D10), no CHECK needed for length
+specifically.
+
+**None of these were caught by `tsc`, `eslint`, or reading the schema** — three needed a real
+`bun test` run (two locally, one only surfaced once pushed to actual CI), and the fourth
+needed the live database talking back with a specific error code. Recorded so nobody
+"simplifies" `--conditions=react-server` away or restores `describe.skip` as tidier-looking.
+**Revisit if:** never for the `server-only`/conditions fix — it is a correctness requirement,
+not a preference. The CHECK removal would only be worth revisiting if a comment column ever
+became unbounded `text`, at which point the CHECK becomes the only enforcement again.
+
 ## External prerequisites
 
 | Needed by | Service | Status |
 |---|---|---|
 | Phase 0 | **GitHub remote** | ✅ `github.com/haruhadj/tsugi` (private), `main` pushed, CI verified green — 2026-08-10 |
-| Phase 1 | Supabase project | ✅ **connected and verified** — PostgreSQL 17.6, `ap-southeast-2`. Both connection strings authenticate. `public` schema empty. |
+| Phase 1 | Supabase project | ✅ **schema live** — PostgreSQL 17.6, `ap-southeast-2`. Six tables migrated, RLS verified against the real PostgREST endpoint (2026-08-10). |
 | — | Supabase MCP server | ✅ authenticated, `.mcp.json` committed to the repo. See **D19**. |
 | Phase 2 | **AniList OAuth app** | ❌ `anilist.co/settings/developer` |
 | Phase 2 | **MyAnimeList OAuth app** | ❌ `myanimelist.net/apiconfig` — also supplies `X-MAL-CLIENT-ID` for Phase 7 |
@@ -677,6 +730,46 @@ the one you forgot. `scripts/check-db-reachable.sh` warns if a second file appea
 ## Session log
 
 Newest first. One entry per session: what changed, what was decided, what to pick up next.
+
+### 2026-08-10 — Phase 1 implemented: schema, Better-Auth tables, RLS verified live
+
+Built the full data layer per `planning/PHASE-1.md`: `recommendation` + `recommendation_item`
+in `src/db/schema.ts`, the four Better-Auth tables generated by its CLI into
+`src/db/auth-schema.ts` (with `user.scoreFormat` hand-converted to a real `score_format` pg
+enum instead of the generator's default `text`, so an out-of-range value fails at the
+database), enums split into `src/db/enums.ts` to avoid a circular import, `src/db/index.ts`
+(postgres.js, `prepare: false`, transaction pooler), `src/lib/auth.ts` (minimal per D18), and
+`drizzle.config.ts`. Two migrations generated and applied against the live Supabase project.
+
+Also fixed a real environment drift: `.env`'s `DATABASE_URL` carried `?pgbouncer=true`, which
+D8 explicitly says not to add. Connected fine either way, but stripped it to match the
+decision and re-verified. `.env`'s stale phase-number comments (left over from before the
+D31 renumbering) were also corrected to match `.env.example`.
+
+**Four corrections found running the suite, none of them product decisions — full detail in
+D39:** `server-only` throws unconditionally under a plain Bun/Node `require`, breaking both
+`drizzle-kit generate` and `bun test` until moved off the inert schema files and paired with
+`--conditions=react-server` on every test invocation; Bun's `describe.skip` still runs a
+block's `beforeAll`/`afterAll` (unlike Jest/Vitest), which broke the exact `describeDb`
+pattern `code-standards.md` had prescribed; Drizzle wraps driver errors as
+`DrizzleQueryError`, so a Postgres error code is at `err.cause.code`, not `err.code` as
+`PHASE-1.md` and `PHASE-4.md` had assumed; and the `comment_length` CHECK constraints were
+dead code from the start, since `varchar(280)` already enforces the bound before any CHECK
+evaluates — removed in migration `0001`.
+
+Verified live, not just `rowsecurity = true`: inserted a recommendation as the `postgres`
+role, then confirmed the anon key sees `[]` for it and an anon `POST` is rejected outright
+(`42501`), row count unchanged. That's criteria 17 and 22–24. **Criterion 25** (Supabase's
+automated security advisor) needs the Supabase MCP connection, which this session did not
+have — asked the user for the project's anon key instead to run the PostgREST attack
+directly, which is the stronger of the two checks anyway.
+
+CI verified green on the actual push (not just locally) — the `--conditions=react-server` fix
+had to be confirmed against real GitHub Actions, since the failure it fixes is specifically
+about environments where `.env` is absent.
+
+**Next:** Phase 2 — authentication. Needs three OAuth app registrations from the owner before
+it can finish; MAL first, per its `plain`-only PKCE risk (D30).
 
 ### 2026-08-10 — Phase 0 implemented, first code in the repository
 
