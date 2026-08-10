@@ -9,18 +9,18 @@ happened last time.
 
 | | |
 |---|---|
-| **Current phase** | **Phase 0 — Foundation & CI** ([spec](./planning/PHASE-0.md)) |
-| **Phase status** | Not started |
-| **Last updated** | 2026-08-09 |
-| **Application code** | None. The repository contains context files only. |
-| **Repository** | Git initialised, branch `main`, context set committed. **No remote yet** — Phase 0 criterion 12 needs one |
+| **Current phase** | **Phase 1 — Data layer** ([spec](./planning/PHASE-1.md)) |
+| **Phase status** | Phase 0 complete; Phase 1 not started |
+| **Last updated** | 2026-08-10 |
+| **Application code** | Phase 0 scaffold: Next 16 App Router, HeroUI 3 placeholder page, `src/lib/env.ts`, CI. No database, no components beyond the placeholder. |
+| **Repository** | `main` pushed to `github.com/haruhadj/tsugi` (private). CI green. |
 
 ### Phase status
 
 | Phase | Status |
 |---|---|
-| 0 — Foundation & CI | Not started ← **current** |
-| 1 — Data layer | Not started |
+| 0 — Foundation & CI | **Complete** — 2026-08-10 |
+| 1 — Data layer | Not started ← **current** |
 | 2 — Authentication | Not started — moved up by **D23/D31** |
 | 3 — Media providers | Not started |
 | 4 — API surface | Not started |
@@ -31,14 +31,9 @@ happened last time.
 
 ### Immediate next steps
 
-1. Scaffold Next 16 + Bun per [`planning/PHASE-0.md`](./planning/PHASE-0.md).
-2. Confirm the Tailwind 4 / HeroUI 3 CSS-first setup actually loads `@heroui/styles` —
-   Phase 0 exit criterion 7, the one that catches a silently-unstyled page. Install all five
-   `react-aria` peers; they are not optional (**D37**).
-3. **Create a GitHub remote and push `main`.** Phase 0 criterion 12 cannot be observed
-   without one, and it is the only external thing this phase needs.
-4. Phase 1 is unblocked: `.env` holds working pooler and direct connection strings.
-5. **Register three OAuth apps before Phase 2** — AniList, MyAnimeList, Google. The owner
+1. **Phase 1 — data layer.** `.env` already holds working pooler and direct connection
+   strings; nothing external blocks it. See [`planning/PHASE-1.md`](./planning/PHASE-1.md).
+2. **Register three OAuth apps before Phase 2** — AniList, MyAnimeList, Google. The owner
    will supply the credentials. Start the MAL one early: it is the fiddliest, and its
    `plain`-only PKCE (**D30**) is the most likely source of an unplanned day.
 
@@ -649,7 +644,7 @@ reopen it.
 
 | Needed by | Service | Status |
 |---|---|---|
-| Phase 0 | **GitHub remote** | ❌ criterion 12 observes CI running, which needs somewhere to push. The repository exists locally on `main`. |
+| Phase 0 | **GitHub remote** | ✅ `github.com/haruhadj/tsugi` (private), `main` pushed, CI verified green — 2026-08-10 |
 | Phase 1 | Supabase project | ✅ **connected and verified** — PostgreSQL 17.6, `ap-southeast-2`. Both connection strings authenticate. `public` schema empty. |
 | — | Supabase MCP server | ✅ authenticated, `.mcp.json` committed to the repo. See **D19**. |
 | Phase 2 | **AniList OAuth app** | ❌ `anilist.co/settings/developer` |
@@ -682,6 +677,39 @@ the one you forgot. `scripts/check-db-reachable.sh` warns if a second file appea
 ## Session log
 
 Newest first. One entry per session: what changed, what was decided, what to pick up next.
+
+### 2026-08-10 — Phase 0 implemented, first code in the repository
+
+Scaffolded Next 16 App Router + Bun exactly per `planning/PHASE-0.md`: TypeScript strict with
+`noUncheckedIndexedAccess`, Tailwind 4 / HeroUI 3 configured in CSS, ESLint flat config,
+Zod-validated `src/lib/env.ts`, and a three-step CI gate. Created the GitHub remote
+(`github.com/haruhadj/tsugi`, private), pushed `main`, and verified all 13 exit criteria,
+including the two CI requires: a deliberate type error and a deliberate failing test were
+each pushed on a throwaway branch/PR, observed to fail CI at the expected step (typecheck,
+then test), and reverted.
+
+**Two blueprint claims turned out to be wrong when checked against the installed packages
+— see D38 for the full detail:**
+- `@heroui/react@3.2.4`'s `Button` has no `color` prop. It's `variant`, and `variant="primary"`
+  is the one that resolves to `--accent`. Criterion 7 and the placeholder page both corrected.
+- `@tailwindcss/postcss` and `postcss.config.mjs` were never in the version matrix or the
+  Phase 0 deliverables table. Without them, `@import "@heroui/styles"` (which itself contains
+  `@import "tailwindcss"`) compiled to a **1-byte stylesheet** under Turbopack — `next build`,
+  `bun dev`, `tsc`, and `eslint` all stayed green throughout. Only inspecting the actual served
+  HTML and CSS (criterion 7's literal instruction) caught it. This is the "silently unstyled
+  page" risk Phase 0's own risk table named, arriving by a route the table didn't list.
+
+**One bug found by CI itself, not by local testing:** the first push failed CI because
+`src/lib/env.ts` validated real `process.env` as a module-load side effect, and
+`env.test.ts` importing that module ran the same validation — against CI's actual
+environment, which has no `.env` by design (D22). Fixed by making `getEnv()` a lazy, memoized
+accessor called explicitly from `next.config.ts`, with `validateEnv` staying a pure function
+the test calls directly. Worth remembering: **local `bun test` never caught this**, because
+Bun auto-loads `.env` locally — the bug only exists in an environment with no env file at
+all, which local runs never are.
+
+**Next:** Phase 1 — data layer. Nothing external blocks it; `.env` already has working
+pooler and direct connection strings.
 
 ### 2026-08-09 — Pre-code audit of the blueprint
 
