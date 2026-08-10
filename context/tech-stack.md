@@ -33,6 +33,7 @@ version matrix without a date is a rumour.
 | `drizzle-kit` | 0.31.10 | Better-Auth peer requires `>=0.31.4` |
 | `postgres` | 3.4.9 | postgres.js driver |
 | `better-auth` | 1.6.26 | peers accept `next ^14 \|\| ^15 \|\| ^16` |
+| `@better-auth/cli` | 1.4.21 | Dev-only, schema generator (**D18**). Bundles its own nested `better-auth@1.4.21` for internal use, but resolves our top-level `better-auth@1.6.26` when it imports `src/lib/auth.ts` — verified by reading `node_modules/@better-auth/cli/node_modules/better-auth/package.json` vs the root one. Run once to bootstrap; not part of the runtime bundle. |
 | `nanoid` | 6.0.1 | **ESM-only** (`"type": "module"`) |
 | `@upstash/ratelimit` | 2.0.8 | peer: `@upstash/redis ^1.34.3` |
 | `@upstash/redis` | 1.38.2 | |

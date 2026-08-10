@@ -20,6 +20,14 @@ Project-specific rules. General TypeScript style is assumed, not restated.
   ```ts
   import "server-only";
   ```
+  **Except `src/db/schema.ts`, `src/db/auth-schema.ts`, and `src/db/enums.ts`.** Found in
+  Phase 1: the `server-only` package throws unconditionally on a plain Node `require` — it
+  is not a no-op that only activates under a bundler, as its name suggests. `drizzle-kit`
+  loads schema files directly via Node to diff and generate migrations, so the guard makes
+  `bun x drizzle-kit generate` fail every time, not just once. These three files are inert
+  table/enum metadata with no secrets and no live connection, so the guard has nothing to
+  protect there anyway. `src/db/index.ts` — the file that actually holds `DATABASE_URL` and
+  opens a connection — keeps it; that is the one that matters.
 - Imports use the `@/` alias for anything outside the current directory. No `../../..`.
 - A module that both queries the database and renders JSX is always wrong. Split it.
 
