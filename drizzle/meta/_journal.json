@@ -8,6 +8,13 @@
       "when": 1786336085830,
       "tag": "0000_tough_mister_fear",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786336517676,
+      "tag": "0001_low_gideon",
+      "breakpoints": true
     }
   ]
 }

@@ -175,10 +175,21 @@ bun dev                  # Next 16 — Turbopack is the default, no flag needed
 bun run build
 bun x tsc --noEmit       # type gate
 bun x eslint .           # `next lint` was REMOVED in Next 16 — call ESLint directly
-bun test                 # built into Bun — no framework dependency
+bun test --conditions=react-server   # built into Bun — the CI gate; --conditions is load-bearing, see below
 bun x drizzle-kit generate
 bun x drizzle-kit migrate
 ```
 
-**The gate is all three:** `tsc --noEmit`, `eslint .`, `bun test`. CI runs them in that
-order. A phase is not finished until all three pass.
+**The gate is all three:** `tsc --noEmit`, `eslint .`, `bun test --conditions=react-server`.
+CI runs them in that order. A phase is not finished until all three pass.
+
+**Always run tests with `--conditions=react-server`, everywhere, every time.** Any module
+carrying `import "server-only"` (`src/db/index.ts`, `src/lib/auth.ts`) throws unconditionally
+under a plain Bun/Node require — that package only resolves to a no-op under the
+`react-server` export condition, which Next's bundler sets automatically and Bun does not
+unless told to. `bun test` bypasses `package.json` scripts entirely (it is a Bun subcommand,
+not `bun run <script>`), so the flag has to be on the literal command line in CI, in
+`package.json`'s `"test"` entry, and in anyone's fingers — there is no single place that
+covers all invocations. The db tier's `describe(...)` calls also sit behind a plain
+`if (hasDb)`, not `describe.skip` — see `code-standards.md` for why `describe.skip` does not
+actually skip a Bun test block's setup.

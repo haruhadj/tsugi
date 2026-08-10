@@ -188,9 +188,12 @@ render a different anime on someone's card. Invariant 2, decision **D15**.
 6. Deleting a recommendation **cascades** to its items — no orphans remain.
 7. Inserting a 281-character comment **fails** at the database, at both group and item level.
 8. Inserting a duplicate `slug` fails with a unique-violation error the application can
-   detect by code. **PostgreSQL raises `23505` (`unique_violation`)**; postgres.js surfaces
-   it as `err.code`. Phase 4's slug-retry loop matches on exactly that — confirm the value
-   observed here matches, and correct this line if it does not.
+   detect by code. **PostgreSQL raises `23505` (`unique_violation`)** — confirmed against the
+   live database in `schema.db.test.ts`. **Corrected during implementation:** raw postgres.js
+   surfaces it as `err.code`, but a query run through Drizzle's query builder or
+   `db.execute()` throws a `DrizzleQueryError` wrapper — the real `PostgresError` and its
+   `.code` live at **`err.cause.code`**, not `err.code` directly. Phase 4's slug-retry loop
+   must match on `err.cause?.code === "23505"`, not `err.code`.
 9. **Inserting with `userId = null` FAILS.** There is no anonymous path (**D23**). This
    criterion is the inverse of what it used to be; if it ever passes, the pivot has been
    silently undone.

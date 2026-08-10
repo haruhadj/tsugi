@@ -30,10 +30,10 @@ export const recommendation = pgTable(
       .references(() => user.id),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (table) => [
-    check("comment_length", sql`char_length(${table.comment}) <= 280`),
-    index("recommendation_user_id_idx").on(table.userId),
-  ],
+  // Comment length is enforced by varchar(280) itself — a CHECK here would
+  // never fire, since Postgres rejects an oversized value at the type level
+  // (22001) before any row-level constraint is evaluated.
+  (table) => [index("recommendation_user_id_idx").on(table.userId)],
 ).enableRLS();
 
 export const recommendationItem = pgTable(
@@ -59,7 +59,6 @@ export const recommendationItem = pgTable(
     comment: varchar("comment", { length: 280 }),
   },
   (table) => [
-    check("comment_length", sql`char_length(${table.comment}) <= 280`),
     // A number without its scale is meaningless (invariant 6) — both null or both set.
     check(
       "score_pair",

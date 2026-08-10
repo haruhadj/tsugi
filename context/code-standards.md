@@ -121,13 +121,26 @@ ignore. (**D22**)
 **Exclusion is by runtime skip, not by CI configuration:**
 
 ```ts
-const describeDb = process.env.DATABASE_URL ? describe : describe.skip;
-describeDb("recommendation constraints", () => { … });
+const hasDb = Boolean(process.env.DATABASE_URL);
+if (hasDb) {
+  describe("recommendation constraints", () => { … });
+}
 ```
 
 CI has no `DATABASE_URL`, so these skip automatically. Locally Bun loads `.env`, so they run
 without anyone remembering a flag. No filter arguments to keep in sync, and no way for a
 test to be silently dropped by a typo'd glob.
+
+**Use a plain `if`, not `describe.skip` — corrected in Phase 1 after it broke CI.** The
+original form was `const describeDb = process.env.DATABASE_URL ? describe : describe.skip`.
+Verified against Bun 1.3.14: `describe.skip` still **executes the block's
+`beforeAll`/`afterAll`** — it only skips the `test()` bodies. Any db/contract-tier file whose
+setup does something environment-sensitive (this project's does: a dynamic import of
+`src/db/index.ts`, which carries `import "server-only"` and throws under a plain Bun require)
+runs that setup anyway, even "skipped", which broke CI's plain `bun test` the first time this
+tier was written. A plain `if` around the whole `describe(...)` call never registers the
+block at all when there is nothing to connect to, which is the only thing that actually
+prevents the setup from running.
 
 - **Never call a live provider from a unit test.** AniList's 30/min budget is shared with the
   developer's own browser, and Jikan fails half the time — a suite that hits either is flaky

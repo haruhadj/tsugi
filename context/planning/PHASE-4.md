@@ -115,7 +115,10 @@ if `NODE_ENV=production` and the Upstash variables are absent. (**D9**)
 **Slug generation retries on collision.** nanoid at 12 characters over a 64-symbol alphabet
 makes collision vanishingly unlikely, but "unlikely" is not "handled". On a unique violation
 — PostgreSQL `23505`, confirmed by `PHASE-1.md` criterion 8 — regenerate and retry, up to 3
-times, then 500. Match on the code, never on the message text. Never return a slug that was
+times, then 500. Match on the code, never on the message text. **Match `err.cause?.code`, not
+`err.code`** — Drizzle wraps driver errors as `DrizzleQueryError`, and the real `PostgresError`
+lives at `.cause` (found in Phase 1; the blueprint originally assumed raw postgres.js's
+`err.code`, which is only correct without Drizzle in between). Never return a slug that was
 not actually inserted.
 
 **Cache key is `provider:mediaType:externalId`, not the search query.** Resolution is by id,
