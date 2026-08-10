@@ -9,6 +9,11 @@ const envSchema = z.object({
     .optional()
     .or(z.literal(""))
     .transform((value) => (value ? value : "http://localhost:3000")),
+  BETTER_AUTH_SECRET: z.string().min(1),
+  ANILIST_CLIENT_ID: z.string().min(1),
+  ANILIST_CLIENT_SECRET: z.string().min(1),
+  MAL_CLIENT_ID: z.string().min(1),
+  MAL_CLIENT_SECRET: z.string().min(1),
 });
 
 export type Env = z.infer<typeof envSchema>;

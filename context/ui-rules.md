@@ -33,8 +33,10 @@ used fastest, and speed is the whole promise.
 - **Inline, never global.** No full-page spinner on the create path.
 - Typeahead: a small `Spinner` in the input's trailing slot. The input never becomes
   disabled while searching.
-- Submit: `Button` with `isLoading`, keeping its label and therefore its width. A button
-  that resizes on click reads as a bug.
+- Submit: `Button` with `isPending`, keeping its label and therefore its width. A button
+  that resizes on click reads as a bug. **Corrected in Phase 2** — HeroUI's Button inherits
+  this prop from react-aria-components, where it is named `isPending`, not `isLoading`;
+  verified by reading the installed package's `Button.d.ts`.
 - Skeletons only where a known-size block is being filled. Never for something whose height
   is unknown — a skeleton that resizes is worse than a blank space.
 

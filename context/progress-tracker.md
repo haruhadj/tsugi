@@ -10,9 +10,9 @@ happened last time.
 | | |
 |---|---|
 | **Current phase** | **Phase 2 — Authentication** ([spec](./planning/PHASE-2.md)) |
-| **Phase status** | Phase 1 complete (criterion 25 partial — see below); Phase 2 not started |
+| **Phase status** | AniList + MAL code complete, unverified against live credentials. Google deferred at the owner's request. |
 | **Last updated** | 2026-08-10 |
-| **Application code** | Phase 0 scaffold plus Phase 1's full data layer: `recommendation` + `recommendation_item` + four Better-Auth tables, RLS on all six, two migrations applied. No auth runtime, no components beyond the Phase 0 placeholder. |
+| **Application code** | Phase 0 scaffold, Phase 1's full data layer, and Phase 2's auth wiring: Hono catch-all at `/api`, `genericOAuth` for AniList + MAL (Google not yet configured), `/sign-in` and `/settings`, session helper. |
 | **Repository** | `main` pushed to `github.com/haruhadj/tsugi` (private). CI green. |
 
 ### Phase status
@@ -21,7 +21,7 @@ happened last time.
 |---|---|
 | 0 — Foundation & CI | **Complete** — 2026-08-10 |
 | 1 — Data layer | **Complete** — 2026-08-10 (criterion 25 unverified, see Immediate next steps) |
-| 2 — Authentication | Not started ← **current** — moved up by **D23/D31** |
+| 2 — Authentication | **In progress** ← **current** — AniList/MAL code done, blocked on real OAuth credentials for criteria 1–6 and 9–13; Google not started |
 | 3 — Media providers | Not started |
 | 4 — API surface | Not started |
 | 5 — Create & share UX | Not started |
@@ -31,11 +31,16 @@ happened last time.
 
 ### Immediate next steps
 
-1. **Phase 2 — authentication.** Schema is already in place; this phase wires providers, the
-   Hono mount, and session handling. See [`planning/PHASE-2.md`](./planning/PHASE-2.md).
-2. **Register three OAuth apps before Phase 2 can finish** — AniList, MyAnimeList, Google.
-   The owner will supply the credentials. Start the MAL one early: it is the fiddliest, and
-   its `plain`-only PKCE (**D30**) is the most likely source of an unplanned day.
+1. **Swap the placeholder OAuth credentials in `.env` for real ones and re-run Phase 2's
+   live-flow exit criteria (1–6, 9–13).** AniList and MAL registration is in progress; once
+   both exist, sign in with each, confirm `account.accessToken`/`refreshToken` populate, and
+   watch for MAL's PKCE workaround succeeding or failing at the token-exchange step
+   specifically (**D30**, **D40**) — that is the one piece that could not be verified without
+   a real app.
+2. **Google is deferred** — the owner asked to do AniList and MAL first. When ready: register
+   the app, add `socialProviders.google` to `src/lib/auth.ts` (built-in, not `genericOAuth`),
+   wire the button in `SignInButtons.tsx` (already rendered, currently `isDisabled`), and
+   re-run criterion 5 (AniList + Google produce two distinct users).
 3. **Run Phase 1 criterion 25 when a Supabase MCP session is available.** `get_advisors(type:
    "security")` needs the MCP connection, which this session did not have. Criteria 17 and
    22–24 were verified directly against the live database and the PostgREST endpoint instead
@@ -405,9 +410,13 @@ something else touched the address. Changed to `-`, which is valid everywhere.
 **Consequence:** Better-Auth links accounts by matching a *verified* email. Synthesised
 addresses never match, so signing in with AniList and later Google produces **two separate
 users**. That is expected behaviour, and a Phase 2 exit criterion asserts it so nobody
-reports it as a bug. Linking is explicit only, via `linkSocial()` from an authenticated
-session. Never enable `trustedProviders` for the trackers — it would link strangers who
-happen to collide.
+reports it as a bug. Linking is explicit only, from an authenticated session. Never enable
+`trustedProviders` for the trackers — it would link strangers who happen to collide.
+
+**Amended 2026-08-10 (Phase 2 implementation):** "via `linkSocial()`" above was imprecise.
+That method is for **built-in social providers** (Google). AniList and MAL are `genericOAuth`
+providers, which expose a separate `authClient.oauth2.link()` — verified by reading the
+plugin's own source. See **D40**.
 
 ### D26 — One model: a recommendation holds 1..N items
 > ⚠️ **Capped at 10 by [D36](#d36--ten-items-per-recommendation-four-at-a-time-eight-seconds-total),
@@ -693,6 +702,47 @@ needed the live database talking back with a specific error code. Recorded so no
 not a preference. The CHECK removal would only be worth revisiting if a comment column ever
 became unbounded `text`, at which point the CHECK becomes the only enforcement again.
 
+### D40 — Two facts corrected implementing Phase 2, plus MAL's PKCE workaround verified as far as it can be without an app
+
+*Found implementing AniList and MyAnimeList sign-in, 2026-08-10. Google deferred at the
+owner's request — see the immediate next steps.*
+
+**The Drizzle adapter does not introspect the schema `db` was built with — it needs its own
+copy.** `drizzleAdapter(db, { provider: "pg" })` looked complete (the `db` instance already
+carries the full schema via `drizzle(client, { schema })`), but the first real request
+through any auth endpoint failed: `BetterAuthError: The model "verification" was not found
+in the schema object`. Phase 1's round-trip tests never caught this because they queried the
+tables directly, bypassing the adapter entirely. **Chosen:** pass `schema: { user, session,
+account, verification }` explicitly in the adapter config. `src/lib/auth.ts` corrected.
+
+**Linking an AniList/MAL account uses `authClient.oauth2.link()`, not `linkSocial()`.**
+D25's prose says "explicit only, via `linkSocial()`" — true for built-in social providers
+(Google), but AniList and MAL are `genericOAuth` providers, which register a *separate*
+`/oauth2/link` endpoint or the client (`authClient.oauth2.link({ providerId, callbackURL })`).
+Verified by reading `generic-oauth/routes.mjs`'s own JSDoc, which names the client method
+directly. `ProviderConnections.tsx` uses the correct one; `linkSocial()` is reserved for
+Google once it exists in `auth.ts`.
+
+**MAL's plain-PKCE workaround (see the comment above `getMalToken` in `auth.ts`) is verified
+as far as it can be without a MAL app.** The constructed authorization URL genuinely carries
+`code_challenge_method=plain` (confirmed via `curl` against `/api/auth/sign-in/oauth2`
+locally), and the SHA-256/base64url recomputation `getMalToken` performs was pulled out to
+`src/lib/pkce.ts` and unit-tested against the official RFC 7636 Appendix B test vector — it
+produces the exact expected challenge. What remains unverified is the live token exchange
+itself, which needs a real MAL app; that is criterion 1's job once one exists.
+
+**Placeholder OAuth credentials sit in `.env` (`placeholder-anilist-client-id`, etc.) so
+`bun run build` and local dev work before the real apps exist.** `.env` is gitignored;
+replace them with the real values once AniList and MAL registration is done, then re-run
+Phase 2's live-flow criteria (1–6, 9–13) end to end — none of them could be verified this
+session without real credentials.
+
+**Revisit if:** never for the adapter-schema or `oauth2.link` corrections — both are
+factual. The MAL PKCE mechanism should be re-verified the moment real credentials exist;
+if MAL rejects the authorize request outright (rather than accepting `plain` with an
+S256-shaped challenge value), the fallback is disabling `pkce` entirely and re-deriving the
+approach — flag this immediately if criterion 1 fails for MAL specifically.
+
 ## External prerequisites
 
 | Needed by | Service | Status |
@@ -730,6 +780,46 @@ the one you forgot. `scripts/check-db-reachable.sh` warns if a second file appea
 ## Session log
 
 Newest first. One entry per session: what changed, what was decided, what to pick up next.
+
+### 2026-08-10 — Phase 2 started: AniList + MAL wired, Google deferred
+
+Owner asked to implement AniList and MyAnimeList now, Google later. Built per
+`planning/PHASE-2.md`: the Hono catch-all at `src/app/api/[[...route]]/route.ts` (the only
+`route.ts` under `src/app/api`, confirmed), `src/lib/auth.ts` extended with `genericOAuth`
+for both trackers, `src/lib/auth-client.ts`, `getServerSession()`, `/sign-in`
+(`SignInButtons`, three buttons — Google renders `isDisabled`), and `/settings`
+(`ProviderConnections`, redirects to `/sign-in` when signed out, owns the product's only
+sign-out control). Generated `BETTER_AUTH_SECRET`. Both new components registered in
+`ui-registry.md`.
+
+**Two real bugs found running it, plus MAL's PKCE mechanism verified as far as possible
+without a live app — full detail in D40:**
+- `drizzleAdapter(db, { provider: "pg" })` looked complete but wasn't — the adapter needs its
+  own explicit `schema` reference; without it the first real auth request failed with
+  `model "verification" was not found`. Phase 1's tests never caught this because they
+  queried tables directly, bypassing the adapter.
+- Linking AniList/MAL uses `authClient.oauth2.link()`, not `linkSocial()` as D25's prose
+  implied — that method is for built-in social providers only. Read the generic-oauth
+  plugin's own source to confirm the actual client method name.
+- MAL's `plain`-only PKCE requirement (D30) needed a real mechanism, not just a plan:
+  Better-Auth's genericOAuth hard-codes `code_challenge_method=S256` with no config option to
+  change it. Worked around by overwriting just that one query param via
+  `authorizationUrlParams` (confirmed via `curl` that the constructed URL does carry
+  `code_challenge_method=plain`) and recomputing the matching SHA-256/base64url hash in a
+  custom `getToken` — extracted to `src/lib/pkce.ts` and unit-tested against the official
+  RFC 7636 test vector, which passes exactly. The live token exchange itself is still
+  unverified; that needs a real MAL app.
+
+Also found and fixed: `ui-rules.md` names the HeroUI loading prop `isLoading`, but the
+installed package's actual prop (inherited from react-aria-components) is `isPending`.
+
+**Left unverified — needs real credentials, not more code:** exit criteria 1–6 and 9–13 all
+require an actual sign-in flow. Placeholder credentials in `.env` (gitignored) let
+`bun run build` and local dev proceed; they were swapped in specifically to unblock
+everything *except* the live OAuth round trip.
+
+**Next:** swap real AniList/MAL credentials into `.env` and run the live-flow criteria.
+Google after that — provider config, sign-in button, and criterion 5 (two distinct users).
 
 ### 2026-08-10 — Phase 1 implemented: schema, Better-Auth tables, RLS verified live
 

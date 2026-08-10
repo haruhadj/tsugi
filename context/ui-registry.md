@@ -8,25 +8,21 @@ within a week, and then there are two.
 
 ## Status
 
-**Empty.** No components exist yet. As of 2026-08-09 the repository contains only context
-files.
-
-The table below is the planned surface, carried from the phase specs in `planning/`.
-**Planned is not built.** Move a row into "Built" only when the component exists, is used,
-and its props are accurate here.
+Two components built in Phase 2. Everything else is still planned, carried from the phase
+specs in `planning/`. **Planned is not built.** Move a row into "Built" only when the
+component exists, is used, and its props are accurate here.
 
 ## Built
 
 | Component | File | Props | Used by | Notes |
 |---|---|---|---|---|
-| _none yet_ | | | | |
+| `SignInButtons` | `src/components/SignInButtons.tsx` | none | `(auth)/sign-in/page.tsx` | Client component. AniList/MAL call `authClient.signIn.oauth2({ providerId })`; Google button renders `isDisabled` — not wired into `auth.ts` yet ("google later"). Per-button pending state via `isPending`/`isDisabled`, not a single page-level loading flag |
+| `ProviderConnections` | `src/components/ProviderConnections.tsx` | none | `(settings)/settings/page.tsx` | Client component. Fetches linked providers via `authClient.listAccounts()`; AniList/MAL link via `authClient.oauth2.link()` — **not** `linkSocial()`, which is for built-in social providers only (found while implementing; the blueprint's prose used "linkSocial" loosely for both). Owns the product's only sign-out control |
 
 ## Planned
 
 | Component | File | Phase | Responsibility |
 |---|---|---|---|
-| `SignInButtons` | `src/components/SignInButtons.tsx` | 2 | Three providers, trackers first and visually primary, Google separated below |
-| `ProviderConnections` | `src/components/ProviderConnections.tsx` | 2 | `/settings` — which providers are linked, and `linkSocial()` for the rest. Gains unlinking and the last-provider guard in Phase 8 (**D33**) |
 | `ProviderToggle` | `src/components/ProviderToggle.tsx` | 5 | AniList / MyAnimeList search source; defaults to AniList, persists to `localStorage` |
 | `MediaSearchInput` | `src/components/MediaSearchInput.tsx` | 5 | Debounced typeahead against the selected source, keyboard-navigable listbox, emits a `UnifiedMediaResult` |
 | `ScoreInput` | `src/components/ScoreInput.tsx` | 5 | Score entry **in the user's own format** — five AniList scales plus MAL's 10-point. `POINT_3` renders as smileys, `POINT_5` as stars |
