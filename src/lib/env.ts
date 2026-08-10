@@ -24,4 +24,12 @@ export function validateEnv(source: Record<string, string | undefined>): Env {
   return parsed.data;
 }
 
-export const env = validateEnv(process.env);
+let cachedEnv: Env | undefined;
+
+// Validated lazily, not on import: env.test.ts imports validateEnv directly, and
+// CI runs with no .env at all (D22) — an eager top-level call here would throw
+// during test collection before a single test runs.
+export function getEnv(): Env {
+  cachedEnv ??= validateEnv(process.env);
+  return cachedEnv;
+}
