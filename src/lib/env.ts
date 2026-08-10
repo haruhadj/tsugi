@@ -33,4 +33,3 @@ export function getEnv(): Env {
   cachedEnv ??= validateEnv(process.env);
   return cachedEnv;
 }
-const x: string = 123;

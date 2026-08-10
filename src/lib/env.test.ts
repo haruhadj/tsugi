@@ -18,4 +18,8 @@ describe("validateEnv", () => {
 
     expect(() => validateEnv(source)).not.toThrow();
   });
+
+  test("ci-verify: deliberate failure", () => {
+    expect(true).toBe(false);
+  });
 });
