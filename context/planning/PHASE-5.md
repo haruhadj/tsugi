@@ -1,5 +1,17 @@
 # Phase 5 — Create & share UX
 
+> ⚠️ **Read [D41](../progress-tracker.md) before starting this phase.** The UI library
+> changed to shadcn/ui on 2026-08-11, and this phase carries the one capability that did not
+> transfer: **Radix has no combobox**, so `MediaSearchInput` cannot simply be HeroUI's
+> `Autocomplete`. Decide *first* — propose `cmdk` per the dependency rule in `AGENTS.md`, or
+> build on `Popover` and own `aria-activedescendant`, which `../ui-rules.md` previously
+> forbade. Everything else here holds; component prop vocabulary is now shadcn's
+> (`onClick`/`disabled`, no `isPending`).
+>
+> Criterion 1's timing budget is now easier to hit than when it was written: shadcn's
+> primitives render in Server Components, so the create screen is not forced into a client
+> tree the way D37 assumed.
+
 **Status:** not started
 **User-visible output:** the product becomes usable
 
@@ -28,7 +40,8 @@ landing to link-on-clipboard in **under 10 seconds**.
   starts; the create screen assumes a session and only needs the signed-out call to action.
 - List import — Phase 7. Titles get here by search only.
 - Editing (permanently) and deleting (Phase 8, once ownership is provable).
-- Animations beyond HeroUI's own component defaults.
+- Animations beyond the two entrance keyframes in `globals.css` and shadcn's own
+  `transition-colors`. (Was "HeroUI's component defaults" — **D41**.)
 
 ## Deliverables
 

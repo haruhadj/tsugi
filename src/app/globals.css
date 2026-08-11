@@ -1,1 +1,189 @@
-@import "@heroui/styles";
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/*
+  Tsugi's visual direction is "Eyecatch" — the title card that punctuates an anime
+  episode mid-way through. Deep violet night, a two-tone screen glow, hard-edged
+  broadcast geometry. The full rationale and the token contract live in
+  context/ui-tokens.md; this file is the only place the values themselves exist.
+
+  Tsugi ships one theme. The palette below is defined on :root so it applies with or
+  without the `dark` class, and repeated under `.dark` (which <html> carries) so that
+  shadcn components' own `dark:` variants resolve against the same values instead of
+  falling through to a light palette that does not exist here.
+*/
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Direction-specific. `bloom` is the cyan punctuation — one use per screen. */
+  --color-bloom: var(--bloom);
+  --color-bloom-foreground: var(--bloom-foreground);
+
+  --font-display: var(--font-unbounded);
+  --font-sans: var(--font-inter-tight);
+  --font-mono: var(--font-jetbrains-mono);
+
+  --radius-sm: calc(var(--radius) - 1px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: calc(var(--radius) + 6px);
+
+  --animate-wipe-in: wipe-in 0.62s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-card-in: card-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  @keyframes wipe-in {
+    from {
+      clip-path: inset(0 100% 0 0);
+    }
+    to {
+      clip-path: inset(0 0 0 0);
+    }
+  }
+
+  @keyframes card-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.75rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+:root,
+.dark {
+  /* Hard-edged broadcast geometry — 2px, not shadcn's stock 10px. */
+  --radius: 0.125rem;
+
+  /*
+    Authored in oklch(); the hex beside each is the exact sRGB equivalent, not an
+    approximation — every one round-trips. Satori cannot parse oklch(), so the OG card
+    (Phase 6) is built from these hex values by hand. Keep the two in step: if you change
+    an oklch() here without recomputing its comment, the card silently stops matching the
+    site and nothing will fail to build.
+  */
+  --background: oklch(0.1516 0.0213 288.2); /* #0B0A14 — violet-black, the studio */
+  --foreground: oklch(0.9456 0.0283 292.4); /* #EDEAFF — off-white, faintly violet */
+
+  --card: oklch(0.2024 0.047 283.2); /* #14132B — the title card itself */
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.2024 0.047 283.2); /* #14132B */
+  --popover-foreground: var(--foreground);
+
+  --primary: oklch(0.5973 0.2237 279.8); /* #6C63FF — the screen glow */
+  --primary-foreground: oklch(0.9776 0.0088 290); /* #F7F7FD */
+
+  --secondary: oklch(0.26 0.038 286); /* #222136 */
+  --secondary-foreground: var(--foreground);
+
+  --muted: oklch(0.26 0.038 286); /* #222136 */
+  --muted-foreground: oklch(0.6426 0.061 290.2); /* #8C87B0 */
+
+  --accent: oklch(0.28 0.055 284); /* #262543 */
+  --accent-foreground: var(--foreground);
+
+  --destructive: oklch(0.62 0.216 24); /* #EC3740 */
+
+  --border: oklch(0.31 0.041 286); /* #2E2D44 */
+  --input: oklch(0.34 0.045 286); /* #36344E */
+  --ring: oklch(0.5973 0.2237 279.8); /* #6C63FF */
+
+  --bloom: oklch(0.8257 0.1252 186); /* #4CE0D2 — cyan punctuation */
+  --bloom-foreground: oklch(0.17 0.04 200); /* #001315 */
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/60;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    /*
+      Two off-screen light sources: the violet key from the upper left and the cyan
+      rim from the lower right. Fixed, so the glow belongs to the room rather than
+      to the scroll position.
+    */
+    background-image:
+      radial-gradient(
+        58rem 40rem at 8% -8%,
+        color-mix(in oklab, var(--primary) 20%, transparent),
+        transparent 70%
+      ),
+      radial-gradient(
+        44rem 34rem at 104% 108%,
+        color-mix(in oklab, var(--bloom) 11%, transparent),
+        transparent 70%
+      );
+    background-attachment: fixed;
+  }
+}
+
+@layer utilities {
+  /*
+    The eyecatch bar: the glowing rule that wipes across under the wordmark. It is
+    the page's signature, so it is a real token rather than a pile of utilities
+    reassembled per screen.
+  */
+  .eyecatch-bar {
+    background-image: linear-gradient(
+      90deg,
+      var(--primary) 0%,
+      var(--primary) 38%,
+      var(--bloom) 100%
+    );
+    box-shadow: 0 0 1.25rem -0.125rem color-mix(in oklab, var(--primary) 65%, transparent);
+  }
+
+  /* Scanline tooth used on the eyecatch card's leading edge. */
+  .eyecatch-edge {
+    background-image: repeating-linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--bloom) 55%, transparent) 0 2px,
+      transparent 2px 6px
+    );
+  }
+}
+
+/*
+  Decorative motion goes away; informational motion does not. A blanket
+  `animation-duration: 0.01ms` here would also freeze every loading spinner into a
+  still icon, which removes the one thing the spinner is for.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .animate-wipe-in,
+  .animate-card-in {
+    animation: none;
+    opacity: 1;
+    clip-path: none;
+    transform: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+  }
+}

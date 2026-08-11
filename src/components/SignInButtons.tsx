@@ -1,7 +1,8 @@
 "use client";
 
-import { Button } from "@heroui/react";
+import { Loader2Icon } from "lucide-react";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 
 // AniList and MyAnimeList are visually primary and unlock list import
@@ -17,34 +18,43 @@ export function SignInButtons() {
     await authClient.signIn.oauth2({ providerId, callbackURL: "/" });
   }
 
+  // shadcn's Button has no pending variant of its own, so the spinner and the
+  // disabled state are wired here — per button, not per page, so the two tracker
+  // buttons never both look busy.
+  const isBusy = pendingProvider !== null;
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        <Button
-          variant="primary"
-          isPending={pendingProvider === "anilist"}
-          isDisabled={pendingProvider !== null}
-          onPress={() => signInWithGenericOAuth("anilist")}
-        >
-          Continue with AniList
-        </Button>
-        <Button
-          variant="primary"
-          isPending={pendingProvider === "mal"}
-          isDisabled={pendingProvider !== null}
-          onPress={() => signInWithGenericOAuth("mal")}
-        >
-          Continue with MyAnimeList
-        </Button>
-        <p className="text-sm text-foreground/60">
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-3">
+        {(
+          [
+            { id: "anilist", label: "AniList" },
+            { id: "mal", label: "MyAnimeList" },
+          ] as const
+        ).map((provider) => (
+          <Button
+            key={provider.id}
+            size="lg"
+            className="justify-between"
+            disabled={isBusy}
+            onClick={() => signInWithGenericOAuth(provider.id)}
+          >
+            Continue with {provider.label}
+            {pendingProvider === provider.id ? (
+              <Loader2Icon className="animate-spin" aria-hidden />
+            ) : null}
+          </Button>
+        ))}
+        <p className="text-sm text-muted-foreground">
           Unlocks importing your list later.
         </p>
       </div>
-      <div className="flex flex-col gap-2">
-        <Button variant="outline" isDisabled>
+
+      <div className="flex flex-col gap-3">
+        <Button variant="outline" size="lg" disabled>
           Continue with Google
         </Button>
-        <p className="text-sm text-foreground/60">
+        <p className="text-sm text-muted-foreground">
           Sign-in only — link a tracker afterwards from Settings.
         </p>
       </div>

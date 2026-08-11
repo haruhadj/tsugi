@@ -69,16 +69,26 @@ export default async function Image({ params }: { params: Promise<{ slug: string
 }
 ```
 
-**Satori does not run Tailwind or HeroUI.** The card is built from inline styles with a
-hardcoded palette, matched to HeroUI's dark tokens — the values are tabulated in
-`../ui-tokens.md`. This is the single sanctioned exception to the no-hardcoded-colours
-invariant. Flex layout only — Satori supports a subset of CSS, and `display: grid` is not in
-it. The multi-cover layouts are therefore nested flex rows, not a grid.
+**Satori does not run Tailwind or shadcn.** The card is built from inline styles with a
+hardcoded palette, matched to Tsugi's own "Eyecatch" tokens (**D41**) — the values are
+tabulated in `../ui-tokens.md`. This is the single sanctioned exception to the
+no-hardcoded-colours invariant. Flex layout only — Satori supports a subset of CSS, and
+`display: grid` is not in it. The multi-cover layouts are therefore nested flex rows, not a
+grid.
 
-**Convert the tokens to hex or `rgb()` first.** HeroUI's palette is authored in `oklch()`,
-which Satori does not parse — an unparsed colour silently renders as black, which on a
-near-black card means invisible text rather than an error. Keep the `oklch()` original in a
-comment beside each converted value.
+The card should read as an eyecatch, since that is now what the whole product looks like:
+violet-black ground, the cyan scanline down the leading edge, the title in a heavy display
+face, the score in mono, the violet→cyan bar along the foot.
+
+**Convert the tokens to hex or `rgb()` first.** The palette is authored in `oklch()`, which
+Satori does not parse — an unparsed colour silently renders as black, which on a violet-black
+card means invisible text rather than an error. `../ui-tokens.md` lists the hex beside each
+`oklch()` for exactly this. Keep the `oklch()` original in a comment beside each converted
+value.
+
+**Fonts need loading explicitly.** Satori does not see `next/font`. The card's display face
+(Unbounded) and mono face (JetBrains Mono) must be fetched and passed to `ImageResponse`, or
+it falls back to a default that will not match the site.
 
 **Scores on the card go through `src/lib/score.ts`, like everywhere else.** Five formats
 reach this renderer too, and a `POINT_3` smiley rendered as `2/3` on the card is the most

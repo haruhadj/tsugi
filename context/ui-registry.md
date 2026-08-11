@@ -8,16 +8,29 @@ within a week, and then there are two.
 
 ## Status
 
-Two components built in Phase 2. Everything else is still planned, carried from the phase
-specs in `planning/`. **Planned is not built.** Move a row into "Built" only when the
-component exists, is used, and its props are accurate here.
+Three components built. Everything else is still planned, carried from the phase specs in
+`planning/`. **Planned is not built.** Move a row into "Built" only when the component
+exists, is used, and its props are accurate here.
 
 ## Built
 
 | Component | File | Props | Used by | Notes |
 |---|---|---|---|---|
-| `SignInButtons` | `src/components/SignInButtons.tsx` | none | `(auth)/sign-in/page.tsx` | Client component. AniList/MAL call `authClient.signIn.oauth2({ providerId })`; Google button renders `isDisabled` — not wired into `auth.ts` yet ("google later"). Per-button pending state via `isPending`/`isDisabled`, not a single page-level loading flag |
-| `ProviderConnections` | `src/components/ProviderConnections.tsx` | none | `(settings)/settings/page.tsx` | Client component. Fetches linked providers via `authClient.listAccounts()`; AniList/MAL link via `authClient.oauth2.link()` — **not** `linkSocial()`, which is for built-in social providers only (found while implementing; the blueprint's prose used "linkSocial" loosely for both). Owns the product's only sign-out control |
+| `Wordmark` | `src/components/Wordmark.tsx` | `size?: "sm" \| "lg"`, `className?: string` | `page.tsx`, `(auth)/sign-in`, `(settings)/settings` | **Server component.** The eyecatch lockup — `次` + wordmark over the bar that wipes in. Carries the whole visual direction, which is why everything around it stays quiet. The kanji is `aria-hidden` and resolves from the reader's own CJK font stack; never the sole name of the product on a screen |
+| `SignInButtons` | `src/components/SignInButtons.tsx` | none | `(auth)/sign-in/page.tsx` | Client component. AniList/MAL call `authClient.signIn.oauth2({ providerId })`; Google button renders `disabled` — not wired into `auth.ts` yet ("google later"). Per-button pending state, not a page-level flag: `disabled` + a `Loader2Icon` beside the label, since shadcn's Button has no `isPending` |
+| `ProviderConnections` | `src/components/ProviderConnections.tsx` | none | `(settings)/settings/page.tsx` | Client component. Fetches linked providers via `authClient.listAccounts()`; AniList/MAL link via `authClient.oauth2.link()` — **not** `linkSocial()`, which is for built-in social providers only (found while implementing; the blueprint's prose used "linkSocial" loosely for both). Owns the product's only sign-out control. "Linked" is signalled three ways — colour, icon, word |
+
+## shadcn primitives present
+
+Added by `bun x shadcn@4.16.2 add`, living as editable source in `src/components/ui/`.
+**These are not registry components** (see "Not components" below) — the list exists only so
+nobody re-adds one that is already here.
+
+`button` · `card` · `separator`
+
+`card` is currently unused by application code — the eyecatch card is hand-composed in the
+pages, because it carries `.eyecatch-edge` and the foot bar. If a third screen needs that
+composition, promote it to a real registry component rather than copying it again.
 
 ## Planned
 
@@ -41,11 +54,14 @@ component exists, is used, and its props are accurate here.
 purpose: each is needed in more than one place, and the second use is where duplication
 normally starts.
 
-**Most of these wrap a HeroUI component rather than replacing one** — `ScoreInput` is a
-`RadioGroup` whose shape depends on the user's score format, `MediaSearchInput` is an
-`Autocomplete` wired to a provider adapter, `ShareModal` is a `Modal`. The registry entry
-exists for the project behaviour on top, not for the widget underneath. If a wrapper turns
-out to add nothing, delete it and use the HeroUI component directly.
+**Most of these compose shadcn primitives rather than replacing them** — `ScoreInput` is a
+`RadioGroup` whose shape depends on the user's score format, `ShareModal` is a `Dialog`. The
+registry entry exists for the project behaviour on top, not for the widget underneath. If a
+wrapper turns out to add nothing, delete it and use the primitive directly.
+
+**`MediaSearchInput` is the exception and needs a decision before it is built.** It was
+specced as a HeroUI `Autocomplete`; Radix has no combobox, and shadcn's `Combobox` pulls in
+`cmdk`, which is not an approved dependency. See `ui-rules.md` § Accessibility.
 
 **`ScoreBadge` and `ScoreInput` must share one formatting module** (`src/lib/score.ts`).
 Five formats across the tray, the public page, the dashboard, and the OG card is fifteen
@@ -67,9 +83,10 @@ Then delete its row from **Planned**.
 
 These are deliberately not in the registry, and adding them would be wrong:
 
-- HeroUI components (`Button`, `Modal`, `Card`) used directly — the library is the registry
-  for those. A registry entry is for something *we* built, including a thin wrapper around a
-  HeroUI component when the wrapper carries real project behaviour
+- shadcn primitives in `src/components/ui/` (`Button`, `Dialog`, `Card`) — the shadcn
+  registry is the registry for those, and they are listed above only to prevent re-adding.
+  A registry entry is for something *we* built, including a thin wrapper around a primitive
+  when the wrapper carries real project behaviour
 - One-off layout wrappers used in a single file
 - Anything under `src/app/**`. Pages and routes are not reusable UI; they belong in
   `user-flow.md`.

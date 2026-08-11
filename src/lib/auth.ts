@@ -150,6 +150,16 @@ async function getMalToken(data: {
 }
 
 export const auth = betterAuth({
+  // Despite Better-Auth's own startup warning claiming the origin is
+  // "derived from the incoming request" when unset, it is not — verified
+  // live: a request with Host: 192.168.1.5:3001 still produced
+  // redirect_uri=http://localhost:3001/... A provider that validates the
+  // registered redirect URI exactly (both of ours do) rejects that on
+  // sight, so an explicit baseURL is not optional the moment sign-in is
+  // tested from anywhere but the exact host Better-Auth assumes.
+  // NEXT_PUBLIC_APP_URL already exists for this (originally reserved for
+  // Phase 6's og:image); reused here rather than adding a second variable.
+  baseURL: env.NEXT_PUBLIC_APP_URL,
   // The adapter does not introspect the schema `db` was constructed with —
   // it needs its own explicit reference to the four auth tables, or lookups
   // like "verification" fail with "model was not found in the schema

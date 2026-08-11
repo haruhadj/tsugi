@@ -4,139 +4,181 @@
 even when it looks right — it is the thing that makes "change the theme without touching a
 component" false, and nobody notices until one button is the wrong colour.
 
+Superseded the HeroUI palette on 2026-08-11 (**D41**). If you find `bg-accent` used as *the*
+accent, `data-theme="dark"`, or an `oklch(12% 0.005 285.823)` anywhere, it is from that era.
+
+## The direction — "Eyecatch"
+
+Tsugi's screens are built on the **eyecatch**: the title card that punctuates an anime episode
+half-way through. Hard-edged broadcast geometry, a deep violet night, and a two-tone screen
+glow — a violet key light and a cyan rim. The product's whole output is a card you send
+someone, so the site is made of that same card.
+
+This is a direction, not a mood board. It cashes out as four rules:
+
+1. **The ground is violet-black, not neutral black.** `--background` carries real chroma
+   (`0.024`). A neutral grey-black reads as a generic dark theme and loses the direction.
+2. **Two accents, unequal.** `primary` (violet) is the action colour. `bloom` (cyan) is
+   punctuation — **one use per screen**, and never on a button.
+3. **Radius is 2px.** Broadcast graphics are hard-edged. shadcn's stock `0.625rem` was
+   deliberately overridden.
+4. **Separation comes from surface and hairline, not shadow.** On a dark ground shadows read
+   as murk. `--card` against `--background`, plus a 1px `--border`.
+
 ## How theming works here
 
-Tailwind 4 and HeroUI are configured in CSS. There is no `tailwind.config.ts`.
+Tailwind 4 and shadcn are configured in CSS. There is no `tailwind.config.ts`.
 
-`src/app/globals.css` is **one line**:
+`src/app/globals.css` owns the whole visual layer:
 
 ```css
-@import "@heroui/styles";
+@import "tailwindcss";      /* required — nothing else pulls Tailwind in any more */
+@import "tw-animate-css";
 ```
 
-That file imports Tailwind itself. **Do not also `@import "tailwindcss"`** — that is a double
-import, and it is the most likely way to get a confusingly broken build here.
-
-HeroUI ships a light palette on `:root` and a dark one under `.dark` / `[data-theme="dark"]`.
-Tsugi sets `data-theme="dark"` on `<html>` and uses the **dark palette unmodified**
-(**Q3**, re-resolved after the move off DaisyUI — **D37**). Introducing a custom palette is a
-design decision that needs a decision-log entry, not an edit to this file.
+**Tsugi ships one theme.** The palette is defined on `:root, .dark` together — on `:root` so
+it applies unconditionally, and repeated under `.dark` (which `<html>` carries) so shadcn
+components' own `dark:` variants resolve against the same values instead of falling through
+to a light palette that does not exist. Deleting either selector half-breaks the page in a
+way that only shows on the few components that use `dark:`.
 
 ## Colour — semantic names only
 
-HeroUI exposes its tokens through Tailwind's theme layer (`@theme inline` maps
-`--color-background: var(--background)` and so on), so every token below is usable as an
-ordinary utility: `bg-background`, `text-foreground`, `border-border`.
+Every token is exposed through Tailwind's theme layer by the `@theme inline` block, so each is
+an ordinary utility: `bg-background`, `text-muted-foreground`, `border-border`, `text-bloom`.
 
 Use the semantic token. Never the underlying value.
 
-| Token | Use for |
-|---|---|
-| `background` | page background |
-| `background-secondary` / `overlay` | raised surfaces — cards, the search result list, the modal |
-| `border` | borders, dividers, input outlines |
-| `foreground` | body text on any background |
-| `muted` | secondary text — metadata, helper lines, the view count |
-| `accent` / `accent-foreground` | the one action that matters on a screen, and the score badge |
-| `accent-soft` | a quieter accent surface — a selected row, a highlighted chip |
-| `default` | quiet chrome, secondary buttons |
-| `field-*` | input interiors, borders, and focus states. Do not rebuild these from `border` |
-| `focus` | focus rings. Aliased to `accent` in the dark palette |
-| `success` / `warning` / `danger` | status only, never decoration |
+Hex below is the **exact** sRGB equivalent of the `oklch()` in `globals.css`, verified
+against the compiled stylesheet on 2026-08-11 — not an approximation. Phase 6's OG card is
+built from this column, so the two must stay in step.
+
+| Token | Hex | Use for |
+|---|---|---|
+| `background` | `#0B0A14` | page ground — violet-black |
+| `card` / `popover` | `#14132B` | raised surfaces — the eyecatch card, the modal |
+| `foreground` | `#EDEAFF` | body text, faintly violet off-white |
+| `muted-foreground` | `#8C87B0` | secondary text — metadata, helper lines, view count |
+| `muted` / `secondary` | `#222136` | quiet chrome, secondary buttons |
+| `accent` / `accent-foreground` | `#262543` | **hover surfaces only** — not the accent colour |
+| `primary` | `#6C63FF` | the one action that matters on a screen |
+| `primary-foreground` | `#F7F7FD` | text on `primary` |
+| `bloom` | `#4CE0D2` | cyan punctuation — **once per screen** |
+| `bloom-foreground` | `#001315` | text on `bloom` |
+| `border` | `#2E2D44` | borders, dividers |
+| `input` | `#36344E` | input outlines |
+| `ring` | `#6C63FF` | focus rings — aliased to `primary` |
+| `destructive` | `#EC3740` | destructive actions only, never decoration |
 
 ```html
 <!-- yes -->
-<div class="bg-background-secondary text-foreground border-border">
+<div class="bg-card text-foreground border-border">
 
 <!-- no — both of these break retheming -->
-<div style="background:#1a1a2e">
-<div class="bg-[#1a1a2e]">
+<div style="background:#14132B">
+<div class="bg-[#14132B]">
 ```
 
-**One accent action per screen.** If two things are the primary colour, neither is primary.
+**One primary action per screen.** If two things are `bg-primary`, neither is primary.
 
-**There is no `primary` token.** DaisyUI had one; HeroUI's equivalent is `accent`. Writing
-`bg-primary` produces nothing at all — Tailwind emits no rule for an undefined token, so the
-element silently renders unstyled rather than erroring. This is the single most likely
-leftover from the DaisyUI era.
+**`bloom` is a spice, not a colour.** It has exactly two jobs, and eyebrows are not one of
+them (they were, in the first pass — three cyan things on the landing page, which is how a
+spice becomes a colour):
 
-## The dark palette, for reference
+1. **The mark** — the `次` in `Wordmark`, and the `.eyecatch-edge` / `.eyecatch-bar`
+   terminus, which are the same mark by other means.
+2. **Live data or state** — a score numeral, the "Linked" indicator. Never a static label.
 
-Verified by reading `@heroui/styles@3.2.4`'s `themes/default/variables.css`. **Do not copy
-these into components** — they exist here so the OG card (below) can be matched by eye, and
-so a future palette change has a starting point.
+Everything else that wants emphasis takes `muted-foreground` and earns its emphasis from
+type and spacing instead. A screen with three cyan things has no cyan thing.
 
-| Token | Dark value |
+**Note the reversal from the HeroUI era.** There, `primary` was the token that did not exist
+and `accent` was the real accent. It is now exactly the other way round: `primary` is the
+accent, and `accent` is a quiet hover surface. This is the single most likely leftover.
+
+## Signature utilities
+
+Two utilities in `globals.css` carry the direction. They exist as tokens rather than as piles
+of utilities reassembled per screen, because the signature has to be identical everywhere.
+
+| Utility | What it is |
 |---|---|
-| `background` | `oklch(12% 0.005 285.823)` — near-black, faint blue-violet cast |
-| `overlay`, `field-background` | `oklch(21.03% 0.0059 285.89)` |
-| `border` | `oklch(28% 0.006 286.033)` |
-| `default` | `oklch(27.4% 0.006 286.033)` |
-| `muted` | `oklch(70.5% 0.015 286.067)` |
-| `foreground` | `oklch(99.11% 0 0)` |
-| `accent` | `oklch(62.04% 0.195 253.83)` — saturated blue |
-| `danger` | `oklch(59.4% 0.1967 24.63)` |
-| `success` | `oklch(73.29% 0.1935 150.81)` |
-| `warning` | `oklch(82.03% 0.1388 76.34)` |
+| `.eyecatch-bar` | The glowing violet→cyan rule. Pair with `animate-wipe-in` on first paint; static at the foot of a card. |
+| `.eyecatch-edge` | The cyan scanline tooth down a card's leading edge. `absolute inset-y-0 left-0 w-1`. |
 
-A deep near-black ground with a saturated blue accent — which is the "dark theme with vibrant
-accents" the brief asked for, without anyone authoring a palette.
+## Type
 
-## Type scale
+Three faces, three roles, loaded via `next/font/google` in `layout.tsx` as variable fonts.
 
-Tailwind defaults, restricted to this set so screens stay comparable:
+| Role | Face | Class | Use |
+|---|---|---|---|
+| Display | **Unbounded** 600/800 | `font-display` | Headlines, the wordmark, card titles, section headings. Always `uppercase`, always tight tracking (`-0.02em` to `-0.035em`). |
+| Body | **Inter Tight** variable | `font-sans` (default) | Prose, helper text, button labels. |
+| Utility | **JetBrains Mono** 400/500 | `font-mono` | Scores, eyebrows, captions, step markers, metadata. Wide tracking (`0.2em`–`0.3em`) when uppercase. |
 
-| Class | Use |
-|---|---|
-| `text-xs` | metadata — year, view count |
-| `text-sm` | secondary text, helper lines |
-| `text-base` | body, comments |
-| `text-lg` | media titles in results |
-| `text-2xl` | the selected title |
-| `text-4xl` | the homepage headline |
+**Scores are always mono.** A score is the only real data the product carries; setting it in
+the body face makes it read as prose.
 
-Weights: `font-normal` for prose, `font-semibold` for titles and actions, `font-bold` for the
-wordmark only. Nothing else.
+Headline sizes use `clamp()` rather than breakpoint jumps — `clamp(2.6rem, 7vw, 4.75rem)` on
+the hero, `clamp(1.9rem, 5vw, 2.75rem)` on a page title. Body text uses the standard scale:
+`text-xs` metadata, `text-sm` secondary, `text-base` body.
+
+Weights: `font-extrabold` for display headlines, `font-semibold` for smaller display, normal
+for prose, `font-medium` for mono numerals. Nothing else.
 
 ## Spacing
 
 The 4-point scale, restricted to `1 · 2 · 3 · 4 · 6 · 8 · 12 · 16`. Values outside it need a
 reason in a comment. Vertical rhythm inside a card is `gap-3`; between sections it is `gap-8`.
 
+Cards are padded `p-8 pl-10` (`sm:p-10 sm:pl-12`) — the extra left inset clears
+`.eyecatch-edge`, which sits inside the card's own bounds.
+
 ## Radius and elevation
 
-Radius comes from HeroUI's own component defaults, and from `--field-radius` for inputs. Do
-not set `rounded-lg` by hand on a HeroUI component; it will disagree with the theme. For
-plain layout elements that are not HeroUI components, match the nearest one rather than
-inventing a value.
+`--radius: 0.125rem`. shadcn derives `--radius-sm/md/lg/xl` from it, so every component follows
+from that one line. Do not set `rounded-lg` by hand on a shadcn component; change `--radius`.
 
-Elevation is one step: the modal's own shadow, nothing on anything else. On a dark theme,
-shadows read as murk. Separation comes from `background-secondary` against `background`, not
-from shadows. Note that HeroUI's dark overlay carries a 1px inset light ring
-(`--overlay-shadow`) instead of a drop shadow — that is the intended treatment; do not add a
-shadow on top of it.
+Elevation is one step: the modal's own shadow, nothing on anything else. Separation comes from
+`card` against `background` and a 1px `border`.
+
+The ambient glow on `body` — two fixed radial gradients, violet from the upper left and cyan
+from the lower right — is the room's lighting. It is `background-attachment: fixed` on purpose,
+so it belongs to the page rather than the scroll position. Do not add a third light source.
 
 ## Motion
 
-- Transitions: `transition-colors duration-150` on interactive elements.
-- Entrances: HeroUI's own component animations. Do not add a second one on top.
+One orchestrated entrance, then nothing.
+
+- `animate-wipe-in` — the eyecatch bar clips in from the left, 620ms. First paint only.
+- `animate-card-in` — content rises 12px and fades, 550ms, staggered with
+  `[animation-delay:…]` for a second element.
+- `transition-colors`/`transition-all` on interactive elements, ~150ms. shadcn's button
+  ships this already.
 - Nothing on the create path animates for longer than 200 ms. Perceived speed *is* the
   product.
-- Respect `prefers-reduced-motion`. HeroUI ships `motion-reduce` and `motion-safe` variants
-  and its components already honour the preference.
+
+**`prefers-reduced-motion` removes decorative motion only.** The media query in `globals.css`
+kills `animate-wipe-in` and `animate-card-in` and collapses transitions — but deliberately
+does **not** blanket-disable all animation, because that freezes every loading spinner into a
+still icon and removes the one thing a spinner is for. If you add a decorative animation, add
+it to that query by name.
 
 ## The OG card is not themed
 
-`/r/[slug]/opengraph-image` renders through Satori, which does **not** run Tailwind or
-HeroUI — it takes inline styles only. Its palette is therefore hardcoded in that one file,
-and that is the single sanctioned exception to the rule at the top of this document.
+`/r/[slug]/opengraph-image` renders through Satori, which does **not** run Tailwind or shadcn —
+it takes inline styles only. Its palette is therefore hardcoded in that one file, and that is
+the single sanctioned exception to the rule at the top of this document.
 
-Match it to the dark values in the table above, and note in that file that it is a deliberate
+Match it to the hex values in the table above, and note in that file that it is a deliberate
 copy. If the theme ever changes, this file must be updated by hand — the OG card is the one
 place where a rebrand is not automatic.
 
-**Satori does not understand `oklch()`.** Convert the values above to hex or `rgb()` when
-writing that file, and keep the original `oklch()` beside them in a comment so the two can be
-compared later.
+The card should read as an eyecatch: violet-black ground, the scanline edge, the title in a
+heavy face, the score in mono, the violet→cyan bar along the foot.
+
+**Satori does not understand `oklch()`.** `globals.css` authors the palette in `oklch()` with
+the hex in a comment beside each — use the hex there, and keep the `oklch()` in a comment so
+the two can be compared later.
 
 Related: [`ui-rules.md`](./ui-rules.md) · [`ui-registry.md`](./ui-registry.md)

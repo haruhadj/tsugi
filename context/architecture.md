@@ -17,10 +17,11 @@ tsugi/
 │   │   ├── r/[slug]/
 │   │   │   ├── page.tsx                public recommendation page
 │   │   │   └── opengraph-image.tsx     1200×630 PNG, next/og
-│   │   ├── globals.css                 one line: @import "@heroui/styles"
-│   │   ├── layout.tsx
+│   │   ├── globals.css                 Tailwind import, palette, signature utilities
+│   │   ├── layout.tsx                  fonts + <html className="dark">
 │   │   └── page.tsx                    the create flow (session required)
 │   ├── components/                     presentational + client interaction
+│   │   └── ui/                         shadcn primitives — generated source, edited in place
 │   ├── db/
 │   │   ├── index.ts                    postgres.js client, prepare:false
 │   │   └── schema.ts                   Drizzle tables

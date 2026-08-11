@@ -5,17 +5,23 @@ How the interface behaves, so that behaviour is never invented per-component. Va
 
 ## Composition
 
-- Reach for a HeroUI component before writing markup: `Button`, `Input`, `Modal`, `Card`,
-  `Chip`, `Spinner`, `Alert`, `Kbd`, `Autocomplete`, `RadioGroup`, `Tooltip`.
-- Tailwind utilities are for **layout and spacing only** — flex, grid, gap, padding, width.
-  If a utility is setting a colour, a radius, or a font size on a HeroUI component, it is
-  probably fighting the theme; reach for the component's own variant props first.
-- Never restyle a HeroUI component to look like a different one. Use the other one.
-- **HeroUI components are client components** — 87 files in the package carry `"use client"`.
-  That does not make the rule in `code-standards.md` wrong, it makes it load-bearing: keep
-  the `"use client"` boundary at the smallest component that actually needs interaction, and
-  keep data fetching above it. A page that imports one `Button` at the top level has just
-  made the whole page a client component.
+- Add a shadcn component before writing markup: `bun x shadcn@4.16.2 add button card
+  separator dialog input badge alert skeleton tooltip radio-group …`. Do not hand-write
+  something the registry already ships.
+- **shadcn components are source, not a dependency.** They land in `src/components/ui/` and
+  are edited in place. If `Button` needs a variant, add it to `buttonVariants` — do not wrap
+  the component to override it from outside, and do not fork it into a second button.
+- Tailwind utilities carry layout, spacing, **and type** here — that is the difference from
+  the HeroUI era, where utilities were layout-only because the library owned typography.
+  Colour is still tokens-only: a `bg-[#…]` on a shadcn component is always wrong.
+- Never restyle a shadcn component to look like a different one. Use the other one.
+- **Most shadcn primitives are plain functions and render fine in a Server Component** —
+  `Button` only becomes client code when you hand it an `onClick`. This is a real gain over
+  HeroUI, where any component pulled a page into the client tree, and `/sign-in` prerenders
+  as fully static proof of it. (`/` itself became dynamic on 2026-08-11 for an unrelated
+  reason — it reads the session cookie — so don't cite its route type here; see
+  `code-standards.md`.) Keep `"use client"` on the smallest interactive leaf; the rule there
+  is now cheap to follow rather than load-bearing.
 
 ## Every interactive element has four states
 
@@ -23,20 +29,24 @@ Default, hover, focus-visible, disabled. Loading is a fifth where an action is a
 A control missing focus-visible is not finished — keyboard users are how this product gets
 used fastest, and speed is the whole promise.
 
-- Focus rings come from HeroUI's `focus` token, which is aliased to `accent` in the dark
-  palette. Never `outline-none` without an explicit replacement.
+- Focus rings come from the `ring` token, which is aliased to `primary`. shadcn's components
+  ship `focus-visible:ring-ring/50 focus-visible:ring-[3px]` — keep it. Never `outline-none`
+  without an explicit replacement.
 - Disabled controls stay in the DOM and keep their position. Never hide a control to
   disable it — the layout must not move as the form becomes valid.
 
 ## Loading
 
 - **Inline, never global.** No full-page spinner on the create path.
-- Typeahead: a small `Spinner` in the input's trailing slot. The input never becomes
+- Typeahead: a small spinner in the input's trailing slot. The input never becomes
   disabled while searching.
-- Submit: `Button` with `isPending`, keeping its label and therefore its width. A button
-  that resizes on click reads as a bug. **Corrected in Phase 2** — HeroUI's Button inherits
-  this prop from react-aria-components, where it is named `isPending`, not `isLoading`;
-  verified by reading the installed package's `Button.d.ts`.
+- **Submit: there is no `isPending` prop.** shadcn's `Button` is a plain `<button>` with
+  variants — pending state is `disabled` plus a `<Loader2Icon className="animate-spin" />`
+  rendered *beside* the label, never replacing it, so the button keeps its width. A button
+  that resizes on click reads as a bug. Own the pending state **per control**, not per page:
+  see `SignInButtons`, where two tracker buttons must not both look busy.
+  (HeroUI's inherited `isPending`/`onPress`/`isDisabled` are gone — **D41**. `onPress` on a
+  shadcn button silently does nothing, because it is not a DOM event.)
 - Skeletons only where a known-size block is being filled. Never for something whose height
   is unknown — a skeleton that resizes is worse than a blank space.
 
@@ -47,7 +57,7 @@ Three tiers, and picking the wrong one is the most common UI mistake here:
 | Situation | Treatment |
 |---|---|
 | Field-level (comment too long) | Inline under the field, `text-error text-sm`. No alert. |
-| Recoverable action failure (429, create failed) | HeroUI `Alert` with `color="warning"` **inside the form**, form state preserved. |
+| Recoverable action failure (429, create failed) | shadcn `Alert` (`variant="default"`, warning styling from tokens) **inside the form**, form state preserved. |
 | Provider unavailable (AniList unreachable) | Quiet inline sentence in the results area, naming the source, offering the one-tap switch. Not an alert. Not red. |
 | Provider **rate-limited** (AniList's own 30/min) | Also quiet and inline, but a **different sentence** — "searching too fast, one moment" — and **no switch offer**. Waiting fixes it; changing provider does not, and would send someone to Jikan for nothing. |
 
@@ -75,9 +85,9 @@ Rules that hold across all three:
 ## Modals
 
 - One at a time. Never stack.
-- Closable with Escape, with the backdrop, and with a visible control. All three — HeroUI's
-  `Modal` gives the first two; the visible control is ours to include.
-- Focus moves into the modal on open and returns to the trigger on close. React Aria handles
+- Closable with Escape, with the backdrop, and with a visible control. All three — shadcn's
+  `Dialog` (Radix) gives the first two; the visible control is ours to include.
+- Focus moves into the modal on open and returns to the trigger on close. Radix handles
   this; do not reimplement it, and do not fight it with a stray `autoFocus`.
 - The ShareModal never blocks on a network call — by the time it opens, everything it
   displays already exists.
@@ -107,20 +117,26 @@ is a sign a layout is being over-fitted.
 
 ## Accessibility
 
-**Most of this is now the library's job, and that is the point of moving to it** (**D37**).
-React Aria implements the listbox semantics, the radio-group arrow-key behaviour, the focus
-management, and the live-region announcements that this section used to specify by hand. The
-rules below survive as *requirements* — what must be true — not as instructions to build the
-mechanics yourself. If a rule here is satisfied by using the right component, use it.
+**Most of this is still the library's job** — Radix, rather than React Aria, since **D41**.
+Radix implements the listbox semantics, the radio-group roving tabindex, the focus management,
+and the live-region plumbing that this section used to specify by hand. The rules below
+survive as *requirements* — what must be true — not as instructions to build the mechanics
+yourself. If a rule here is satisfied by using the right component, use it.
+
+**One capability did not transfer, and Phase 5 has to deal with it.** HeroUI shipped an
+`Autocomplete`; Radix has no combobox primitive. shadcn's answer is a `Combobox` composed
+from `Popover` + `Command`, and `Command` is a wrapper around **`cmdk`, a dependency this
+project has not approved**. Before `MediaSearchInput` is built, either propose `cmdk` per the
+dependency rule in `AGENTS.md`, or build the listbox on a plain `Popover` and accept owning
+`aria-activedescendant` by hand. Do not discover this halfway through Phase 5.
 
 - Semantic elements first. A `div` with an onClick is never a button.
 - The typeahead is a listbox with a managed active option and results announced politely.
-  HeroUI's `Autocomplete` provides this. **Do not hand-roll `aria-activedescendant`** — if
-  the component cannot express the behaviour we need, build on `react-aria-components`
-  rather than on raw `div`s, and record why in the registry entry.
+  See the note above — this is the one behaviour the library no longer hands us. Whichever
+  route Phase 5 takes, record it in the registry entry.
 - The score input is a radio group, not a row of buttons — arrow keys must move between
-  values. HeroUI's `RadioGroup` gives that. Its *shape* is still ours: ten options for
-  `POINT_10`, five stars for `POINT_5`, three smileys for `POINT_3`, a number field for
+  values. shadcn's `RadioGroup` (Radix) gives that. Its *shape* is still ours: ten options
+  for `POINT_10`, five stars for `POINT_5`, three smileys for `POINT_3`, a number field for
   `POINT_100`.
 - **`POINT_3` scores have no numeric rendering.** They are smileys with text alternatives
   ("liked it", "it was fine", "disliked it"). Printing `2/3` is a bug on every surface.
@@ -129,7 +145,7 @@ mechanics yourself. If a rule here is satisfied by using the right component, us
 - The provider toggle is a radio group too, labelled as a group ("Search source"). Two
   buttons where only one can be active is a radio group, and screen-reader users must be
   able to tell which source is selected before they start typing — it changes what the
-  results mean. HeroUI's `Tabs` is **not** the right component here: this selects a data
+  results mean. shadcn's `Tabs` is **not** the right component here: this selects a data
   source for a search, not a view of the same content.
 - Switching the source clears pending search results but **never the item tray**. Announce
   the clear in a live region; a silent reset would read as the app losing the user's work.
@@ -142,9 +158,13 @@ mechanics yourself. If a rule here is satisfied by using the right component, us
 - Copy-to-clipboard announces its result in a live region. A purely visual "Copied!" is
   invisible to the people most reliant on keyboard flow.
 - Colour is never the only signal. The selected score carries a shape or a check, not just
-  `bg-accent`.
-- **Do not disable HeroUI's built-in behaviour to match a mockup.** Removing a focus ring,
+  `bg-primary`. The same applies to `bloom`: "Linked" in `ProviderConnections` is cyan **and**
+  a check icon **and** the word.
+- **Do not strip Radix's built-in behaviour to match a mockup.** Removing a focus ring,
   suppressing an announcement, or replacing keyboard handling with click handlers undoes the
-  main reason this library is here. If the visual has to change, change the visual.
+  main reason a primitive library is here. If the visual has to change, change the visual.
+- The `次` glyph is decorative and `aria-hidden`. It resolves from the reader's own CJK font —
+  none of the three loaded faces carry it — so it must never be the only thing naming the
+  product on a screen.
 
 Related: [`ui-tokens.md`](./ui-tokens.md) · [`ui-registry.md`](./ui-registry.md)

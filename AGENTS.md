@@ -51,10 +51,12 @@ These hold in every phase. A violation is a bug regardless of what you were work
    `src/server/**`. A component importing Drizzle is always wrong.
 4. **Every API input is validated at the Hono boundary** with `@hono/zod-validator` and a
    schema from `src/lib/validators/`. No hand-rolled `c.req.json()` parsing.
-5. **Every visual value comes from a HeroUI semantic token** (`bg-background`,
-   `text-foreground`, `bg-accent`, …). No raw hex, no `rgb()`, no arbitrary values like
-   `bg-[#1a1a2e]` in components. There is **no `primary` token** — HeroUI's equivalent is
-   `accent`, and `bg-primary` silently emits no CSS at all rather than erroring (**D37**).
+5. **Every visual value comes from a shadcn semantic token** (`bg-background`,
+   `text-foreground`, `bg-primary`, `text-bloom`, …). No raw hex, no `rgb()`, no arbitrary
+   values like `bg-[#0B0A14]` in components. The palette is authored **once**, in
+   `src/app/globals.css`, and nowhere else (**D41**, which reversed **D37**). The accent is
+   `primary`; `bloom` is the cyan punctuation and gets **one use per screen**. Note this is
+   the inverse of the HeroUI-era rule — under HeroUI there was no `primary` token at all.
 6. **A score is a `(raw, format)` pair, never a bare number.** The five AniList scales —
    `POINT_100`, `POINT_10_DECIMAL`, `POINT_10`, `POINT_5`, `POINT_3` — are preserved as the
    user rated them; MAL is `POINT_10`. A number without its format is meaningless: `5` could
@@ -116,9 +118,13 @@ These hold in every phase. A violation is a bug regardless of what you were work
 **UI**
 - Check `context/ui-registry.md` before building a component. If it exists, use it.
 - Register a new component in the same change that creates it. Not later.
-- HeroUI components first; Tailwind utilities only for layout and spacing.
-- HeroUI components are client components. Keep `"use client"` on the smallest thing that
-  actually needs it, or a page becomes a client tree by accident.
+- shadcn components first (`bun x shadcn add <name>` — do not hand-write one that the
+  registry ships); Tailwind utilities for layout, spacing, and type.
+- **shadcn components are ours once added.** They land as source in `src/components/ui/`
+  and are edited in place, not wrapped to override them.
+- Most shadcn primitives are plain function components and work inside Server Components.
+  Only add `"use client"` where a hook or an event handler actually needs it — and to the
+  smallest thing, or a page becomes a client tree by accident.
 
 **Supabase skills are installed** in `.agents/skills/` (208K, committed). Load
 `supabase-postgres-best-practices` **before** any schema, migration, RLS, or index work —
@@ -138,11 +144,14 @@ that is its stated trigger, and Phase 1 is exactly the case it exists for.
   with what it replaces and why the platform cannot do it.
 - `@vercel/og` is **not** a dependency of this project. Use `next/og`.
 - There is **no `tailwind.config.ts`**. Tailwind 4 is configured in CSS.
-- **DaisyUI is not in this project.** It was replaced by HeroUI (**D37**). `btn`,
-  `bg-base-100`, `data-theme="night"` and friends are all from the old stack — if you find
-  one, it is a leftover, not a pattern to follow.
-- `globals.css` is `@import "@heroui/styles";` and nothing else. That import pulls in
-  Tailwind, so importing `tailwindcss` as well is a double import.
+- **Neither DaisyUI nor HeroUI is in this project.** DaisyUI was replaced by HeroUI
+  (**D37**), and HeroUI by shadcn/ui (**D41**). `btn`, `bg-base-100`,
+  `data-theme="night"` are DaisyUI leftovers; `@heroui/*` imports, `isPending`,
+  `onPress`, `isDisabled`, and `bg-accent`-as-the-accent are HeroUI leftovers. Two dead
+  stacks means two vocabularies that look plausible and render nothing.
+- `globals.css` **does** `@import "tailwindcss"` now, and must — nothing else pulls Tailwind
+  in since `@heroui/styles` left. Under HeroUI that same import was a double-import bug.
+  The file is also the only place the palette exists.
 
 ---
 

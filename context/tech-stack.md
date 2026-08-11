@@ -6,12 +6,12 @@ version number. If you need one, link here.
 ## Verification status
 
 All versions below were checked against the npm registry on **2026-08-09** with
-`npm view <pkg> version peerDependencies`, and the HeroUI rows were additionally verified by
-reading the published tarballs — see the HeroUI section for what that turned up. Re-verify
-before starting a new phase, or any time an install produces a peer-dependency warning. A
-version matrix without a date is a rumour.
+`npm view <pkg> version peerDependencies`. **The UI rows were re-verified on 2026-08-11**,
+when shadcn/ui replaced HeroUI (**D41**) — HeroUI and all five `react-aria` peers left the
+tree that day. Re-verify before starting a new phase, or any time an install produces a
+peer-dependency warning. A version matrix without a date is a rumour.
 
-## Version matrix — verified 2026-08-09
+## Version matrix — verified 2026-08-09, UI rows 2026-08-11
 
 | Package | Version | Notes |
 |---|---|---|
@@ -20,12 +20,13 @@ version matrix without a date is a rumour.
 | `typescript` | ^5 | 5.1 is the floor for Next 16 |
 | `tailwindcss` | 4.3.3 | CSS-first config. **No `tailwind.config.ts` exists.** |
 | `@tailwindcss/postcss` | 4.3.3 | **Required**, not optional — see the Phase 0 finding below. Paired with `postcss.config.mjs`. |
-| `@heroui/react` | 3.2.4 | Requires Tailwind **≥4** and React **≥19** as peers. ESM-only. Replaced DaisyUI (**D37**) |
-| `react-aria` | 3.51.0 | **Non-optional peer** of `@heroui/react` (`^3.51.0`) |
-| `react-aria-components` | 1.20.0 | Non-optional peer (`^1.20.0`) |
-| `@react-aria/i18n` | 3.13.1 | Non-optional peer (`^3.13.1`) |
-| `@react-aria/ssr` | 3.10.1 | Non-optional peer (`^3.10.1`) |
-| `@react-aria/utils` | 3.34.1 | Non-optional peer (`^3.34.1`) |
+| `radix-ui` | 1.6.7 | The **single unified package** — not the old `@radix-ui/react-*` scatter. shadcn 4.x imports from it (`import { Slot } from "radix-ui"`). Peers accept React 19 |
+| `class-variance-authority` | 0.7.1 | Variant definitions in shadcn components (`buttonVariants`) |
+| `clsx` | 2.1.1 | Peer of the `cn()` helper in `src/lib/utils.ts` |
+| `tailwind-merge` | 3.6.0 | The other half of `cn()` — resolves conflicting Tailwind utilities |
+| `lucide-react` | 1.31.0 | shadcn's icon library (`iconLibrary` in `components.json`) |
+| `tw-animate-css` | 1.4.0 | **Dev dependency, now installed directly.** Under HeroUI it resolved as a transitive and installing it was forbidden; that is inverted since **D41** — nothing else pulls it in, and `globals.css` imports it |
+| `shadcn` (CLI) | 4.16.2 | Not a dependency. Invoked with `bun x shadcn@4.16.2 add <name>`; the version is pinned here so components stay generated from one CLI |
 | `hono` | 4.13.1 | |
 | `@hono/zod-validator` | 0.9.0 | peers: `hono >=4.11.2`, `zod ^3.25.0 \|\| ^4.0.0` |
 | `zod` | 4.4.3 | v4 — accepted by the validator's peer range |
@@ -50,9 +51,11 @@ there is nothing to version or upgrade. (**D16**)
 |---|---|
 | `@vercel/og` | Next ships `ImageResponse` at `next/og`. The separate package is for non-Next runtimes. Adding it duplicates the renderer. The client brief lists it — the brief is wrong. |
 | `daisyui` | **Removed 2026-08-09** by **D37**, replaced by HeroUI. If you see `btn`, `bg-base-100`, or `data-theme="night"` anywhere, it is a leftover. |
-| `framer-motion` | NextUI v2 required it; **HeroUI v3 does not** — confirmed absent from `@heroui/react@3.2.4`'s dependencies. Do not add it. |
-| `@heroui/theme`, `@heroui/system` | Published, but not needed. `@heroui/react` depends on `@heroui/styles`, which is the whole CSS layer. |
-| `tw-animate-css` | Needed, but **do not install it** — it is a dependency of `@heroui/styles` and resolves on its own. Listing it directly pins a transitive we do not own. |
+| `@heroui/react`, `@heroui/styles` | **Removed 2026-08-11** by **D41**, replaced by shadcn/ui. Leftovers to watch for: `@heroui/*` imports, `isPending`, `onPress`, `isDisabled`, `data-theme="dark"`, and `accent` used as the accent token. `onPress` is the dangerous one — it is not a DOM event, so on a shadcn button it fails silently rather than erroring. |
+| `react-aria`, `react-aria-components`, `@react-aria/*` | Removed with HeroUI on 2026-08-11 — they were its non-optional peers and nothing else needed them. Radix covers the same accessibility ground, with **one gap**: no combobox. See `ui-rules.md` § Accessibility before Phase 5. |
+| `framer-motion` | Not needed by shadcn either; its animation is CSS via `tw-animate-css`. Motion in this project is two keyframes in `globals.css`. Do not add it. |
+| `cmdk` | **Not approved.** shadcn's `Combobox`/`Command` requires it, and `MediaSearchInput` (Phase 5) was specced as a combobox. Propose it per the dependency rule, or build on `Popover` and own `aria-activedescendant`. Decide before Phase 5, not during. |
+| `@radix-ui/react-*` | The old per-primitive packages. shadcn 4.x uses the unified `radix-ui` package instead — adding both gets two copies of the same primitives. |
 | `tailwind.config.ts` | Not a package, but worth stating: Tailwind 4 configures in CSS. Configuration lives in `src/app/globals.css`. |
 | `next lint` | Removed in Next 16. `next build` no longer lints. CI calls `eslint` directly. |
 
@@ -66,86 +69,102 @@ there is nothing to version or upgrade. (**D16**)
 - The middleware convention is renamed to `proxy` and runs **Node-only**. We do not
   currently use it; if you need one, it is `proxy.ts`, not `middleware.ts`.
 - `revalidateTag` requires a second `cacheLife` argument.
+- **`allowedDevOrigins` is required to browse the dev server by LAN IP — found 2026-08-11.**
+  Next 16 blocks cross-origin requests to dev-only assets from any host other than the one
+  the server initialised on, which is `localhost` **even when bound to `0.0.0.0`**. The
+  symptom is nasty: the HTML returns 200 and every script and stylesheet is refused, so the
+  page renders unstyled and inert rather than erroring, and the only evidence is a
+  `⚠ Blocked cross-origin request` line per asset in the dev server's own output.
+  **`curl` does not reproduce it** — with no `Origin` header the request is not cross-origin,
+  so the page and its CSS fetch perfectly from the command line while a browser on the same
+  URL gets nothing. It is a **top-level** `NextConfig` key, not `experimental` (verified in
+  `next/dist/server/config-shared.d.ts`), and the warning text says `next.config.js` while
+  this project uses `next.config.ts`. `next.config.ts` derives it from
+  `NEXT_PUBLIC_APP_URL`'s hostname so the dev origin and the OAuth redirect URI cannot drift.
+- **Pin the dev port, and the pin is load-bearing.** Three things must agree for OAuth —
+  `NEXT_PUBLIC_APP_URL`, the URI registered with AniList/MAL, and the port actually bound.
+  `package.json`'s `dev` script pins `--port 3000` (moved from 3001 on 2026-08-11 once the
+  conflicting app was removed; the registered redirect URIs moved with it).
+
+  **An explicit `--port` also changes the failure mode, which is the real reason to keep
+  it.** `next dev` retries the next free port on `EADDRINUSE` — but only when the port came
+  from the default: `const allowRetry = portSource === 'default'` in
+  `next/dist/cli/next-dev.js`, consumed at `server/lib/start-server.js`. With the port given
+  explicitly, a busy port **fails loudly and exits** instead of silently binding somewhere
+  else and breaking OAuth with a `redirect_uri` mismatch that has no visible cause. Verified
+  by reading both files, 2026-08-11.
 - Remote images need `images.remotePatterns` — we need `s4.anilist.co` and
   `cdn.myanimelist.net`. `images.domains` is deprecated.
 - `images.qualities` now defaults to `[75]` only.
 
-### Tailwind 4 + HeroUI 3
+### Tailwind 4 + shadcn/ui
 
-Everything below was verified on **2026-08-09** by reading `@heroui/react@3.2.4` and
-`@heroui/styles@3.2.4` from the published tarballs.
+Verified **2026-08-11** against the installed packages, after **D41** replaced HeroUI.
 
-- **Configuration is one CSS line.** `src/app/globals.css`:
-  ```css
-  @import "@heroui/styles";
-  ```
-  That file's own first lines are `@layer theme, base, components, utilities;` followed by
-  `@import "tailwindcss"` and `@import "tw-animate-css"`. **So do not import `tailwindcss`
-  yourself** — it is already in there, and importing it twice reorders the cascade.
-- **Tailwind 4 is a hard peer**, `tailwindcss: >=4.0.0`. HeroUI 3 cannot run on Tailwind 3,
-  so **D1**'s conclusion survives the library change intact.
-- **No provider component.** v3 removed the `HeroUIProvider` that NextUI v2 required — the
-  root export has no provider at all, only `ToastProvider` for toasts, which we do not use.
-  The root layout stays a plain server component.
-- **No `framer-motion`.** NextUI v2 required it; v3's dependency list is `@heroui/styles`,
-  `tailwind-variants`, `tailwind-merge`, `@radix-ui/react-avatar`, `input-otp`, and two
-  `@react-types` packages. Do not add motion libraries.
-- **`@tailwindcss/postcss` and `postcss.config.mjs` are both required — discovered missing
-  during Phase 0 implementation, 2026-08-10.** `globals.css`'s single line,
-  `@import "@heroui/styles"`, itself contains `@import "tailwindcss"`. Turbopack's default
-  CSS handling treats a bare `@import` as a literal module reference, not an instruction to
-  run Tailwind — with no PostCSS plugin configured, the entire chain resolved to an empty
-  stylesheet (a **1-byte** `.css` chunk) while `next build` and `bun dev` both stayed green.
-  This is the exact "silently unstyled page" failure Phase 0's own risk table warned about,
-  from a cause the blueprint never named. **Fix:** `@tailwindcss/postcss` as a dev
-  dependency, plus
+- **shadcn is not a dependency.** It is a CLI that writes React source into
+  `src/components/ui/`. There is nothing to upgrade at runtime and nothing to import from.
+  The pinned invocation is `bun x shadcn@4.16.2 add <name>`; `components.json` at the repo
+  root holds the config (`style: new-york`, `rsc: true`, `iconLibrary: lucide`, the `@/*`
+  aliases). What it *does* add to `package.json` is the real dependency set: `radix-ui`,
+  `class-variance-authority`, `clsx`, `tailwind-merge`, `lucide-react`.
+- **`globals.css` must `@import "tailwindcss"` itself.** This is the exact inversion of the
+  HeroUI rule, and it is the most dangerous line in this section to get from memory.
+  `@heroui/styles` used to contain that import, which made writing it yourself a
+  cascade-reordering double import. Nothing pulls Tailwind in any more, so omitting it
+  produces an unstyled page.
+- **`@tailwindcss/postcss` and `postcss.config.mjs` are both still required — the Phase 0
+  finding survives the library change.** Turbopack's default CSS handling treats a bare
+  `@import` as a literal module reference, not an instruction to run Tailwind. With no
+  PostCSS plugin configured the whole chain resolved to a **1-byte** stylesheet while
+  `next build` and `bun dev` both stayed green — a silently unstyled page with a passing
+  build. **Fix:**
   ```js
   // postcss.config.mjs
   export default { plugins: { "@tailwindcss/postcss": {} } };
   ```
-  Verified fixed: the same build then emits a 400KB+ stylesheet with real `--background`,
-  `--accent`, and `--focus` declarations under `[data-theme="dark"]`.
-- **No `@source` directive is needed, and this is the surprising part.** Most Tailwind
-  component libraries emit utility strings at runtime, so Tailwind has to scan
-  `node_modules` — which it does not do by default, producing a silently unstyled page.
-  HeroUI 3 does not work that way: its components emit **semantic class names** (`.button`,
-  `data-slot="..."`) and ship authored CSS that uses `@apply` internally, resolved when
-  `@heroui/styles` is imported. Verified by grepping the compiled components for colour
-  utilities and finding none. Nothing to configure.
-- **Five peers are not optional.** `@heroui/react` declares no `peerDependenciesMeta`, so
-  every peer is required: `react-aria`, `react-aria-components`, `@react-aria/i18n`,
-  `@react-aria/ssr`, `@react-aria/utils` — plus react, react-dom, and tailwindcss, which we
-  already have. Install all five explicitly or `bun install` warns, and Phase 0's criterion 1
-  fails on day one.
-- **ESM-only.** The package exports declare `import` with no `require` condition.
-- **Components are client components** — 87 files in `dist` carry `"use client"`. See
-  `code-standards.md`; this is why the `"use client"` boundary now has to be placed
-  deliberately.
+- **No `@source` directive is needed**, for a simpler reason than under HeroUI: shadcn
+  components live in `src/`, which Tailwind already scans. The old note about libraries
+  emitting utility strings from `node_modules` no longer applies to anything here.
+- **The unified `radix-ui` package, not `@radix-ui/react-*`.** shadcn 4.x emits
+  `import { Slot } from "radix-ui"`. Installing the per-primitive packages alongside it
+  yields two copies of the same primitives.
+- **Most primitives render in Server Components.** `Button` is a plain function with no
+  `"use client"` — it only becomes client code when handed an event handler. Verified by
+  the Phase 2 redesign: `/` and `/sign-in` prerender as **static** while both use `Button`.
+  This is a genuine reversal of D37's main stated cost.
+- **shadcn's `Button` has no pending/loading prop.** HeroUI inherited `isPending` from
+  react-aria-components; there is no equivalent. Compose `disabled` + a spinning
+  `Loader2Icon` beside the label. Likewise `onPress` → `onClick` and `isDisabled` →
+  `disabled`. `onPress` on a shadcn button **fails silently** — it is not a DOM event, so
+  React just passes an unknown prop through.
 
-**Theming.** HeroUI ships a light palette on `:root` / `[data-theme="light"]` /
-`[data-theme="default"]`, and a dark one under `.dark` / `[data-theme="dark"]`. Tokens are
-exposed to Tailwind through an `@theme inline` block that maps `--color-background:
-var(--background)` and so on, so every token is usable as a utility — `bg-background`,
-`text-foreground`, `bg-accent`, `border-border`.
+**Theming.** shadcn's tokens are plain CSS variables exposed to Tailwind through an
+`@theme inline` block (`--color-background: var(--background)`), so each is an ordinary
+utility: `bg-background`, `text-muted-foreground`, `border-border`.
 
-**Tsugi sets `data-theme="dark"` on `<html>` and uses the dark palette unmodified**
-(**Q3**, re-resolved; **D37**). To tint it later, redefine single tokens under the dark
-selector — one line, no theme authoring:
+**Tsugi ships one theme — a custom palette, authored by us** (**D41**, which reverses Q3's
+"library's own palette, unmodified" for the first time in the project). It is defined on
+`:root, .dark` together: `:root` so it applies unconditionally, `.dark` so shadcn's own
+`dark:` variants resolve against the same values instead of a light palette that does not
+exist here. `<html>` carries `className="dark"`, **not** `data-theme="dark"` — that
+attribute was HeroUI's selector and now does nothing.
 
-```css
-@import "@heroui/styles";
+`--radius` is overridden to `0.125rem` from shadcn's stock `0.625rem`; every component's
+radius derives from that one line.
 
-[data-theme="dark"] {
-  --accent: oklch(72% 0.19 25);
-}
-```
+The palette values and the type scale are tabulated in [`ui-tokens.md`](./ui-tokens.md),
+which is also where the OG card's hardcoded copy is reconciled.
 
-The palette values are tabulated in [`ui-tokens.md`](./ui-tokens.md), which is also where the
-OG card's hardcoded copy is reconciled.
+**`primary` is the accent token now.** Under HeroUI there was no `primary` at all and
+`accent` was the accent; under shadcn `primary` is the action colour and `accent` is a quiet
+hover surface. Two dead stacks means two plausible-looking vocabularies, and Tailwind emits
+nothing for an undefined token rather than erroring.
 
-**There is no `primary` token.** DaisyUI had one; HeroUI's equivalent is `accent`. Tailwind
-emits nothing for an undefined token rather than erroring, so `bg-primary` renders an
-unstyled element — the likeliest leftover from the DaisyUI era.
+**Fonts.** Three variable faces via `next/font/google` in `layout.tsx` — Unbounded
+(display), Inter Tight (body), JetBrains Mono (numerals and eyebrows) — wired to
+`--font-display` / `--font-sans` / `--font-mono` in the `@theme inline` block. None carry
+CJK, so the `次` glyph resolves from the reader's own font stack; that is deliberate, and it
+is why the glyph is never load-bearing.
 
 ### Drizzle + Supabase
 - **Live project: PostgreSQL 17.6**, region `ap-southeast-2`, both connections verified

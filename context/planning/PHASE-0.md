@@ -1,5 +1,16 @@
 # Phase 0 — Foundation & CI
 
+> ⚠️ **Historical record. Superseded in part by [D41](../progress-tracker.md), 2026-08-11.**
+> This phase was completed on HeroUI, which has since been replaced by shadcn/ui. Everything
+> below about `@heroui/styles`, the five `react-aria` peers, the one-line `globals.css`, the
+> forbidden `@import "tailwindcss"`, `data-theme="dark"`, and criterion 7's HeroUI `Button`
+> describes what was built then, not what is true now. **Do not use this file to re-derive
+> the current setup** — `../tech-stack.md` and `../ui-tokens.md` are authoritative.
+>
+> What survives verbatim: Tailwind 4, no `tailwind.config.ts`, and the
+> `@tailwindcss/postcss` + `postcss.config.mjs` requirement, which is still the failure that
+> silently produces a 1-byte stylesheet with a green build.
+
 **Status:** not started
 **User-visible output:** none, by design
 **Prerequisites:** a **GitHub remote**, for criterion 12 only — CI cannot be observed running

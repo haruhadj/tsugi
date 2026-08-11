@@ -89,9 +89,14 @@ Project-specific rules. General TypeScript style is assumed, not restated.
 ## React and components
 
 - Server Components by default. `"use client"` only where interaction actually lives, and as
-  far down the tree as possible. **HeroUI made this rule load-bearing rather than aspirational
-  (D37):** its components are client components, so importing one into a page turns that page
-  into a client tree. Fetch above the boundary, pass plain data across it.
+  far down the tree as possible. Fetch above the boundary, pass plain data across it.
+  **This got cheap again under shadcn (D41):** its primitives are plain functions, so using
+  `Button` never forces a page into the client tree the way HeroUI (D37) did — `/sign-in`
+  still prerenders as fully static proof of this. `/` itself moved to server-rendered-per-
+  request on 2026-08-11 for an unrelated reason (it reads the session cookie to show
+  "Settings" instead of "Sign in" — see the progress tracker), which is a **data-freshness**
+  cost, not a client-JS one. Do not cite `/`'s route type as evidence either way about
+  component-library client-boundary cost; `/sign-in` is the clean example now.
 - No data fetching inside Client Components on the create path except the AniList typeahead,
   which is deliberate (see `architecture.md`).
 - Component files: one component per file, named the same as the file.
