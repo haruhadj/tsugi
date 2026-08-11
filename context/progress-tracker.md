@@ -9,8 +9,9 @@ happened last time.
 
 | | |
 |---|---|
-| **Current phase** | **Phase 2 — Authentication** ([spec](./planning/PHASE-2.md)) |
-| **Phase status** | **AniList and MAL both verified live end to end** — 2026-08-11. Real OAuth apps, real sign-ins, user + account + session rows written for both, `score_format` captured, MAL's `plain`-PKCE workaround (**D30**) confirmed against the real endpoint on the first attempt. Google deferred at the owner's request. |
+| **Current phase** | **Phase 4 — API surface** ([spec](./planning/PHASE-4.md)) |
+| **Phase status** | **Closed 2026-08-11** — 25/26 exit criteria verified via `bun test` against live Supabase and a real, newly-provisioned Upstash instance. Criterion 17 (rate-limit window reset) is the one deliberate exception — needs a genuine 60s wait, reasoned through in `middleware.redis.test.ts` rather than silently skipped. `/api/recs` (POST + GET) is live. |
+| **Upstash** | Provisioned 2026-08-11 — `fit-hyena-107044.upstash.io`, credentials in `.env`. Backs both rate limiting (D9) and the media resolve cache (Phase 4). |
 | **Last updated** | 2026-08-11 |
 | **UI library** | **shadcn/ui + Radix** — replaced HeroUI on 2026-08-11 (**D41**). Custom "Eyecatch" palette, authored by us. Anything referencing `@heroui/*`, `onPress`, `isPending`, or `data-theme="dark"` is a leftover. |
 | **Application code** | Phase 0 scaffold, Phase 1's full data layer, and Phase 2's auth wiring: Hono catch-all at `/api`, `genericOAuth` for AniList + MAL (Google not yet configured), `/sign-in` and `/settings`, session helper. Frontend redesigned on shadcn with a real landing page. |
@@ -22,9 +23,9 @@ happened last time.
 |---|---|
 | 0 — Foundation & CI | **Complete** — 2026-08-10 |
 | 1 — Data layer | **Complete** — 2026-08-10 (criterion 25 unverified, see Immediate next steps) |
-| 2 — Authentication | **In progress** ← **current** — **AniList and MAL both verified live 2026-08-11** (sign-in, token storage, session, `score_format`). D30's `plain`-PKCE workaround proven against the real MAL endpoint. Google not started; MAL's refresh-token expiry needs a second look before Phase 7 (see session log) |
-| 3 — Media providers | Not started |
-| 4 — API surface | Not started |
+| 2 — Authentication | **Closed** — 2026-08-11. 11/14 exit criteria verified; 3 accepted open (Google-dependent, non-default score format, re-sign-in refresh — see session log). MAL's refresh-token expiry needs a second look before Phase 7 |
+| 3 — Media providers | **Closed** — 2026-08-11. 14/14 exit criteria verified, 0 accepted debt |
+| 4 — API surface | **Closed** ← **current** — 2026-08-11. 25/26 exit criteria verified; criterion 17 deliberately not automated (see session log) |
 | 5 — Create & share UX | Not started |
 | 6 — Public page & OG cards | Not started |
 | 7 — List import | Not started — new |
@@ -830,7 +831,7 @@ primitives cannot back.
 | Phase 2 | **AniList OAuth app** | ❌ `anilist.co/settings/developer` |
 | Phase 2 | **MyAnimeList OAuth app** | ❌ `myanimelist.net/apiconfig` — also supplies `X-MAL-CLIENT-ID` for Phase 7 |
 | Phase 2 | **Google OAuth app** | ❌ — the fallback tier |
-| Phase 4 | Upstash Redis | ❌ create before Phase 4 |
+| Phase 4 | Upstash Redis | ✅ `fit-hyena-107044.upstash.io`, provisioned and verified live — 2026-08-11 |
 | Phase 6 | Vercel project | ❌ create before Phase 6 |
 
 Phases 1, 3, 5, 7, and 8 need nothing external, and Phase 0 needs only a GitHub remote — a
@@ -857,6 +858,209 @@ the one you forgot. `scripts/check-db-reachable.sh` warns if a second file appea
 ## Session log
 
 Newest first. One entry per session: what changed, what was decided, what to pick up next.
+
+### 2026-08-11 — Phase 4 built and closed same-day: Upstash provisioned, `/api/recs` live, 25/26 criteria automated
+
+Owner provisioned a real Upstash Redis database (`fit-hyena-107044.upstash.io`) after the
+prerequisite conversation — its own spec said "create it before starting," stronger language
+than any earlier phase's external dependency, so the phase waited rather than building
+against the dev fallback and hoping. Credentials verified live (SET/GET/DEL round trip)
+before anything was built on top, same discipline as every other external dependency this
+project has touched.
+
+**Built to spec:** `src/lib/env.ts` gained optional `UPSTASH_REDIS_REST_URL`/`TOKEN` (shape
+only — `middleware.ts` is what enforces "required in production", per D9's own framing).
+`src/lib/validators/rec.ts` — per-format score bounds verified live against AniList's own
+GraphQL introspection (`__type(name: "ScoreFormat")`), not assumed; `POINT_100` 1–100,
+`POINT_10_DECIMAL` 1–10 to one decimal, `POINT_10` 1–10, `POINT_5` 1–5, `POINT_3` 1–3, all
+floored at 1 per D35. `src/server/hono/middleware.ts` — Upstash-backed sliding-window limiter
+(5/min, keyed on session user id per D34), in-memory fallback for dev, production startup
+throw when Upstash is absent (D9). `src/server/services/media-cache.ts` — wraps Phase 3's
+`resolveMedia` without modifying it, `provider:mediaType:externalId` keyed, 24h TTL, caches
+only `ok: true`. `src/server/services/recommendations.ts` — the create/read core, refactored
+out of the Hono route specifically so it could be exercised against a directly-inserted test
+user without a real browser session (see below). `src/server/hono/recs.ts` mounts
+`POST /api/recs` and `GET /api/recs/:slug` into the one existing Hono app.
+
+**Every piece was live-smoke-tested against the real Upstash instance before being wired into
+anything else** — the rate limiter (5 allowed, 6th blocked with a real `retryAfter`), the
+cache (miss → real AniList call → hit, no call; different provider → correct miss, proving
+the key's provider prefix actually matters), and `@upstash/redis`'s object serialisation
+(round-trips a `UnifiedMediaResult` including the U+2019 title exactly). None of this was
+assumed from the package README.
+
+**The session-cookie wall from Phase 2 came back, and the resolution was the same: don't
+forge it, work around it.** `createRecommendation`/`getRecommendationBySlug` take a plain
+`userId` rather than a session object precisely so the create/read *logic* could be db-tested
+against a real inserted test user (same pattern as `schema.db.test.ts`), while the thin
+`recs.ts` route (session → rate limit → delegate) is tested separately via Hono's own
+`.request()` in-process method for the parts that don't need a session at all (401, 400, the
+public GET). This is a real architectural improvement, not just a testing workaround — HTTP
+concerns and business logic were tangled in the first draft and are not now.
+
+**Added a fourth test tier, `*.redis.test.ts`**, documented in `code-standards.md` next to
+the existing three — live Upstash is a different external dependency from live Supabase, and
+folding it into `*.db.test.ts` would have made that row's "live Supabase" claim inaccurate.
+
+**One finding worth carrying forward, caught by a test that failed for the right reason
+before it failed for the wrong one:** proving criterion 23 (D9's production startup throw)
+needed a subprocess with Upstash forced absent. The first attempt passed *incorrectly* —
+`Bun.spawn`'s explicit `env: { UPSTASH_REDIS_REST_URL: "", ... }` was silently overridden by
+the subprocess's own automatic `.env` loading, which restored the real credentials. Bun's
+`.env` auto-load overrides explicitly-passed empty-string env vars rather than deferring to
+them — the opposite of the usual dotenv convention of "don't clobber what's already set".
+Fixed with `--no-env-file` on the spawned process. **Worth remembering generally**: any
+future subprocess test that needs to force an env var *absent* in this project needs that
+flag, or it will silently test the real `.env` instead of the scenario it claims to.
+
+**Coverage: 25 of 26 exit criteria are `bun test` cases** (106 tests total across the
+project). The one exception, criterion 17 ("after the window elapses, a further POST returns
+201 again"), is not automated on purpose — it needs a genuine 60s+ wait, and
+`@upstash/ratelimit`'s sliding window is a mature, independently-tested library; the two
+tests that *are* here (5/min bound, per-user key) cover the part that is actually this
+project's to get wrong. Reasoned through in the test file itself, not silently dropped.
+
+**Next:** [`PHASE-5.md`](./PHASE-5.md) — create & share UX, once the owner says to proceed.
+This is the first phase with real UI beyond the redesigned shell, and PHASE-5.md's own header
+already flags the one thing that changed under it: Radix has no combobox, so
+`MediaSearchInput` needs a decision (propose `cmdk`, or hand-roll `aria-activedescendant`)
+before the typeahead can be built — see the D41 entry below.
+
+### 2026-08-11 — Phase 3 built and closed same-day: media providers, D15's fallback ban held to
+
+Built to spec: `src/lib/types/media.ts` (`UnifiedMediaResult`, `ProviderResult<T>`),
+`src/lib/providers/anilist-client.ts` + `jikan-client.ts` (browser, injectable `fetch`),
+`src/lib/providers/index.ts` (single-switch dispatch), `src/server/services/media.ts`
+(server-side resolve). One file beyond the architecture.md tree:
+`src/lib/providers/log-provider-failure.ts` — a small shared helper so criterion 13's log
+format isn't duplicated between the search and resolve dispatch points.
+
+**Fixture capture: AniList live, Jikan schema-built, then live-confirmed anyway.** AniList's
+three fixtures (Frieren search, Berserk manga search, resolve-by-id) came straight off the
+real API and matched every value the design doc had already recorded — id `154587`, `idMal
+52991`, the U+2019 title. Jikan 504'd 8/8 across two endpoints during capture (see the
+matching entry added to `tech-stack.md`'s Jikan section), so its two fixtures were built from
+Jikan's own published OpenAPI spec instead, with the one real data point (MAL id `52991`)
+cross-verified via AniList's `idMal` rather than guessed. Each fixture's `_fixture_note`
+states this. **The contract test file, run once by hand after building it
+(`RUN_CONTRACT_TESTS=1 bun test …`), got 5/5 live passes — including Jikan, which answered
+this time** — so the schema-built fixtures are now corroborated, not just plausible.
+
+**Two bugs found by the tests I wrote, not by inspection — worth naming because both would
+have been easy to ship:**
+- `mock-fetch.ts`'s mocks didn't honour `init.signal` the way real `fetch` does, so the
+  timeout and already-aborted-signal tests passed or failed for the wrong reason until fixed.
+  A reminder that a test helper is code too, and an unfaithful mock produces green tests that
+  prove nothing.
+- Jikan's same-provider retry (D15) retried on **every** failure including a genuine timeout,
+  not just its characteristic 5xx — so a truly hung connection could take ~2×3s and blow past
+  criterion 9's own 6s settle-time ceiling. Fixed to retry only `reason === "unavailable"`.
+  tech-stack.md's own language ("retry a second later frequently succeeds") was specifically
+  about the 5xx case; the code had over-generalised it.
+
+**AniList's 404 behaviour needed its own branch, verified live rather than assumed:**
+`Media(id: <nonexistent>)` returns a genuine HTTP 404 with `{"errors":[...],"data":
+{"Media":null}}` — not a 200 with null data, which is what a generic GraphQL client would
+assume. Caught before the generic `!response.ok` fallthrough so a real not-found reports as
+`reason: "not_found"` rather than `"unavailable"`.
+
+**All 14 exit criteria are `bun test` cases, zero accepted debt** — the AGENTS.md rule about
+mechanically-checkable criteria held cleanly here, unlike Phase 2, because nothing in this
+phase requires a human clicking through a live OAuth consent screen. 58 unit-tier tests, plus
+5 contract-tier tests confirmed live but excluded from CI by design (`RUN_CONTRACT_TESTS=1`
+opt-in — deliberately **not** ambient the way the db tier's `DATABASE_URL` gate is, since
+AniList's 30/min budget is shared with the developer's own browser and must not fire just
+because `.env` happens to be loaded).
+
+**Next:** [`PHASE-4.md`](./PHASE-4.md) — API surface, once the owner says to proceed.
+
+### 2026-08-11 — Phase 2 closure: tests for the mechanically-checkable criteria, then a real linking bug
+
+Working through the "close Phase 2 out before Phase 3" plan the owner picked. Two threads:
+
+**Test coverage added**, gated the same way `schema.db.test.ts` already is (plain `if`, not
+`describe.skip` — see that file's own header comment for why). 10 new tests, 29 total:
+
+- Extracted `synthesizeTrackerEmail`/`isSynthesizedTrackerEmail` into
+  `src/lib/synthesize-tracker-email.ts` so criterion 4's format is unit-testable without
+  duplicating the pattern between test and implementation. Both `getAniListUserInfo` and
+  `getMalUserInfo` now call the shared function instead of inlining the template literal.
+- `src/lib/auth-invariants.test.ts` — criterion 7 (exactly one `route.ts` under
+  `src/app/api`) and criterion 9 (no `accessToken`/`refreshToken` string reaches `src/app` or
+  `src/components`) as filesystem checks. Unusual shape for a test, deliberate: both are
+  static, structural, and exactly the kind of check that silently rots without one.
+- `src/lib/auth.db.test.ts` — criterion 8, live: `auth.api.getSession()` with no cookie
+  returns `null` rather than throwing. Gated on the **full** env set auth.ts needs (not just
+  `DATABASE_URL`), because `getEnv()` throws on any missing var at import time — a narrower
+  gate would crash the file instead of skipping it.
+
+**What stayed manual, and why, rather than being forced into a test:** criteria 6, 10, and 12
+need a real, already-authenticated browser session — linking a second provider or signing out
+requires Better-Auth's own signed session cookie, which is HMAC-signed over internals I could
+trace (`@better-auth/core`'s `better-call` context, `crypto.mjs`) but chose not to forge. A
+test built on reverse-engineered signing of a dependency's undocumented internals is worse
+than no test — it breaks silently on a version bump and proves nothing when it passes. Asked
+the owner to click through link + sign-out instead of attempting it.
+
+**That surfaced a real bug, not an environment issue.** Linking MAL to an already-signed-in
+AniList user failed with Better-Auth's `email_doesn't_match`. Traced to source: three
+identical guards (`callback.mjs`, `generic-oauth/routes.mjs`, `account.mjs`) compare the
+linked provider's email against the current user's before allowing a link, unless
+`account.accountLinking.allowDifferentEmails` is `true`. Ours are synthesised per
+`(provider, externalId)` (**D25**) and by construction never match across AniList and MAL —
+so the default guard rejected **every** legitimate link this product will ever perform, not
+just this one. **This would have blocked every Phase 5+ user who links a second tracker**,
+and nothing in Phase 2's own testing had exercised the linking path before now.
+
+**Fixed:** `account.accountLinking.allowDifferentEmails: true` in `auth.ts`. Confirmed safe
+to enable rather than just convenient: the check it disables only gates the *explicit*,
+already-authenticated linking path (`link` is set only when `oauth2.link()`/`linkSocial()`
+was called from a session). The dangerous case — auto-linking strangers who happen to share
+an email at sign-in time — is a separate mechanism (`trustedProviders`), which D25 already
+keeps off and this change does not touch.
+
+**First retry after the fix reported success but the database disagreed** — worth recording
+because it is the reason to keep checking the database rather than trusting a clean redirect.
+`account.updated_at` matched a brand-new `session.created_at` for the **pre-existing
+standalone MAL user**, not the AniList one: the click had gone through `/sign-in`'s MAL
+button (a plain sign-in, silently succeeds when you already own that account) rather than
+`/settings`' Link button (the actual linking flow). No new `account` row, user count
+unchanged — indistinguishable from a real link by redirect behaviour alone, only visible in
+the data.
+
+**Second retry hit a genuine, different wall: `account_already_linked_to_different_user`.**
+Correct behaviour, not a bug — AniList and MAL had each been sign-in-tested standalone before
+linking was ever tested, so each provider was already claimed by a different orphan user by
+the time linking was attempted. Better-Auth was right to refuse. Fixed by deleting the
+orphaned standalone MAL user directly (`account`/`session` cascade on `user`, verified in
+`auth-schema.ts` before deleting rather than assumed), freeing that MAL account to be linked
+to the AniList user. **Worth carrying forward as a rule for future manual auth testing:**
+test the *linking* path before testing a second provider standalone, or the standalone test
+claims the account and linking has to be unwound by hand — there is no unlink UI to do this
+in-product; that is Phase 8's.
+
+**Confirmed in the database after the retry:** one user, two `account` rows, both
+`user_id = bUyDmUUM…` (`anilist` and `mal`). **Criterion 6 satisfied.**
+
+## Phase 2 closed — 2026-08-11
+
+Verified: 1, 2, 3, 4, 6, 7, 8, 9, 10, 13, 14. Automated where the mechanism allowed
+(`auth-invariants.test.ts`, `auth.db.test.ts`, `synthesize-tracker-email.test.ts`, 29 tests
+total); live-verified against the real database otherwise, and re-verified after each fix
+rather than trusted on the first pass.
+
+**Accepted as open, deliberately, not by omission:**
+- **Criterion 1 and criterion 5** need Google, which stays deferred at the owner's standing
+  request. Re-open both the moment Google is implemented — criterion 5 in particular is the
+  one that proves synthesised-email users don't silently merge.
+- **Criterion 11** is proven for a `POINT_10` AniList account (the only one available to test
+  against) but not for a non-default format — the mechanism is confirmed, the actual
+  format-switching path is not. Re-verify with a `POINT_5`-or-other account before leaning on
+  it, or accept the residual risk explicitly if one never becomes available.
+- **Criterion 12** (re-sign-in refreshes a changed `scoreFormat`) was never exercised, since
+  doing so needs changing the score format on the live AniList account and signing in again.
+
+**Next:** [`PHASE-3.md`](./PHASE-3.md) — media providers.
 
 ### 2026-08-11 — "Start a rec" looked like a broken login because `/sign-in` had no guard
 

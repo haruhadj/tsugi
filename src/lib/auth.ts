@@ -8,6 +8,7 @@ import { db } from "@/db";
 import { account, session, user, verification } from "@/db/auth-schema";
 import { getEnv } from "@/lib/env";
 import { sha256Base64Url } from "@/lib/pkce";
+import { synthesizeTrackerEmail } from "@/lib/synthesize-tracker-email";
 
 const env = getEnv();
 
@@ -40,9 +41,8 @@ async function getAniListUserInfo(tokens: OAuth2Tokens) {
     id: String(viewer.id),
     name: viewer.name,
     // AniList's User type has no email field at all (D25) — synthesise one.
-    // A hyphen, not a colon: `:` is not valid in an unquoted RFC 5322 local
-    // part, and Better-Auth's OAuth path does not validate this address.
-    email: `anilist-${viewer.id}@users.tsugi.invalid`,
+    // Better-Auth's OAuth path does not validate this address.
+    email: synthesizeTrackerEmail("anilist", String(viewer.id)),
     emailVerified: true,
     image: viewer.avatar?.large ?? undefined,
     // The scale this user rates in (D32) — read here so Phase 5 never has
@@ -79,8 +79,8 @@ async function getMalUserInfo(tokens: OAuth2Tokens) {
     id: String(user.id),
     name: user.name,
     // MAL's /users/@me does not return an email either (D25) — same
-    // synthesis scheme as AniList, same `.invalid` TLD, same hyphen.
-    email: `mal-${user.id}@users.tsugi.invalid`,
+    // synthesis scheme as AniList.
+    email: synthesizeTrackerEmail("mal", String(user.id)),
     emailVerified: true,
     image: user.picture,
     // MAL has one scale, always 10-point — no format field to read.
@@ -170,6 +170,21 @@ export const auth = betterAuth({
     provider: "pg",
     schema: { user, session, account, verification },
   }),
+  // Without this, explicit linking fails with `email_doesn't_match` every
+  // time — verified against the live MAL endpoint, 2026-08-11. The check
+  // this disables (identical in callback.mjs, generic-oauth/routes.mjs, and
+  // account.mjs) compares the linked provider's email against the signed-in
+  // user's; ours are synthesised per (provider, externalId) (D25) and can
+  // never match across AniList and MAL, so the default guard rejects every
+  // legitimate link this product will ever perform. Safe to disable because
+  // it only gates the *explicit*, already-authenticated linking path — the
+  // dangerous case, matching-by-email at sign-in to auto-link strangers, is
+  // a separate mechanism (`trustedProviders`) that D25 already keeps off.
+  account: {
+    accountLinking: {
+      allowDifferentEmails: true,
+    },
+  },
   user: {
     additionalFields: {
       // The scale this user rates in — read from the session in Phase 5,

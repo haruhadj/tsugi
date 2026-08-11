@@ -14,6 +14,23 @@ const envSchema = z.object({
   ANILIST_CLIENT_SECRET: z.string().min(1),
   MAL_CLIENT_ID: z.string().min(1),
   MAL_CLIENT_SECRET: z.string().min(1),
+  // Optional here on purpose (D9) — requiring an Upstash account to run the
+  // homepage locally is friction with no benefit. Phase 0's in-memory
+  // fallback covers dev. `src/server/hono/middleware.ts` is the module that
+  // actually enforces "required in production", not this file — env.ts's
+  // job is shape, not policy.
+  UPSTASH_REDIS_REST_URL: z
+    .string()
+    .url()
+    .optional()
+    .or(z.literal(""))
+    .transform((value) => (value ? value : undefined)),
+  UPSTASH_REDIS_REST_TOKEN: z
+    .string()
+    .min(1)
+    .optional()
+    .or(z.literal(""))
+    .transform((value) => (value ? value : undefined)),
 });
 
 export type Env = z.infer<typeof envSchema>;

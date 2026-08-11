@@ -30,16 +30,33 @@ tsugi/
 │   │   ├── providers/
 │   │   │   ├── index.ts                dispatch on the selected provider
 │   │   │   ├── anilist-client.ts       browser-side typeahead
-│   │   │   └── jikan-client.ts         browser-side typeahead (MAL id space)
+│   │   │   ├── jikan-client.ts         browser-side typeahead (MAL id space)
+│   │   │   ├── log-provider-failure.ts shared by index.ts and server/services/media.ts —
+│   │   │   │                           not in the original Phase 3 plan; added so the
+│   │   │   │                           provider/reason/elapsed-ms log line (criterion 13)
+│   │   │   │                           isn't duplicated at both dispatch points
+│   │   │   └── __fixtures__/           recorded (AniList) and schema-built (Jikan) responses —
+│   │   │                               see tech-stack.md's Jikan section for which is which
 │   │   ├── score.ts                    the ONE score formatter — 5 formats
 │   │   ├── types/media.ts              UnifiedMediaResult
 │   │   └── validators/rec.ts           Zod schemas, shared client+server
 │   └── server/
-│       ├── hono/middleware.ts          rate limiting, session guard
-│       ├── services/media.ts           server-side resolve, per provider
-│       └── services/lists/             Phase 7 — AniList + MAL v2, token-bearing
-│           ├── anilist.ts
-│           └── mal.ts
+│       ├── hono/
+│       │   ├── middleware.ts           rate limiting only — despite the name, it does not
+│       │   │                           guard sessions; recs.ts calls auth.api.getSession()
+│       │   │                           directly, session-before-limiter per PHASE-4.md
+│       │   └── recs.ts                 POST/GET /api/recs — thin: session, rate limit,
+│       │                               delegates everything else to services/recommendations.ts
+│       ├── services/
+│       │   ├── media.ts                server-side resolve, per provider (Phase 3)
+│       │   ├── media-cache.ts          wraps media.ts — Redis, provider:mediaType:externalId,
+│       │   │                           24h TTL, only caches ok:true (Phase 4)
+│       │   ├── recommendations.ts      createRecommendation + getRecommendationBySlug — the
+│       │   │                           create flow's core, independent of HTTP/session so it
+│       │   │                           is testable against a directly-inserted test user
+│       │   └── lists/                  Phase 7 — AniList + MAL v2, token-bearing
+│       │       ├── anilist.ts
+│       │       └── mal.ts
 ├── drizzle.config.ts
 ├── next.config.ts
 └── package.json

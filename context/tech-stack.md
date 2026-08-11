@@ -342,6 +342,17 @@ and status codes, not from documentation.
   fixture capture a blocking step.
 - **Consequence:** a user who selects MyAnimeList will hit failures regularly. Retry once,
   then offer the one-tap switch to AniList per **D14**. Never treat it as a crash.
+- **Re-measured again 2026-08-11, Phase 3 fixture capture: 8/8 calls, 8 504s** — across two
+  endpoints (`/anime` search and `/anime/{id}`), with 1s spacing between attempts. The
+  documented behaviour held exactly: live-captured 504 body byte-for-byte matches the one
+  recorded above. Search and resolve success fixtures for Phase 3's tests could not be
+  captured live as a result — `jikan-search-frieren-anime.json` and
+  `jikan-resolve-154587-not-found.json` are built from Jikan's own published OpenAPI spec
+  (`jikan-me/jikan-rest`, `storage/api-docs/api-docs.json`, fetched 2026-08-11) rather than
+  memory, with the one real-anime data point (MAL id `52991` for Frieren) cross-verified via
+  AniList's `idMal` field rather than guessed. Each fixture states this in its own
+  `_fixture_note`. **Replace both with live captures the next time Jikan answers** — they
+  are correct by construction, not by observation, and that is a meaningfully weaker claim.
 - Documented limits are roughly 3 req/sec and 60 req/min; the API returns no rate-limit
   headers, so this cannot be verified from a response and must be respected client-side.
 - Cover images are served from `cdn.myanimelist.net`.

@@ -1,0 +1,34 @@
+{
+  "_fixture_note": "NOT captured live — Jikan returned 504 on 8/8 attempts during Phase 3 fixture capture, 2026-08-11 (see jikan-504-live.json for the real error body, and tech-stack.md for the standing pattern). Field names and shape verified against Jikan's own published OpenAPI spec (jikan-me/jikan-rest, storage/api-docs/api-docs.json, fetched 2026-08-11), not from memory. mal_id 52991 for Frieren is itself live-verified — it is AniList's idMal field on the anilist-search-frieren-anime.json fixture, cross-checked rather than guessed.",
+  "data": [
+    {
+      "mal_id": 52991,
+      "url": "https://myanimelist.net/anime/52991/Sousou_no_Frieren",
+      "images": {
+        "jpg": {
+          "image_url": "https://cdn.myanimelist.net/images/anime/1015/138006.jpg",
+          "small_image_url": "https://cdn.myanimelist.net/images/anime/1015/138006t.jpg",
+          "large_image_url": "https://cdn.myanimelist.net/images/anime/1015/138006l.jpg"
+        },
+        "webp": {
+          "image_url": "https://cdn.myanimelist.net/images/anime/1015/138006.webp",
+          "small_image_url": "https://cdn.myanimelist.net/images/anime/1015/138006t.webp",
+          "large_image_url": "https://cdn.myanimelist.net/images/anime/1015/138006l.webp"
+        }
+      },
+      "type": "TV",
+      "title": "Sousou no Frieren",
+      "title_english": "Frieren: Beyond Journey's End",
+      "title_japanese": "葬送のフリーレン",
+      "titles": [
+        { "type": "Default", "title": "Sousou no Frieren" },
+        { "type": "English", "title": "Frieren: Beyond Journey's End" },
+        { "type": "Japanese", "title": "葬送のフリーレン" }
+      ],
+      "aired": { "from": "2023-09-29T00:00:00+00:00", "to": null },
+      "year": 2023,
+      "score": 9.29
+    }
+  ],
+  "pagination": { "last_visible_page": 1, "has_next_page": false, "items": { "count": 1, "total": 1, "per_page": 5 } }
+}

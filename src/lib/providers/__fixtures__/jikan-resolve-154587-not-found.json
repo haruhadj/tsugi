@@ -1,0 +1,7 @@
+{
+  "_fixture_note": "NOT captured live — same 8/8 504 outage as jikan-search-frieren-anime.json. Shape follows the top-level {status, type, message, error} envelope that IS live-verified (jikan-504-live.json, and tech-stack.md's own recorded 504 message matches byte-for-byte). The specific 404 `type`/`message` strings are inferred from that same pattern, not independently live-verified — 404 has no example response in Jikan's own OpenAPI spec, only a description. Used for PHASE-3.md criterion 6: resolving id 154587 (an AniList id, wrong id space) against MAL must not return Frieren. Whether MAL actually has an unrelated anime at id 154587 or nothing at all cannot be known without a live call; 404 is the defensible fixture because it doesn't fabricate an unrelated real title that might not exist.",
+  "status": 404,
+  "type": "BadResponseException",
+  "message": "Resource not found",
+  "error": null
+}

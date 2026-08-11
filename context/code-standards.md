@@ -111,17 +111,25 @@ Project-specific rules. General TypeScript style is assumed, not restated.
   generation, and route responses. Component rendering is not unit-tested — the UI criteria
   in Phase 5 are browser observations, and mocking React to assert on markup would test the
   mock.
-### Three tiers
+### Four tiers
 
 | Tier | Filename | Hits | Runs in CI |
 |---|---|---|---|
 | Unit | `*.test.ts` | nothing external | **yes** — the gate |
 | Database | `*.db.test.ts` | live Supabase | no |
+| Redis | `*.redis.test.ts` | live Upstash | no |
 | Contract | `*.contract.test.ts` | live AniList / Jikan / MAL v2 | no |
 
-Only the unit tier gates CI. The other two need credentials or third-party availability, and
+Only the unit tier gates CI. The other three need credentials or third-party availability, and
 a gate that goes red because a free-tier database paused overnight is a gate people learn to
 ignore. (**D22**)
+
+**The Redis tier, added Phase 4**, is the same shape as the db tier — gated on
+`Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)`, a
+plain `if` around the `describe()` call, never `describe.skip` — but named separately rather
+than folded into `*.db.test.ts`, because "live Supabase" in that row is specific and Upstash
+is a different kind of external dependency with its own credential pair and its own outage
+mode. Rate limiting and caching (D9, and Phase 4's cache) are what live here.
 
 **Exclusion is by runtime skip, not by CI configuration:**
 

@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { handle } from "hono/vercel";
 import { auth } from "@/lib/auth";
+import { recsRouter } from "@/server/hono/recs";
 
 // The only Hono instance in the project (architecture.md) — Better-Auth
 // mounts inside it (D6) so there is no second Next route under /api and no
@@ -9,6 +10,7 @@ import { auth } from "@/lib/auth";
 const app = new Hono().basePath("/api");
 
 app.on(["POST", "GET"], "/auth/*", (c) => auth.handler(c.req.raw));
+app.route("/", recsRouter);
 
 export const GET = handle(app);
 export const POST = handle(app);
