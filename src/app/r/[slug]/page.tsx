@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { after } from "next/server";
 import { RecView } from "@/components/RecView";
 import { getEnv } from "@/lib/env";
 import {
@@ -50,9 +51,13 @@ export default async function RecommendationPage({ params }: { params: Params })
   const rec = await getRecommendationBySlug(slug);
   if (!rec) notFound();
 
-  // Fire-and-forget (invariant: page-only view counting, PHASE-6.md) — never
-  // awaited, so a slow or failed increment cannot delay or break the render.
-  void incrementViewCount(slug);
+  // Deferred via after() (invariant: page-only view counting, PHASE-6.md) —
+  // runs after the response is flushed so it never delays the render, but
+  // unlike a bare `void` call it survives past response-send on Vercel's
+  // serverless runtime, which can freeze the function before an unawaited
+  // promise resolves (confirmed via concurrent-load testing: bare `void`
+  // dropped most writes under 20 concurrent requests).
+  after(() => incrementViewCount(slug));
 
   return <RecView rec={rec} />;
 }

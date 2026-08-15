@@ -40,7 +40,7 @@ export function ShareModal({
   useEffect(() => {
     if (!open) return;
     if (!navigator.clipboard) {
-      setCopyState("failed");
+      Promise.resolve().then(() => setCopyState("failed"));
       return;
     }
     navigator.clipboard
