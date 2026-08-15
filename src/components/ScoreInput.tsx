@@ -1,0 +1,106 @@
+"use client";
+
+import { StarIcon } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { formatScore, scoreOptions, SCORE_FORMAT_BOUNDS, type ScoreFormat } from "@/lib/score";
+import { cn } from "@/lib/utils";
+
+const POINT_3_ICON_LABELS: Record<number, string> = {
+  1: "😞",
+  2: "😐",
+  3: "😄",
+};
+
+function optionLabel(scoreFormat: ScoreFormat, value: number) {
+  if (scoreFormat === "POINT_3") return POINT_3_ICON_LABELS[value];
+  if (scoreFormat === "POINT_5") return null;
+  return String(value);
+}
+
+export function ScoreInput({
+  scoreFormat,
+  value,
+  onChange,
+  id,
+}: {
+  scoreFormat: ScoreFormat;
+  value: number | null;
+  onChange: (value: number) => void;
+  id: string;
+}) {
+  const bounds = SCORE_FORMAT_BOUNDS[scoreFormat];
+
+  if (scoreFormat === "POINT_100" || scoreFormat === "POINT_10_DECIMAL") {
+    return (
+      <div className="flex flex-col gap-1">
+        <Label htmlFor={id} className="sr-only">
+          Score
+        </Label>
+        <Input
+          id={id}
+          type="number"
+          inputMode="decimal"
+          min={bounds.min}
+          max={bounds.max}
+          step={bounds.decimals > 0 ? 1 / 10 ** bounds.decimals : 1}
+          value={value ?? ""}
+          onChange={(e) => {
+            const next = e.target.valueAsNumber;
+            if (!Number.isNaN(next)) onChange(next);
+          }}
+          className="h-11 w-24"
+          aria-label={`Score out of ${bounds.max}`}
+        />
+      </div>
+    );
+  }
+
+  const options = scoreOptions(scoreFormat);
+
+  return (
+    <RadioGroup
+      value={value != null ? String(value) : undefined}
+      onValueChange={(next) => onChange(Number(next))}
+      className="flex flex-row flex-wrap gap-2"
+      aria-label={`Score out of ${bounds.max}`}
+    >
+      {options.map((option) => {
+        const label = optionLabel(scoreFormat, option);
+        const optionId = `${id}-${option}`;
+        return (
+          <div key={option} className="relative">
+            <RadioGroupItem value={String(option)} id={optionId} className="peer sr-only" />
+            <Label
+              htmlFor={optionId}
+              title={formatScore(option, scoreFormat)}
+              className={cn(
+                "flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-md border border-input px-2 text-sm transition-colors",
+                "peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10",
+                "peer-focus-visible:ring-[3px] peer-focus-visible:ring-ring/50"
+              )}
+            >
+              {scoreFormat === "POINT_5" ? (
+                <StarIcon
+                  className={cn(
+                    "size-5",
+                    value != null && option <= value ? "fill-primary text-primary" : "text-muted-foreground"
+                  )}
+                  aria-hidden="true"
+                />
+              ) : scoreFormat === "POINT_3" ? (
+                <span aria-hidden="true" className="text-lg leading-none">
+                  {label}
+                </span>
+              ) : (
+                label
+              )}
+              <span className="sr-only">{formatScore(option, scoreFormat)}</span>
+            </Label>
+          </div>
+        );
+      })}
+    </RadioGroup>
+  );
+}

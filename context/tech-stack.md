@@ -39,6 +39,7 @@ peer-dependency warning. A version matrix without a date is a rumour.
 | `@upstash/ratelimit` | 2.0.8 | peer: `@upstash/redis ^1.34.3` |
 | `@upstash/redis` | 1.38.2 | |
 | `server-only` | 0.0.1 | **Not** a Next dependency — must be installed explicitly, or every `import "server-only"` fails to resolve |
+| `cmdk` | 1.1.1 | **Approved 2026-08-15 (D42).** Radix has no combobox primitive; shadcn's `Combobox` composes `Popover` + `Command`, and `Command` wraps `cmdk`. Needed for `MediaSearchInput` (Phase 5). Verified via `npm view cmdk version`. |
 
 **Local toolchain:** Bun 1.3.14, Node 24.14.0, linux/aarch64.
 
@@ -52,9 +53,8 @@ there is nothing to version or upgrade. (**D16**)
 | `@vercel/og` | Next ships `ImageResponse` at `next/og`. The separate package is for non-Next runtimes. Adding it duplicates the renderer. The client brief lists it — the brief is wrong. |
 | `daisyui` | **Removed 2026-08-09** by **D37**, replaced by HeroUI. If you see `btn`, `bg-base-100`, or `data-theme="night"` anywhere, it is a leftover. |
 | `@heroui/react`, `@heroui/styles` | **Removed 2026-08-11** by **D41**, replaced by shadcn/ui. Leftovers to watch for: `@heroui/*` imports, `isPending`, `onPress`, `isDisabled`, `data-theme="dark"`, and `accent` used as the accent token. `onPress` is the dangerous one — it is not a DOM event, so on a shadcn button it fails silently rather than erroring. |
-| `react-aria`, `react-aria-components`, `@react-aria/*` | Removed with HeroUI on 2026-08-11 — they were its non-optional peers and nothing else needed them. Radix covers the same accessibility ground, with **one gap**: no combobox. See `ui-rules.md` § Accessibility before Phase 5. |
+| `react-aria`, `react-aria-components`, `@react-aria/*` | Removed with HeroUI on 2026-08-11 — they were its non-optional peers and nothing else needed them. Radix covers the same accessibility ground; its one gap (no combobox) is closed by `cmdk`, approved **D42** — see the version matrix above. |
 | `framer-motion` | Not needed by shadcn either; its animation is CSS via `tw-animate-css`. Motion in this project is two keyframes in `globals.css`. Do not add it. |
-| `cmdk` | **Not approved.** shadcn's `Combobox`/`Command` requires it, and `MediaSearchInput` (Phase 5) was specced as a combobox. Propose it per the dependency rule, or build on `Popover` and own `aria-activedescendant`. Decide before Phase 5, not during. |
 | `@radix-ui/react-*` | The old per-primitive packages. shadcn 4.x uses the unified `radix-ui` package instead — adding both gets two copies of the same primitives. |
 | `tailwind.config.ts` | Not a package, but worth stating: Tailwind 4 configures in CSS. Configuration lives in `src/app/globals.css`. |
 | `next lint` | Removed in Next 16. `next build` no longer lints. CI calls `eslint` directly. |

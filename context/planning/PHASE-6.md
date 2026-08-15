@@ -1,10 +1,15 @@
 # Phase 6 — Public page & OG cards
 
-**Status:** not started
+**Status:** in progress, 2026-08-15 — core scaffolding implemented (`source-url.ts`,
+`incrementViewCount`, `SourceLink`, `RecView`, `page.tsx`, `og-fonts.ts`,
+`opengraph-image.tsx`). `tsc`/`eslint` clean; unit-tier `bun test` shows no new
+regressions. None of the 25 exit criteria verified yet — deployment status below still
+needs confirming, and most criteria (1–13) require a public URL.
 **User-visible output:** the product becomes shareable
-**Prerequisites:** a **Vercel project — does not exist yet** (as of 2026-08-09). Criteria
-1–13 require a public URL; social validators cannot reach localhost. Set
-`NEXT_PUBLIC_APP_URL` on the deployment, or let it fall back to `VERCEL_URL`.
+**Prerequisites:** a **Vercel project — status as of 2026-08-09 was "does not exist yet",
+unconfirmed since**. Criteria 1–13 require a public URL; social validators cannot reach
+localhost. Set `NEXT_PUBLIC_APP_URL` on the deployment, or let it fall back to
+`VERCEL_URL`.
 
 The share card is the entire distribution mechanism. Most people will meet Tsugi as an
 unfurled preview in a chat window and never click through — for them, the card *is* the

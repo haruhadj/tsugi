@@ -1,5 +1,5 @@
 import "server-only";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/db";
 import { recommendation, recommendationItem } from "@/db/schema";
@@ -223,4 +223,21 @@ export async function getRecommendationBySlug(slug: string): Promise<Recommendat
     .orderBy(recommendationItem.position);
 
   return { ...rec, items };
+}
+
+/**
+ * Fire-and-forget from the page route only (PHASE-6.md) — never awaited by
+ * the caller, so this swallows its own errors rather than letting a view-count
+ * failure surface as a page error. Atomic `SET views = views + 1` rather than
+ * read-modify-write avoids lost updates under concurrent hits on the same slug.
+ */
+export async function incrementViewCount(slug: string): Promise<void> {
+  try {
+    await db
+      .update(recommendation)
+      .set({ views: sql`${recommendation.views} + 1` })
+      .where(eq(recommendation.slug, slug));
+  } catch {
+    // Swallowed by design — a lost view count is not worth a page failure.
+  }
 }

@@ -125,15 +125,14 @@ yourself. If a rule here is satisfied by using the right component, use it.
 
 **One capability did not transfer, and Phase 5 has to deal with it.** HeroUI shipped an
 `Autocomplete`; Radix has no combobox primitive. shadcn's answer is a `Combobox` composed
-from `Popover` + `Command`, and `Command` is a wrapper around **`cmdk`, a dependency this
-project has not approved**. Before `MediaSearchInput` is built, either propose `cmdk` per the
-dependency rule in `AGENTS.md`, or build the listbox on a plain `Popover` and accept owning
-`aria-activedescendant` by hand. Do not discover this halfway through Phase 5.
+from `Popover` + `Command`, and `Command` is a wrapper around `cmdk`. `cmdk` was proposed per
+the dependency rule in `AGENTS.md` and approved (**D42**, 2026-08-15, `tech-stack.md`) —
+`MediaSearchInput` builds on `Popover` + `Command`.
 
 - Semantic elements first. A `div` with an onClick is never a button.
 - The typeahead is a listbox with a managed active option and results announced politely.
-  See the note above — this is the one behaviour the library no longer hands us. Whichever
-  route Phase 5 takes, record it in the registry entry.
+  `cmdk`'s `Command` gives this out of the box; do not fight it or replace its keyboard
+  handling.
 - The score input is a radio group, not a row of buttons — arrow keys must move between
   values. shadcn's `RadioGroup` (Radix) gives that. Its *shape* is still ours: ten options
   for `POINT_10`, five stars for `POINT_5`, three smileys for `POINT_3`, a number field for

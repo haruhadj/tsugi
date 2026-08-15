@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { Wordmark } from "@/components/Wordmark";
 import { Button } from "@/components/ui/button";
+import { RecBuilder } from "@/components/RecBuilder";
 import { getServerSession } from "@/lib/auth";
+import type { ScoreFormat } from "@/lib/score";
 
 // The create flow really is ordered — you cannot score a title you have not picked,
 // and the link does not exist until both are done. That is why these carry step
@@ -25,12 +27,37 @@ const STEPS = [
 ] as const;
 
 export default async function Home() {
-  // The only session-aware element on this page. Everything past the header still
-  // assumes a signed-out visitor, because the create flow this page becomes in
-  // Phase 5 hasn't been built yet (PHASE-2.md: "sign-in works; nothing else is
-  // reachable yet") — this exists only so a completed sign-in has a visible
-  // effect anywhere, rather than requiring a database query to confirm.
   const session = await getServerSession();
+
+  if (session) {
+    return (
+      <div className="min-h-screen">
+        <header className="mx-auto flex max-w-2xl items-center justify-between px-6 pt-8">
+          <Wordmark />
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/settings">Settings</Link>
+          </Button>
+        </header>
+
+        <main className="mx-auto max-w-2xl px-6 py-16">
+          <div className="animate-card-in">
+            <p className="font-mono text-xs tracking-[0.28em] text-muted-foreground uppercase">
+              New recommendation
+            </p>
+            <h1 className="mt-4 font-display text-[clamp(1.9rem,5vw,2.75rem)] leading-[0.95] font-extrabold tracking-[-0.03em] uppercase">
+              Pick, score,
+              <br />
+              share.
+            </h1>
+
+            <div className="mt-10">
+              <RecBuilder scoreFormat={session.user.scoreFormat as ScoreFormat} />
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">
