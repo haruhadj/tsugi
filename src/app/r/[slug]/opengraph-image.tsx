@@ -53,6 +53,11 @@ export default async function Image({ params }: { params: Params }) {
   const title = rec?.caption ?? items.map((item) => item.title).join(", ") ?? "Tsugi";
   const visible = items.slice(0, 4);
   const overflowCount = items.length > 4 ? items.length - 4 : 0;
+  const comment = rec?.comment
+    ? rec.comment.length > 200
+      ? `${rec.comment.slice(0, 200).trimEnd()}…`
+      : rec.comment
+    : null;
 
   return new ImageResponse(
     (
@@ -103,12 +108,25 @@ export default async function Image({ params }: { params: Params }) {
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 24, alignItems: "flex-end" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 24,
+            alignItems: items.length === 1 ? "flex-start" : "flex-end",
+          }}
+        >
           {items.length === 1 ? (
             <>
               <Cover src={items[0]!.coverImage} width={220} height={320} />
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <div style={{ display: "flex", fontSize: 32, color: COLOR.foreground }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, width: 800 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    fontSize: 32,
+                    color: COLOR.foreground,
+                    overflow: "hidden",
+                  }}
+                >
                   {items[0]!.title}
                 </div>
                 {items[0]!.scoreRaw !== null && items[0]!.scoreFormat !== null && (
@@ -124,32 +142,60 @@ export default async function Image({ params }: { params: Params }) {
                     {formatScore(items[0]!.scoreRaw, items[0]!.scoreFormat as ScoreFormat)}
                   </div>
                 )}
+                {comment && (
+                  <div
+                    style={{
+                      display: "flex",
+                      fontSize: 20,
+                      lineHeight: 1.4,
+                      color: COLOR.mutedForeground,
+                      overflow: "hidden",
+                    }}
+                  >
+                    {comment}
+                  </div>
+                )}
               </div>
             </>
           ) : (
-            <div style={{ display: "flex", gap: 16 }}>
-              {visible.map((item, index) => (
-                <div key={item.position} style={{ display: "flex", position: "relative" }}>
-                  <Cover src={item.coverImage} width={180} height={260} />
-                  {index === visible.length - 1 && overflowCount > 0 && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        inset: 0,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        backgroundColor: "rgba(11, 10, 20, 0.72)",
-                        fontFamily: "JetBrains Mono",
-                        fontSize: 28,
-                        color: COLOR.foreground,
-                      }}
-                    >
-                      +{overflowCount} more
-                    </div>
-                  )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
+              <div style={{ display: "flex", gap: 16 }}>
+                {visible.map((item, index) => (
+                  <div key={item.position} style={{ display: "flex", position: "relative" }}>
+                    <Cover src={item.coverImage} width={180} height={260} />
+                    {index === visible.length - 1 && overflowCount > 0 && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          backgroundColor: "rgba(11, 10, 20, 0.72)",
+                          fontFamily: "JetBrains Mono",
+                          fontSize: 28,
+                          color: COLOR.foreground,
+                        }}
+                      >
+                        +{overflowCount} more
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {comment && (
+                <div
+                  style={{
+                    display: "flex",
+                    fontSize: 20,
+                    lineHeight: 1.4,
+                    color: COLOR.mutedForeground,
+                    overflow: "hidden",
+                  }}
+                >
+                  {comment}
                 </div>
-              ))}
+              )}
             </div>
           )}
         </div>
