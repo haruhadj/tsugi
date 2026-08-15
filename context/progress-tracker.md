@@ -9,8 +9,8 @@ happened last time.
 
 | | |
 |---|---|
-| **Current phase** | **Phase 6 — Public page & OG cards** ([spec](./planning/PHASE-6.md)) |
-| **Phase status** | **In progress, 2026-08-15.** Core scaffolding implemented: `src/lib/source-url.ts` (`buildSourceUrl`), `incrementViewCount` added to `src/server/services/recommendations.ts` (fire-and-forget atomic SQL increment), `src/components/SourceLink.tsx`, `src/components/RecView.tsx`, `src/app/r/[slug]/page.tsx` (`generateMetadata` + fire-and-forget view count), `src/lib/og-fonts.ts` (old-Android-UA Google Fonts `.ttf` fetch trick for Satori), `src/app/r/[slug]/opengraph-image.tsx` (hardcoded Eyecatch hex palette with `oklch()` comments, three-tier layout for N=1/N=2–4/N≥5). `tsc --noEmit` and `eslint .` both clean (aside from a pre-existing, unrelated `ShareModal.tsx:43` `react-hooks/set-state-in-effect` warning from Phase 5, not touched this session). Unit-tier `bun test` (excluding `.db.test.ts`/`.redis.test.ts`/`.contract.test.ts`): 81 pass, 1 fail/1 error, both pre-existing and unrelated (`media.test.ts`'s `server-only` import-guard issue, not caused by any file touched this session). None of the 25 exit criteria verified yet — most (1–13) need a deployed public URL; Vercel deployment status unconfirmed since 2026-08-09. |
+| **Current phase** | **Phase 7 — List import** ([spec](./planning/PHASE-7.md)) |
+| **Phase status** | **In progress, 2026-08-15.** Phase 6 closed same day — see Phase status table and session log. Starting `src/server/services/lists/anilist.ts` and `mal.ts`. |
 | **Upstash** | Provisioned 2026-08-11 — `fit-hyena-107044.upstash.io`, credentials in `.env`. Backs both rate limiting (D9) and the media resolve cache (Phase 4). |
 | **Last updated** | 2026-08-15 |
 | **UI library** | **shadcn/ui + Radix** — replaced HeroUI on 2026-08-11 (**D41**). Custom "Eyecatch" palette, authored by us. Anything referencing `@heroui/*`, `onPress`, `isPending`, or `data-theme="dark"` is a leftover. |
@@ -27,13 +27,18 @@ happened last time.
 | 3 — Media providers | **Closed** — 2026-08-11. 14/14 exit criteria verified, 0 accepted debt |
 | 4 — API surface | **Closed** — 2026-08-11. 25/26 exit criteria verified; criterion 17 deliberately not automated (see session log) |
 | 5 — Create & share UX | **Closed** — 2026-08-15. 27/31 exit criteria verified live (Playwright + `bun run test`, 121/121). 1 accepted open item: criterion 10, search dropdown fetches cover art but doesn't render it. 2 test-harness-blocked, not product bugs: criteria 13/27 (headless Chromium won't grant clipboard-write permission). 2 blocked on Jikan's known ~50% 504 rate, each attempted once per plan: criteria 4/24. See session log. |
-| 6 — Public page & OG cards | Not started |
-| 7 — List import | Not started — new |
+| 6 — Public page & OG cards | **Closed** — 2026-08-15. Deployed to `https://tsugi-lyart.vercel.app`. 22/25 exit criteria verified live; 3 accepted open: criterion 13 (real Discord/X unfurl, untestable by an agent), 17 (DB-unwritable case, verified by code inspection only), 24 (create-flow timing, low-risk carry-forward from Phase 5). Two production bugs found and fixed: serverless view-count data loss (`after()` fix) and OG card comment/title-overflow rendering (`4b7866f`). See session log |
+| 7 — List import | **In progress** — started 2026-08-15 |
 | 8 — Dashboard | Not started |
 
 ### Immediate next steps
 
-1. **Phase 5 is closed.** Fix or triage the one confirmed product gap: criterion 10, the
+1. **Phase 6 is closed.** The 9 synthetic test recommendations seeded during Phase 6
+   verification (including `jh5bpggljeg`, patched with a real AniList cover URL) were
+   purged from production on 2026-08-15. Phase 7 (list import) is now underway. A manual
+   real-browser pass on criterion 13 (paste a `/r/[slug]` link into actual Discord/X)
+   still remains to fully close that loop, since it can't be done by the agent.
+2. **Phase 5 is closed.** Fix or triage the one confirmed product gap: criterion 10, the
    media-search dropdown fetches cover art from both providers but never renders it — add an
    `<img>`/thumbnail to `MediaSearchInput.tsx`'s result rows. Criteria 13 (clipboard write
    before the ShareModal finishes appearing) and 27 (Discord-copy message) could not be
@@ -894,6 +899,73 @@ the one you forgot. `scripts/check-db-reachable.sh` warns if a second file appea
 ## Session log
 
 Newest first. One entry per session: what changed, what was decided, what to pick up next.
+
+### 2026-08-15 — Phase 6 exit-criteria verification, closed with accepted debt
+
+Deployed to Vercel (`https://tsugi-lyart.vercel.app`) and ran the full 25-criterion pass
+from `context/planning/PHASE-6.md` against the live production deployment.
+
+**Two production bugs found and fixed this session:**
+- **View-count data loss under serverless load.** The original fire-and-forget
+  `void incrementViewCount(slug)` call was dropped mid-flight most of the time under
+  concurrent requests — Vercel's serverless runtime can freeze the function once the
+  response is flushed, before an unawaited promise resolves. Fixed by switching to
+  Next.js 16.3's `after()` API (`src/app/r/[slug]/page.tsx`), which defers the write
+  until after the response is sent but keeps the function alive until it completes.
+  Confirmed via criterion 15 (20 concurrent requests → `views` +20 exactly, previously
+  undercounted).
+- **OG card comment missing and N=1 title overflow risk.** `opengraph-image.tsx` built
+  the layout with no comment excerpt at all, and the N=1 title container had no width
+  constraint, risking overflow past the 1200px canvas edge on long titles. Fixed by
+  adding comment derivation (200-char truncate + ellipsis) and rendering it in both the
+  N=1 and multi-cover branches, and constraining the N=1 title to `width: 800,
+  overflow: hidden`. Committed as `4b7866f`. Verified by re-fetching and visually
+  inspecting the OG PNGs for three seeded test cases (long comment, Japanese title,
+  2-item layout) post-redeploy.
+
+**22 of 25 criteria verified live**, including both concurrency criteria (15, 16),
+signed-out rendering (25 — page and OG image both 200, no redirect, correct title), all
+the static/grep-based criteria (18–22), and the visual OG-card criteria (1–11) against 9
+seeded test recommendations covering N=1/N=2/N≥5 layouts, missing comment, missing score,
+`POINT_3`/`POINT_100` formats, null cover image, a 280-char comment, and a Japanese title.
+
+**3 criteria accepted open, not failures:**
+- **Criterion 13** (paste into a real Discord/X client) cannot be performed by the
+  assistant at all — it requires an actual chat client rendering a real unfurl. The
+  underlying infrastructure (absolute `og:image` URL, correct content-type, correct
+  dimensions) is confirmed correct by direct HTTP inspection; recommend the user do a
+  manual paste-test before treating distribution as fully proven.
+- **Criterion 17** (DB made unwritable → page still 200, counter fails silently) was
+  verified by code inspection only (the `try`/`catch` around the increment swallows
+  errors) — there is no safe way to fault-inject a live production database without risk
+  of real damage, so this was not exercised end-to-end.
+- **Criterion 24** (Phase 5's 10-second create flow has not regressed) was only checked
+  at the level of "home page renders 200 while signed out" — the actual interactive
+  timing test needs a browser session. Regression risk is assessed as low since this
+  phase's changes (`opengraph-image.tsx`, `page.tsx`, `ShareModal.tsx`, view counting)
+  don't touch the create-flow's critical path, but this is carried forward from Phase 5's
+  already-passed closure rather than freshly re-verified.
+
+One pre-existing, unrelated nuance noted but not treated as a bug: `formatScore()`'s
+`POINT_3` format renders text labels, not emoji smileys — this is app-wide behavior from
+Phase 5, not something this phase's code touches, and criterion 8's actual requirement
+(no `2/3` fraction leaking through) still holds.
+
+**Open judgment call, not yet acted on:** 9 synthetic test recommendations (including one,
+`jh5bpggljeg`, patched with a real AniList cover URL) remain in the production database
+from this verification pass. Left in place pending the user's call on whether to delete
+them.
+
+Scratch verification scripts and OG PNGs in the session scratchpad were left for now
+(`views.ts`, `fixcover.ts`, `codes*.txt`, `og*.png`, `findslugs.ts`, `seed.ts`,
+`check-slug.ts`) — none were committed to the repo.
+
+Given 22/25 clean live passes and 3 accepted-open items that are either untestable by an
+agent (13), verified by code inspection with no safe live equivalent (17), or a low-risk
+carry-forward from an already-closed phase (24), **Phase 6 is closed as of 2026-08-15**.
+
+**Next:** start Phase 7 planning (list import). Decide whether to purge the 9 seeded test
+recommendations from production first.
 
 ### 2026-08-15 — Phase 5 exit-criteria verification, closed with accepted debt
 

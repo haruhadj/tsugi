@@ -1,6 +1,6 @@
 # Phase 7 — List import
 
-**Status:** not started
+**Status:** In progress, started 2026-08-15.
 **User-visible output:** build a recommendation from titles you have already rated
 **Prerequisites:** Phase 2 (tokens in the `account` table). No new external accounts.
 
