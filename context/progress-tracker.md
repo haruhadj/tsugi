@@ -10,9 +10,9 @@ happened last time.
 | | |
 |---|---|
 | **Current phase** | **Phase 7 — List import** ([spec](./planning/PHASE-7.md)) |
-| **Phase status** | **In progress, 2026-08-15.** Phase 6 closed same day — see Phase status table and session log. `tokens.ts`, `anilist.ts`, `mal.ts`, and the `GET /api/lists/:provider/:mediaType` route are all implemented and passing `tsc`/`eslint`/`bun test` (121/121); remaining: tests for `mal.ts`/`lists.ts`, the My-list picker UI, per-user caching, and the account-gated exit criteria — see [PHASE-7.md](./planning/PHASE-7.md). |
+| **Phase status** | **In progress, 2026-08-16.** Phase 6 closed 2026-08-15 — see Phase status table and session log. `tokens.ts`, `anilist.ts`, `mal.ts`, and the `GET /api/lists/:provider/:mediaType` route are all implemented and passing `tsc`/`eslint`; all four service/route files now have unit-tier test coverage (`tokens.test.ts`, `anilist.test.ts`, `mal.test.ts`, `lists.db.test.ts`). The My-list picker UI is now implemented too (`MyListPicker.tsx`, `RecBuilder.tsx` mode toggle, criterion-9 gating). Full suite: 145 pass, 1 fail (`recs.db.test.ts`, pre-existing, unrelated to Phase 7). Per-user list caching is now implemented (`listCache` table, 5-minute TTL). Remaining: the account-gated exit criteria (blocked on manual OAuth dashboard registration), criterion 12 regression check, unscoped `eslint .` — see [PHASE-7.md](./planning/PHASE-7.md). |
 | **Upstash** | Provisioned 2026-08-11 — `fit-hyena-107044.upstash.io`, credentials in `.env`. Backs both rate limiting (D9) and the media resolve cache (Phase 4). |
-| **Last updated** | 2026-08-15 |
+| **Last updated** | 2026-08-16 |
 | **UI library** | **shadcn/ui + Radix** — replaced HeroUI on 2026-08-11 (**D41**). Custom "Eyecatch" palette, authored by us. Anything referencing `@heroui/*`, `onPress`, `isPending`, or `data-theme="dark"` is a leftover. |
 | **Application code** | Phase 0 scaffold, Phase 1's full data layer, and Phase 2's auth wiring: Hono catch-all at `/api`, `genericOAuth` for AniList + MAL (Google not yet configured), `/sign-in` and `/settings`, session helper. Frontend redesigned on shadcn with a real landing page. |
 | **Repository** | `main` pushed to `github.com/haruhadj/tsugi` (private). CI green. |
@@ -28,7 +28,7 @@ happened last time.
 | 4 — API surface | **Closed** — 2026-08-11. 25/26 exit criteria verified; criterion 17 deliberately not automated (see session log) |
 | 5 — Create & share UX | **Closed** — 2026-08-15. 27/31 exit criteria verified live (Playwright + `bun run test`, 121/121). 1 accepted open item: criterion 10, search dropdown fetches cover art but doesn't render it. 2 test-harness-blocked, not product bugs: criteria 13/27 (headless Chromium won't grant clipboard-write permission). 2 blocked on Jikan's known ~50% 504 rate, each attempted once per plan: criteria 4/24. See session log. |
 | 6 — Public page & OG cards | **Closed** — 2026-08-15. Deployed to `https://tsugi-lyart.vercel.app`. 22/25 exit criteria verified live; 3 accepted open: criterion 13 (real Discord/X unfurl, untestable by an agent), 17 (DB-unwritable case, verified by code inspection only), 24 (create-flow timing, low-risk carry-forward from Phase 5). Two production bugs found and fixed: serverless view-count data loss (`after()` fix) and OG card comment/title-overflow rendering (`4b7866f`). See session log |
-| 7 — List import | **In progress** — started 2026-08-15. `tokens.ts`, `anilist.ts`, `mal.ts`, `GET /api/lists/:provider/:mediaType` all implemented; `tsc`/`eslint`/`bun test` clean (121/121); invariant 10 and criterion 11 verified via grep. Remaining: tests for `mal.ts`/`lists.ts`, My-list picker UI, per-user caching, account-gated criteria 1–8, criterion 12 regression check, unscoped `eslint .` |
+| 7 — List import | **In progress** — started 2026-08-15. `tokens.ts`, `anilist.ts`, `mal.ts`, `GET /api/lists/:provider/:mediaType` all implemented; `tsc`/`eslint` clean; invariant 10 and criterion 11 verified via grep. Production OAuth verified: both providers' redirect URIs follow `/api/auth/oauth2/callback/{providerId}`, confirmed live against `https://tsugi-lyart.vercel.app`; manual dashboard registration of those URIs still pending. All four service/route files now have unit-tier test coverage: `mal.ts` (`mal.test.ts`, 9 tests), `lists.ts` (`lists.db.test.ts`, 2 tests, scoped to the no-session 401 and invariant 10), `anilist.ts` (`anilist.test.ts`, 6 tests), and `tokens.ts` (`tokens.test.ts`, 7 tests, using `bun:test`'s `mock.module` to fake `@/db` — a first in this codebase). Full-path success coverage for all of these still needs a real linked account, folded into criteria 1–8. **My-list picker UI implemented:** `MyListPicker.tsx` (new) + `RecBuilder.tsx` mode toggle, `handleImport`, and `authClient.listAccounts()`-based criterion-9 gating. `tsc`/`eslint` clean. Full suite (`bun test --conditions=react-server`): 145 pass, 1 fail (`recs.db.test.ts`, confirmed pre-existing and unrelated via git-stash isolation). Per-user list caching implemented (`listCache` table, migration `0002_broken_triton.sql`, 5-minute TTL). Remaining: account-gated criteria 1–8 (blocked on manual OAuth registration), criterion 12 regression check, unscoped `eslint .` |
 | 8 — Dashboard | Not started |
 
 ### Immediate next steps
@@ -39,11 +39,40 @@ happened last time.
    real-browser pass on criterion 13 (paste a `/r/[slug]` link into actual Discord/X)
    still remains to fully close that loop, since it can't be done by the agent.
 1a. **Phase 7 next work.** The server-side pieces are done (`tokens.ts`, `anilist.ts`,
-   `mal.ts`, `lists.ts` route). Next: unit tests for `mal.ts` and `lists.ts`; the **My list**
-   picker UI on the create screen (shares the item tray with Search, hidden for Google-only
-   accounts); per-user list caching; then exercise exit criteria 1–8 against a real linked
-   AniList/MAL account, re-verify criterion 12 (Phase 5's 10s create-flow, unregressed), and
-   run an unscoped `bun x eslint .` for criterion 13.
+   `mal.ts`, `lists.ts` route). Production OAuth is verified: both providers' redirect URIs
+   follow `/api/auth/oauth2/callback/{providerId}` (not `/api/auth/callback/`), confirmed
+   against `https://tsugi-lyart.vercel.app` for both AniList and MAL, including MAL's PKCE
+   flow — `https://tsugi-lyart.vercel.app/api/auth/oauth2/callback/anilist` and `.../mal`
+   still need to be registered by hand in each provider's developer dashboard, a prerequisite
+   for exit criteria 1–8. All four service/route files now have unit-tier test coverage:
+   `mal.ts` (`mal.test.ts`, 9 tests), `lists.ts` (`lists.db.test.ts`, 2 tests, scoped to the
+   no-session 401 and invariant 10), `anilist.ts` (`anilist.test.ts`, 6 tests: bearer header,
+   401/429/timeout/network-failure/malformed-JSON on the viewer call, missing-id-or-scoreFormat),
+   and `tokens.ts` (`tokens.test.ts`, 7 tests, covering not_linked, AniList's no-refresh path,
+   the 60s expiry margin, a dead refresh token per criterion 7, and a successful refresh
+   persisting new tokens). `tokens.test.ts` was made possible by mocking `@/db` with
+   `bun:test`'s `mock.module` — a first in this codebase's test suite, needed because
+   `tokens.ts` queries Postgres directly with no injectable `db` parameter. Full success-path
+   coverage for all four still needs a real linked account and is folded into criteria 1–8,
+   since the codebase has no session-forging helper and Better-Auth signs session cookies.
+   Full suite (`bun test --conditions=react-server`): 145 pass, 1 fail — the failure
+   (`recs.db.test.ts`) is a pre-existing Phase-6-era issue, confirmed unrelated to this
+   session's changes via git-stash isolation. The **My list** picker UI on the create screen
+   is now implemented: `MyListPicker.tsx` (new component, fetches the list route, maps HTTP
+   status to a discriminated state, renders a filterable list) plus `RecBuilder.tsx` (mode
+   toggle alongside Search, `handleImport` dedup/capacity/D28-D35-aware handler, and
+   `authClient.listAccounts()`-based criterion-9 gating hiding the mode for Google-only
+   accounts). `tsc`/`eslint` clean; full suite unchanged at 145 pass / 1 fail. **Per-user list
+   caching is now implemented too:** a new `listCache` table (`src/db/schema.ts`, migration
+   `drizzle/0002_broken_triton.sql`) keyed on `(userId, provider, mediaType)` with a jsonb
+   `entries` column mirroring `ListEntry[]` and RLS enabled per D20. `lists.ts` reads the
+   cache first — a hit inside a 5-minute TTL skips `getListAccessToken` and the provider
+   fetch entirely; a miss or stale row fetches fresh and upserts via `onConflictDoUpdate` on
+   the identity unique before responding. `tsc`/`eslint` clean; full suite unchanged at 145
+   pass / 1 fail (same pre-existing `recs.db.test.ts` failure). Next: exercise exit criteria
+   1–8 against a real linked AniList/MAL account (after the manual dashboard registration
+   above), re-verify criterion 12 (Phase 5's 10s create-flow, unregressed), and run an
+   unscoped `bun x eslint .` for criterion 13.
 2. **Phase 5 is closed.** Fix or triage the one confirmed product gap: criterion 10, the
    media-search dropdown fetches cover art from both providers but never renders it — add an
    `<img>`/thumbnail to `MediaSearchInput.tsx`'s result rows. Criteria 13 (clipboard write

@@ -3,6 +3,7 @@ import {
   check,
   index,
   integer,
+  jsonb,
   numeric,
   pgTable,
   text,
@@ -79,5 +80,28 @@ export const recommendationItem = pgTable(
       table.mediaType,
       table.externalId,
     ),
+  ],
+).enableRLS();
+
+// Per-user cache of a fetched list (Phase 7 scope). One row per (user,
+// provider, mediaType) — a re-fetch within TTL reads this instead of hitting
+// AniList/MAL again. `entries` mirrors `ListEntry[]` (src/lib/types/media.ts)
+// exactly, so it already carries the D28/D35 null-pairing invariant; nothing
+// here re-validates that shape, since it is only ever written from a
+// `ProviderResult` that already satisfies it.
+export const listCache = pgTable(
+  "list_cache",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    provider: providerEnum("provider").notNull(),
+    mediaType: mediaTypeEnum("media_type").notNull(),
+    entries: jsonb("entries").notNull(),
+    fetchedAt: timestamp("fetched_at").notNull().defaultNow(),
+  },
+  (table) => [
+    unique("list_cache_identity").on(table.userId, table.provider, table.mediaType),
   ],
 ).enableRLS();

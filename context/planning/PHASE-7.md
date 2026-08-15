@@ -9,12 +9,67 @@
 - `src/server/hono/lists.ts` — `GET /api/lists/:provider/:mediaType`, mounted into the shared Hono app in `route.ts`. Session-checked, maps `TokenLookupResult`/`ProviderResult` failure reasons to HTTP status codes, never echoes token fields.
 - Invariant 10 (`grep -rn "accessToken" src/app src/components`) and criterion 11 (`grep -rniE "SaveMediaListEntry|update_my_list_status" src/server/services/lists`) both verified clean.
 - `bun x tsc --noEmit` and `eslint` clean on all touched files. Full suite (`bun test --conditions=react-server`): 121 pass, 0 fail.
+- **Production OAuth verified.** Both providers' redirect URIs follow
+  `/api/auth/oauth2/callback/{providerId}` (not `/api/auth/callback/`), confirmed against
+  `https://tsugi-lyart.vercel.app` for both AniList and MAL, including MAL's PKCE flow. The
+  exact URIs — `https://tsugi-lyart.vercel.app/api/auth/oauth2/callback/anilist` and
+  `.../mal` — still need to be registered in each provider's developer dashboard by hand;
+  that manual step is a prerequisite for exit criteria 1–8, not yet done.
+- `mal.ts` now has a unit-test suite (`mal.test.ts`, 9 tests): entry mapping, D35 zero-score
+  handling, media-type path selection, the `X-MAL-CLIENT-ID`/bearer headers, `paging.next`
+  pagination, 401/429/network-failure/timeout handling.
+- `lists.ts` now has a `.db.test.ts` route suite (`lists.db.test.ts`, 2 tests), scoped to the
+  no-session 401 boundary and invariant 10 (no token field ever echoed). Full success-path
+  coverage needs a real linked account and is folded into criteria 1–8 below — the codebase
+  has no session-forging helper, and Better-Auth signs session cookies, so a "valid session,
+  invalid param" 400 case is deferred alongside those criteria rather than faked.
+- `anilist.ts` now has a unit-test suite (`anilist.test.ts`, 6 tests): bearer-token header,
+  401/429/timeout/network-failure/malformed-JSON handling on the viewer call, and the
+  missing-id-or-scoreFormat `unavailable` case. The `scoreFormat` write-back (D32) and the
+  full two-call happy path are not exercised here — they need a live Postgres write and a
+  real GraphQL response shape, so they stay folded into exit criteria 1–3 rather than faked.
+- `tokens.ts` now has a unit-test suite (`tokens.test.ts`, 7 tests), made possible by mocking
+  `@/db` with `bun:test`'s `mock.module` (a first in this codebase's test suite) so the
+  refresh-margin math and MAL refresh flow are real unit tests, not db-tier ones: `not_linked`
+  with no account row, an AniList token returned regardless of expiry (no refresh flow exists
+  for it), a non-expired MAL token returned without refreshing, a MAL token inside the 60s
+  expiry margin correctly treated as expired, a dead refresh token (no `refreshToken` stored,
+  and a refresh call that itself fails) both returning `reauth_required` per criterion 7, and
+  a successful refresh persisting the new access/refresh tokens and returning the fresh token.
+- Full suite (`bun test --conditions=react-server`): 145 pass, 1 fail — the 1 failure
+  (`recs.db.test.ts`, a Phase-6-era db-tier test unrelated to Phase 7) is pre-existing,
+  confirmed by reproducing it with this session's changes stashed out.
+- **My-list picker UI implemented.** `src/components/MyListPicker.tsx` (new): fetches
+  `/api/lists/:provider/:mediaType` on mount, maps HTTP status to a discriminated
+  `ListState` (`not_linked`/`reauth_required` → reconnect prompt linking to `/settings`,
+  `rate_limited` → retry message, other errors → generic unavailable message), renders a
+  filterable, capacity/dedup-aware list of rows using `MediaCover`. `RecBuilder.tsx`: added
+  a `mode` ("search" | "mylist") radio toggle alongside the existing provider toggle, a
+  `handleImport(entry: ListEntry)` handler (dedup by `${provider}-${externalId}`, respects
+  `canAddItem`, prefills `scoreRaw` only when `entry.scoreFormat === scoreFormat` per D28/D35),
+  and `authClient.listAccounts()`-based gating — the mode toggle and picker render only when
+  `linkedProviderIds` contains `"anilist"` or `"mal"` (criterion 9). `bun x tsc --noEmit` and
+  `eslint` clean on both files; full suite unchanged at 145 pass / 1 fail (same pre-existing
+  failure).
+
+**Correction:** the "`anilist.ts`'s existing tests" line that once appeared here pointed at
+`anilist-client.test.ts`, which tests a different, Phase 3 file
+(`src/lib/providers/anilist-client.ts`) — not this one. Resolved: `anilist.ts` now has its
+own test file, above.
+
+- **Per-user list caching implemented.** New `listCache` table (`src/db/schema.ts`,
+  migration `drizzle/0002_broken_triton.sql`): one row per `(userId, provider, mediaType)`,
+  `entries` jsonb mirroring `ListEntry[]` verbatim (so it already carries the D28/D35
+  null-pairing invariant with nothing re-validating it), `fetchedAt` timestamp, RLS-enabled
+  per D20. `lists.ts` checks the cache first — a hit within a 5-minute TTL returns cached
+  entries without touching AniList/MAL or `getListAccessToken` at all; a miss or stale row
+  fetches fresh and upserts (`onConflictDoUpdate` on the identity unique) before responding.
+  `bun x tsc --noEmit` and `eslint` clean; full suite unchanged at 145 pass / 1 fail (same
+  pre-existing `recs.db.test.ts` failure).
 
 **Not yet started:**
-- Tests for `mal.ts` and `lists.ts` (no coverage yet — everything above is otherwise untested at the unit level beyond `anilist.ts`'s existing tests).
-- The **My list** picker UI on the create screen (shares item tray with Search); hiding it for Google-only accounts.
-- Per-user list caching.
-- Exit criteria 1–8 (require a real linked AniList/MAL account — db-test/manual, not yet exercised).
+- Exit criteria 1–8 (require a real linked AniList/MAL account, and the provider-dashboard
+  redirect-URI registration above — db-test/manual, not yet exercised).
 - Criterion 12 (Phase 5's 10s create-flow criterion, re-verified unregressed).
 - Full-project (unscoped) `eslint .` run for criterion 13.
 **User-visible output:** build a recommendation from titles you have already rated
@@ -31,7 +86,7 @@ rated, a user picks from their own list — and their existing score comes with 
 - MAL token refresh — access tokens expire in an hour
 - Score-format capture: AniList's `Viewer.mediaListOptions.scoreFormat`
 - A **My list** mode on the create screen, filterable, alongside **Search**
-- Caching of a fetched list per user
+- Caching of a fetched list per user — **done**, `listCache` table, 5-minute TTL
 
 **Explicitly out**
 - **Writing back to AniList or MAL.** Tsugi never modifies anyone's list. Read-only, both

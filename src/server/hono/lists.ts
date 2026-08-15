@@ -1,10 +1,18 @@
 import "server-only";
+import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
+import { db } from "@/db";
+import { listCache } from "@/db/schema";
 import { auth } from "@/lib/auth";
-import type { MediaType, Provider, ProviderResult } from "@/lib/types/media";
+import type { ListEntry, MediaType, Provider, ProviderResult } from "@/lib/types/media";
 import { fetchAniListList } from "@/server/services/lists/anilist";
 import { fetchMalList } from "@/server/services/lists/mal";
 import { getListAccessToken } from "@/server/services/lists/tokens";
+
+// A picker session re-renders/re-fetches within a few minutes of browsing;
+// this avoids hitting AniList/MAL again for that window without going stale
+// across a return visit (risk: "large list timing out", PHASE-7.md).
+const CACHE_TTL_MS = 5 * 60 * 1000;
 
 function isProvider(value: string): value is Provider {
   return value === "anilist" || value === "mal";
@@ -40,6 +48,17 @@ export const listsRouter = new Hono().get("/lists/:provider/:mediaType", async (
     return c.json({ error: "Unknown provider or media type." }, 400);
   }
 
+  const cached = await db.query.listCache.findFirst({
+    where: and(
+      eq(listCache.userId, session.user.id),
+      eq(listCache.provider, providerParam),
+      eq(listCache.mediaType, mediaTypeParam),
+    ),
+  });
+  if (cached && Date.now() - cached.fetchedAt.getTime() < CACHE_TTL_MS) {
+    return c.json({ entries: cached.entries as ListEntry[] });
+  }
+
   const token = await getListAccessToken(session.user.id, providerParam);
   if (!token.ok) {
     return c.json(
@@ -56,6 +75,20 @@ export const listsRouter = new Hono().get("/lists/:provider/:mediaType", async (
   if (!result.ok) {
     return c.json({ error: "Could not load your list." }, REASON_STATUS[result.reason]);
   }
+
+  await db
+    .insert(listCache)
+    .values({
+      userId: session.user.id,
+      provider: providerParam,
+      mediaType: mediaTypeParam,
+      entries: result.data,
+      fetchedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: [listCache.userId, listCache.provider, listCache.mediaType],
+      set: { entries: result.data, fetchedAt: new Date() },
+    });
 
   return c.json({ entries: result.data });
 });

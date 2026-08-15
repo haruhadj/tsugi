@@ -15,6 +15,13 @@
       "when": 1786336517676,
       "tag": "0001_low_gideon",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786817747538,
+      "tag": "0002_broken_triton",
+      "breakpoints": true
     }
   ]
 }
