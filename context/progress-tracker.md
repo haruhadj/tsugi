@@ -10,7 +10,7 @@ happened last time.
 | | |
 |---|---|
 | **Current phase** | **Phase 7 — List import** ([spec](./planning/PHASE-7.md)) |
-| **Phase status** | **In progress, 2026-08-15.** Phase 6 closed same day — see Phase status table and session log. Starting `src/server/services/lists/anilist.ts` and `mal.ts`. |
+| **Phase status** | **In progress, 2026-08-15.** Phase 6 closed same day — see Phase status table and session log. `tokens.ts`, `anilist.ts`, `mal.ts`, and the `GET /api/lists/:provider/:mediaType` route are all implemented and passing `tsc`/`eslint`/`bun test` (121/121); remaining: tests for `mal.ts`/`lists.ts`, the My-list picker UI, per-user caching, and the account-gated exit criteria — see [PHASE-7.md](./planning/PHASE-7.md). |
 | **Upstash** | Provisioned 2026-08-11 — `fit-hyena-107044.upstash.io`, credentials in `.env`. Backs both rate limiting (D9) and the media resolve cache (Phase 4). |
 | **Last updated** | 2026-08-15 |
 | **UI library** | **shadcn/ui + Radix** — replaced HeroUI on 2026-08-11 (**D41**). Custom "Eyecatch" palette, authored by us. Anything referencing `@heroui/*`, `onPress`, `isPending`, or `data-theme="dark"` is a leftover. |
@@ -28,7 +28,7 @@ happened last time.
 | 4 — API surface | **Closed** — 2026-08-11. 25/26 exit criteria verified; criterion 17 deliberately not automated (see session log) |
 | 5 — Create & share UX | **Closed** — 2026-08-15. 27/31 exit criteria verified live (Playwright + `bun run test`, 121/121). 1 accepted open item: criterion 10, search dropdown fetches cover art but doesn't render it. 2 test-harness-blocked, not product bugs: criteria 13/27 (headless Chromium won't grant clipboard-write permission). 2 blocked on Jikan's known ~50% 504 rate, each attempted once per plan: criteria 4/24. See session log. |
 | 6 — Public page & OG cards | **Closed** — 2026-08-15. Deployed to `https://tsugi-lyart.vercel.app`. 22/25 exit criteria verified live; 3 accepted open: criterion 13 (real Discord/X unfurl, untestable by an agent), 17 (DB-unwritable case, verified by code inspection only), 24 (create-flow timing, low-risk carry-forward from Phase 5). Two production bugs found and fixed: serverless view-count data loss (`after()` fix) and OG card comment/title-overflow rendering (`4b7866f`). See session log |
-| 7 — List import | **In progress** — started 2026-08-15 |
+| 7 — List import | **In progress** — started 2026-08-15. `tokens.ts`, `anilist.ts`, `mal.ts`, `GET /api/lists/:provider/:mediaType` all implemented; `tsc`/`eslint`/`bun test` clean (121/121); invariant 10 and criterion 11 verified via grep. Remaining: tests for `mal.ts`/`lists.ts`, My-list picker UI, per-user caching, account-gated criteria 1–8, criterion 12 regression check, unscoped `eslint .` |
 | 8 — Dashboard | Not started |
 
 ### Immediate next steps
@@ -38,6 +38,12 @@ happened last time.
    purged from production on 2026-08-15. Phase 7 (list import) is now underway. A manual
    real-browser pass on criterion 13 (paste a `/r/[slug]` link into actual Discord/X)
    still remains to fully close that loop, since it can't be done by the agent.
+1a. **Phase 7 next work.** The server-side pieces are done (`tokens.ts`, `anilist.ts`,
+   `mal.ts`, `lists.ts` route). Next: unit tests for `mal.ts` and `lists.ts`; the **My list**
+   picker UI on the create screen (shares the item tray with Search, hidden for Google-only
+   accounts); per-user list caching; then exercise exit criteria 1–8 against a real linked
+   AniList/MAL account, re-verify criterion 12 (Phase 5's 10s create-flow, unregressed), and
+   run an unscoped `bun x eslint .` for criterion 13.
 2. **Phase 5 is closed.** Fix or triage the one confirmed product gap: criterion 10, the
    media-search dropdown fetches cover art from both providers but never renders it — add an
    `<img>`/thumbnail to `MediaSearchInput.tsx`'s result rows. Criteria 13 (clipboard write
@@ -899,6 +905,28 @@ the one you forgot. `scripts/check-db-reachable.sh` warns if a second file appea
 ## Session log
 
 Newest first. One entry per session: what changed, what was decided, what to pick up next.
+
+### 2026-08-15 — Phase 7 started: token lookup, AniList/MAL list fetchers, and the list route
+
+Built the server-side half of Phase 7 (list import) right after Phase 6 closed. Four files:
+`src/server/services/lists/tokens.ts` (`getListAccessToken`, MAL refresh-token flow),
+`anilist.ts` (`fetchAniListList`, two-call GraphQL pattern — viewer id then list — captures
+`scoreFormat` and writes it back to `user.scoreFormat` per **D32**), `mal.ts` (`fetchMalList`,
+paginated MAL v2 client with `X-MAL-CLIENT-ID` on every request, fixed `POINT_10` format per
+**D28**), and `src/server/hono/lists.ts` (`GET /api/lists/:provider/:mediaType`, mounted into
+the shared Hono app in `route.ts`, session-checked, maps failure reasons to HTTP statuses,
+never echoes token fields). Both fetchers apply **D35** — a list score of `0` imports as
+`(scoreRaw: null, scoreFormat: null)`, not a zero rating.
+
+Verified invariant 10 (`grep -rn "accessToken" src/app src/components` — clean) and exit
+criterion 11 (`grep -rniE "SaveMediaListEntry|update_my_list_status" src/server/services/lists`
+— clean). `tsc --noEmit`, `eslint` on touched files, and `bun test --conditions=react-server`
+all pass (121/121).
+
+Not started yet: unit tests for `mal.ts`/`lists.ts`, the **My list** picker UI on the create
+screen, per-user list caching, and the account-gated exit criteria (1–8, need a real linked
+AniList/MAL account to exercise). See `context/planning/PHASE-7.md`'s status block for the
+authoritative done/not-done split.
 
 ### 2026-08-15 — Phase 6 exit-criteria verification, closed with accepted debt
 

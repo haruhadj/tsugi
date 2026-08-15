@@ -1,6 +1,22 @@
 # Phase 7 — List import
 
 **Status:** In progress, started 2026-08-15.
+
+**Progress so far:**
+- `src/server/services/lists/tokens.ts` — `getListAccessToken`, with MAL refresh-token flow (criterion 6 groundwork).
+- `src/server/services/lists/anilist.ts` — `fetchAniListList`, two-call GraphQL pattern (viewer id, then list), captures `scoreFormat` and writes it back to `user.scoreFormat` (D32), maps a list score of `0` to `(null, null)` (D35).
+- `src/server/services/lists/mal.ts` — `fetchMalList`, paginated MAL API v2 client (`X-MAL-CLIENT-ID` + bearer token on every request), same D35 zero-score handling; MAL is always `POINT_10` so there is no format to capture (D28).
+- `src/server/hono/lists.ts` — `GET /api/lists/:provider/:mediaType`, mounted into the shared Hono app in `route.ts`. Session-checked, maps `TokenLookupResult`/`ProviderResult` failure reasons to HTTP status codes, never echoes token fields.
+- Invariant 10 (`grep -rn "accessToken" src/app src/components`) and criterion 11 (`grep -rniE "SaveMediaListEntry|update_my_list_status" src/server/services/lists`) both verified clean.
+- `bun x tsc --noEmit` and `eslint` clean on all touched files. Full suite (`bun test --conditions=react-server`): 121 pass, 0 fail.
+
+**Not yet started:**
+- Tests for `mal.ts` and `lists.ts` (no coverage yet — everything above is otherwise untested at the unit level beyond `anilist.ts`'s existing tests).
+- The **My list** picker UI on the create screen (shares item tray with Search); hiding it for Google-only accounts.
+- Per-user list caching.
+- Exit criteria 1–8 (require a real linked AniList/MAL account — db-test/manual, not yet exercised).
+- Criterion 12 (Phase 5's 10s create-flow criterion, re-verified unregressed).
+- Full-project (unscoped) `eslint .` run for criterion 13.
 **User-visible output:** build a recommendation from titles you have already rated
 **Prerequisites:** Phase 2 (tokens in the `account` table). No new external accounts.
 

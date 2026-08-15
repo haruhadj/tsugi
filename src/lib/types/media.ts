@@ -26,4 +26,31 @@ export type UnifiedMediaResult = {
  */
 export type ProviderResult<T> =
   | { ok: true; data: T }
-  | { ok: false; reason: "timeout" | "rate_limited" | "unavailable" | "not_found" };
+  | {
+      ok: false;
+      // "reauth_required" is distinct from "unavailable" (Phase 7 criterion 7)
+      // — a dead refresh token means the user must reconnect the provider,
+      // never a silently empty list, which reads as "you have nothing rated".
+      reason: "timeout" | "rate_limited" | "unavailable" | "not_found" | "reauth_required";
+    };
+
+// Re-exported, not redeclared — src/lib/score.ts's SCORE_FORMAT_BOUNDS is the
+// single source of truth for valid formats.
+import type { ScoreFormat } from "@/lib/score";
+export type { ScoreFormat };
+
+/**
+ * An imported list entry (Phase 7). `scoreRaw`/`scoreFormat` are both null
+ * together or set together (D35) — never a bare `0`, which both trackers use
+ * to mean "unrated", not "rated zero".
+ */
+export type ListEntry = {
+  provider: Provider;
+  externalId: number;
+  mediaType: MediaType;
+  title: string;
+  titleNative: string | null;
+  coverImage: string | null;
+  scoreRaw: number | null;
+  scoreFormat: ScoreFormat | null;
+};

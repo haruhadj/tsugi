@@ -30,7 +30,12 @@ type SearchState =
   | { status: "idle" }
   | { status: "loading" }
   | { status: "results"; results: UnifiedMediaResult[] }
-  | { status: "error"; reason: "rate_limited" | "unavailable" | "not_found" | "timeout" };
+  // "reauth_required" is a list-import (Phase 7) reason, never returned by
+  // search — included only so the shared ProviderResult type checks.
+  | {
+      status: "error";
+      reason: "rate_limited" | "unavailable" | "not_found" | "timeout" | "reauth_required";
+    };
 
 export function MediaSearchInput({
   provider,

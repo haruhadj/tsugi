@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { handle } from "hono/vercel";
 import { auth } from "@/lib/auth";
+import { listsRouter } from "@/server/hono/lists";
 import { recsRouter } from "@/server/hono/recs";
 
 // The only Hono instance in the project (architecture.md) — Better-Auth
@@ -11,6 +12,7 @@ const app = new Hono().basePath("/api");
 
 app.on(["POST", "GET"], "/auth/*", (c) => auth.handler(c.req.raw));
 app.route("/", recsRouter);
+app.route("/", listsRouter);
 
 export const GET = handle(app);
 export const POST = handle(app);
