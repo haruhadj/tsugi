@@ -13,19 +13,21 @@ const TRACKER_PROVIDERS = [
 ] as const;
 
 type TrackerProviderId = (typeof TRACKER_PROVIDERS)[number]["id"];
+type LinkedAccount = { providerId: string; accountId: string };
 
-// Minimal on purpose (D33): which providers are linked, a button to link
-// another, and sign-out — the only sign-out control in the product.
-// Unlinking and the last-provider guard are Phase 8's.
+// D33 + PHASE-8.md: which providers are linked, a button to link another,
+// unlink (guarded so the last provider can never be removed — criterion 10),
+// and sign-out — the only sign-out control in the product.
 export function ProviderConnections() {
   const router = useRouter();
-  const [linkedProviderIds, setLinkedProviderIds] = useState<string[] | null>(null);
+  const [linkedAccounts, setLinkedAccounts] = useState<LinkedAccount[] | null>(null);
   const [linkingProvider, setLinkingProvider] = useState<TrackerProviderId | null>(null);
+  const [unlinkingProvider, setUnlinkingProvider] = useState<TrackerProviderId | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   useEffect(() => {
     authClient.listAccounts().then(({ data }) => {
-      setLinkedProviderIds(data?.map((account) => account.providerId) ?? []);
+      setLinkedAccounts(data?.map(({ providerId, accountId }) => ({ providerId, accountId })) ?? []);
     });
   }, []);
 
@@ -37,6 +39,18 @@ export function ProviderConnections() {
     await authClient.oauth2.link({ providerId, callbackURL: "/settings" });
   }
 
+  async function unlink(account: LinkedAccount) {
+    setUnlinkingProvider(account.providerId as TrackerProviderId);
+    await authClient.unlinkAccount({
+      providerId: account.providerId,
+      accountId: account.accountId,
+    });
+    setLinkedAccounts(
+      (current) => current?.filter((a) => a.accountId !== account.accountId) ?? null,
+    );
+    setUnlinkingProvider(null);
+  }
+
   async function signOut() {
     setIsSigningOut(true);
     await authClient.signOut();
@@ -44,13 +58,17 @@ export function ProviderConnections() {
     router.refresh();
   }
 
-  const isLoading = linkedProviderIds === null;
+  const isLoading = linkedAccounts === null;
+  // Criterion 10: a user must never be left with zero trackers linked, so the
+  // unlink control is disabled (not hidden — the state should stay legible)
+  // whenever removing this account would leave none.
+  const isLastAccount = (linkedAccounts?.length ?? 0) <= 1;
 
   return (
     <div className="flex flex-col gap-8">
       <ul className="flex flex-col">
         {TRACKER_PROVIDERS.map((provider, index) => {
-          const isLinked = linkedProviderIds?.includes(provider.id) ?? false;
+          const account = linkedAccounts?.find((a) => a.providerId === provider.id) ?? null;
           return (
             <li key={provider.id}>
               {index > 0 ? <Separator /> : null}
@@ -58,11 +76,26 @@ export function ProviderConnections() {
                 <span className="font-display text-sm font-semibold tracking-[0.06em] uppercase">
                   {provider.label}
                 </span>
-                {isLinked ? (
-                  <span className="flex items-center gap-2 font-mono text-xs tracking-[0.16em] text-bloom uppercase">
-                    <CheckIcon className="size-3.5" aria-hidden />
-                    Linked
-                  </span>
+                {account ? (
+                  <div className="flex items-center gap-3">
+                    <span className="flex items-center gap-2 font-mono text-xs tracking-[0.16em] text-bloom uppercase">
+                      <CheckIcon className="size-3.5" aria-hidden />
+                      Linked
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-muted-foreground"
+                      disabled={isLastAccount || unlinkingProvider !== null}
+                      title={isLastAccount ? "You need at least one linked tracker." : undefined}
+                      onClick={() => unlink(account)}
+                    >
+                      Unlink
+                      {unlinkingProvider === provider.id ? (
+                        <Loader2Icon className="animate-spin" aria-hidden />
+                      ) : null}
+                    </Button>
+                  </div>
                 ) : (
                   <Button
                     variant="outline"

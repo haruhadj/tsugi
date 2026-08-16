@@ -1,6 +1,6 @@
 # Phase 4 — API surface
 
-**Status:** not started
+**Status:** Closed — 2026-08-11. 25/26 exit criteria verified; criterion 17 deliberately not automated — see [progress-tracker.md](../progress-tracker.md).
 **User-visible output:** none — but the product is functional via `curl` at the end of it
 **Prerequisites:** an **Upstash Redis database — does not exist yet** (as of 2026-08-09).
 Create it before starting. Phase 0's in-memory limiter keeps local development working, but

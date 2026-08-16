@@ -1,6 +1,6 @@
 # Phase 2 — Authentication
 
-**Status:** not started
+**Status:** Closed — 2026-08-11. 11/14 exit criteria verified; 3 accepted open (Google-dependent, non-default score format, re-sign-in refresh). MAL's refresh-token expiry needs a second look before Phase 7 — see [progress-tracker.md](../progress-tracker.md).
 **User-visible output:** sign-in works; nothing else is reachable yet
 **Prerequisites:** three OAuth applications — **none exist yet** (2026-08-09):
 AniList (`anilist.co/settings/developer`), MyAnimeList (`myanimelist.net/apiconfig`), and

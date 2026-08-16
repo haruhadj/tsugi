@@ -1,6 +1,14 @@
 # Phase 8 — Dashboard
 
-**Status:** not started
+**Status:** implementation complete, 2026-08-16. `src/app/(dashboard)/dashboard/page.tsx`,
+`DashboardRecList.tsx`, `GET`/`DELETE /api/recs`, and `ProviderConnections.tsx` (unlink +
+last-provider guard) are all built. `recs.db.test.ts` covers criteria 1, 3, 6, 7 in-process
+(10/10 passing); full suite 153/153, `tsc`/`eslint` clean. Criteria 1 and 6's "two real
+accounts" language was satisfied with a mocked-session technique (`auth.api.getSession`
+monkey-patched per request) rather than two literal signed-in browser sessions — same
+standard of evidence as Phase 7's unit-tier coverage. Criteria 2, 4, 12, 13 (redirect-on-
+signed-out, multi-item render, `/r/[slug]` symmetry, Phase 5 regression) are covered by code
+inspection/reuse of existing tested paths but not re-run live in a browser this session.
 **User-visible output:** your recommendations, in one place
 **Prerequisites:** none beyond Phase 2.
 

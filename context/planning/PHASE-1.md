@@ -1,6 +1,6 @@
 # Phase 1 — Data layer
 
-**Status:** not started
+**Status:** Complete — 2026-08-10. Criterion 25 (Supabase advisor check) unverified, pending an MCP session — see [progress-tracker.md](../progress-tracker.md).
 **User-visible output:** none
 **Prerequisites:** Supabase project — **connected and verified** (2026-08-09), PostgreSQL
 17.6, both connection strings authenticate, `public` schema empty.

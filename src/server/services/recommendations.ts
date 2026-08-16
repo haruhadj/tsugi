@@ -1,5 +1,5 @@
 import "server-only";
-import { eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/db";
 import { recommendation, recommendationItem } from "@/db/schema";
@@ -240,4 +240,86 @@ export async function incrementViewCount(slug: string): Promise<void> {
   } catch {
     // Swallowed by design — a lost view count is not worth a page failure.
   }
+}
+
+/**
+ * PHASE-8.md criterion 1: dashboard scope is `userId`, not eyeballing. Same
+ * explicit-column shape as `getRecommendationBySlug` (invariant 1) — no bare
+ * "id" or `userId` leaves this function either, even though the caller
+ * already knows whose recs these are.
+ */
+export async function listRecommendationsForUser(userId: string): Promise<RecommendationView[]> {
+  const rows = await db
+    .select({
+      slug: recommendation.slug,
+      caption: recommendation.caption,
+      comment: recommendation.comment,
+      views: recommendation.views,
+      createdAt: recommendation.createdAt,
+    })
+    .from(recommendation)
+    .where(eq(recommendation.userId, userId))
+    .orderBy(desc(recommendation.createdAt));
+
+  if (rows.length === 0) return [];
+
+  const items = await db
+    .select({
+      slug: recommendation.slug,
+      position: recommendationItem.position,
+      provider: recommendationItem.provider,
+      externalId: recommendationItem.externalId,
+      mediaType: recommendationItem.mediaType,
+      title: recommendationItem.title,
+      coverImage: recommendationItem.coverImage,
+      scoreRaw: recommendationItem.scoreRaw,
+      scoreFormat: recommendationItem.scoreFormat,
+      comment: recommendationItem.comment,
+    })
+    .from(recommendationItem)
+    .innerJoin(recommendation, eq(recommendationItem.recommendationId, recommendation.id))
+    .where(eq(recommendation.userId, userId))
+    .orderBy(recommendationItem.position);
+
+  const itemsBySlug = new Map<string, RecommendationView["items"]>();
+  for (const { slug, ...item } of items) {
+    const bucket = itemsBySlug.get(slug);
+    if (bucket) {
+      bucket.push(item);
+    } else {
+      itemsBySlug.set(slug, [item]);
+    }
+  }
+
+  return rows.map((row) => ({ ...row, items: itemsBySlug.get(row.slug) ?? [] }));
+}
+
+export type DeleteRecommendationResult = "deleted" | "not_found" | "forbidden";
+
+/**
+ * PHASE-8.md: "deleting is immediate and total" — the DB's own
+ * `onDelete: "cascade"` on `recommendationItem.recommendationId` removes the
+ * items, so this is a single statement. The ownership check is a separate
+ * read rather than folding `userId` into the delete's WHERE clause, so a
+ * slug that exists but belongs to someone else can be told apart from a slug
+ * that never existed (criterion 6: 403 vs 404).
+ */
+export async function deleteRecommendation(
+  slug: string,
+  userId: string,
+): Promise<DeleteRecommendationResult> {
+  const [existing] = await db
+    .select({ userId: recommendation.userId })
+    .from(recommendation)
+    .where(eq(recommendation.slug, slug))
+    .limit(1);
+
+  if (!existing) return "not_found";
+  if (existing.userId !== userId) return "forbidden";
+
+  await db
+    .delete(recommendation)
+    .where(and(eq(recommendation.slug, slug), eq(recommendation.userId, userId)));
+
+  return "deleted";
 }

@@ -1,6 +1,6 @@
 # Phase 3 — Media providers
 
-**Status:** not started
+**Status:** Closed — 2026-08-11. 14/14 exit criteria verified, 0 accepted debt.
 **User-visible output:** none
 
 The riskiest phase, placed early on purpose. Neither provider is under our control, and
