@@ -6,11 +6,13 @@ import { describe, expect, test } from "bun:test";
 // request that never touches the database.
 //
 // Scope: boundary/validation cases only. Full success-path coverage
-// (provider dispatch, score-format capture, token refresh) needs a real
-// linked AniList/MAL account and is reserved for PHASE-7.md's criteria 1-8,
-// not simulated here — the codebase has no session-forging helper, and
-// Better-Auth signs session cookies, so a "valid session, invalid param"
-// case (which would need one) is also deferred alongside those criteria.
+// (provider dispatch, score-format capture, token refresh, indefinite
+// caching, ?refresh=1 forced refetch, and stale-cache fallback on a failed
+// forced refresh) needs a real linked AniList/MAL account and is reserved
+// for PHASE-7.md's criteria 1-8, not simulated here — the codebase has no
+// session-forging helper, and Better-Auth signs session cookies, so a
+// "valid session, invalid param" case (which would need one) is also
+// deferred alongside those criteria.
 const hasDb = Boolean(process.env.DATABASE_URL);
 
 if (hasDb) {
@@ -28,6 +30,11 @@ if (hasDb) {
       const body = await res.json();
       expect(JSON.stringify(body)).not.toContain("accessToken");
       expect(body).toHaveProperty("error");
+    });
+
+    test("?refresh=1 does not bypass the session check", async () => {
+      const res = await listsRouter.request("/lists/anilist/anime?refresh=1");
+      expect(res.status).toBe(401);
     });
   });
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2Icon } from "lucide-react";
+import { Loader2Icon, RefreshCwIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { MediaCover } from "@/components/MediaCover";
 import type { ListEntry, MediaType, Provider } from "@/lib/types/media";
@@ -13,7 +13,7 @@ const PROVIDER_LABELS: Record<Provider, string> = {
 
 type ListState =
   | { status: "loading" }
-  | { status: "results"; entries: ListEntry[] }
+  | { status: "results"; entries: ListEntry[]; stale?: boolean }
   | {
       status: "error";
       reason: "not_linked" | "reauth_required" | "rate_limited" | "unavailable" | "timeout" | "not_found";
@@ -42,30 +42,44 @@ export function MyListPicker({
 }) {
   const [state, setState] = useState<ListState>({ status: "loading" });
   const [filter, setFilter] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
-  useEffect(() => {
+  const load = (force: boolean) => {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setState({ status: "loading" });
+    if (force) {
+      setRefreshing(true);
+    } else {
+      setState({ status: "loading" });
+    }
 
-    fetch(`/api/lists/${provider}/${mediaType}`, { signal: controller.signal })
+    fetch(`/api/lists/${provider}/${mediaType}${force ? "?refresh=1" : ""}`, {
+      signal: controller.signal,
+    })
       .then(async (res) => {
         if (controller.signal.aborted) return;
         if (res.status === 200) {
-          const data = (await res.json()) as { entries: ListEntry[] };
-          setState({ status: "results", entries: data.entries });
+          const data = (await res.json()) as { entries: ListEntry[]; stale?: boolean };
+          setState({ status: "results", entries: data.entries, stale: data.stale });
         } else {
           setState(stateFromStatus(res.status));
         }
       })
       .catch(() => {
         if (!controller.signal.aborted) setState({ status: "error", reason: "unavailable" });
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setRefreshing(false);
       });
+  };
 
-    return () => controller.abort();
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- load() sets initial loading state synchronously; results arrive async via fetch
+    load(false);
+    return () => abortRef.current?.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [provider, mediaType]);
 
   if (state.status === "loading") {
@@ -115,12 +129,29 @@ export function MyListPicker({
 
   return (
     <div className="flex flex-col gap-3">
-      <Input
-        placeholder="Filter your list…"
-        value={filter}
-        onChange={(e) => setFilter(e.target.value)}
-        aria-label="Filter your list"
-      />
+      <div className="flex items-center gap-2">
+        <Input
+          placeholder="Filter your list…"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          aria-label="Filter your list"
+          className="flex-1"
+        />
+        <button
+          type="button"
+          onClick={() => load(true)}
+          disabled={refreshing}
+          aria-label={`Refresh ${PROVIDER_LABELS[provider]} list`}
+          className="flex min-h-11 min-w-11 items-center justify-center rounded-md border text-muted-foreground hover:bg-accent disabled:opacity-50"
+        >
+          <RefreshCwIcon className={`size-4 ${refreshing ? "animate-spin" : ""}`} aria-hidden="true" />
+        </button>
+      </div>
+      {state.stale && (
+        <p className="text-xs text-muted-foreground" role="status">
+          {PROVIDER_LABELS[provider]} isn&apos;t responding right now — showing your last synced list.
+        </p>
+      )}
       {atCapacity && (
         <p className="text-sm text-muted-foreground" role="status">
           You&apos;ve reached the 10-item limit. Remove an item to add another.

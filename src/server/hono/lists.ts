@@ -9,11 +9,6 @@ import { fetchAniListList } from "@/server/services/lists/anilist";
 import { fetchMalList } from "@/server/services/lists/mal";
 import { getListAccessToken } from "@/server/services/lists/tokens";
 
-// A picker session re-renders/re-fetches within a few minutes of browsing;
-// this avoids hitting AniList/MAL again for that window without going stale
-// across a return visit (risk: "large list timing out", PHASE-7.md).
-const CACHE_TTL_MS = 5 * 60 * 1000;
-
 function isProvider(value: string): value is Provider {
   return value === "anilist" || value === "mal";
 }
@@ -48,15 +43,19 @@ export const listsRouter = new Hono().get("/lists/:provider/:mediaType", async (
     return c.json({ error: "Unknown provider or media type." }, 400);
   }
 
-  const cached = await db.query.listCache.findFirst({
-    where: and(
-      eq(listCache.userId, session.user.id),
-      eq(listCache.provider, providerParam),
-      eq(listCache.mediaType, mediaTypeParam),
-    ),
-  });
-  if (cached && Date.now() - cached.fetchedAt.getTime() < CACHE_TTL_MS) {
-    return c.json({ entries: cached.entries as ListEntry[] });
+  const force = c.req.query("refresh") === "1";
+
+  if (!force) {
+    const cached = await db.query.listCache.findFirst({
+      where: and(
+        eq(listCache.userId, session.user.id),
+        eq(listCache.provider, providerParam),
+        eq(listCache.mediaType, mediaTypeParam),
+      ),
+    });
+    if (cached) {
+      return c.json({ entries: cached.entries as ListEntry[] });
+    }
   }
 
   const token = await getListAccessToken(session.user.id, providerParam);
@@ -73,6 +72,18 @@ export const listsRouter = new Hono().get("/lists/:provider/:mediaType", async (
       : await fetchMalList(token.accessToken, mediaTypeParam);
 
   if (!result.ok) {
+    if (force) {
+      const stale = await db.query.listCache.findFirst({
+        where: and(
+          eq(listCache.userId, session.user.id),
+          eq(listCache.provider, providerParam),
+          eq(listCache.mediaType, mediaTypeParam),
+        ),
+      });
+      if (stale) {
+        return c.json({ entries: stale.entries as ListEntry[], stale: true });
+      }
+    }
     return c.json({ error: "Could not load your list." }, REASON_STATUS[result.reason]);
   }
 
