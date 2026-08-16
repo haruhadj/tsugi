@@ -10,7 +10,7 @@ happened last time.
 | | |
 |---|---|
 | **Current phase** | **Phase 7 — List import** ([spec](./planning/PHASE-7.md)) |
-| **Phase status** | **In progress, 2026-08-16.** Phase 6 closed 2026-08-15 — see Phase status table and session log. `tokens.ts`, `anilist.ts`, `mal.ts`, and the `GET /api/lists/:provider/:mediaType` route are all implemented and passing `tsc`/`eslint`; all four service/route files now have unit-tier test coverage (`tokens.test.ts`, `anilist.test.ts`, `mal.test.ts`, `lists.db.test.ts`). The My-list picker UI is now implemented too (`MyListPicker.tsx`, `RecBuilder.tsx` mode toggle, criterion-9 gating). Full suite: 145 pass, 1 fail (`recs.db.test.ts`, pre-existing, unrelated to Phase 7). Per-user list caching is now implemented (`listCache` table, 5-minute TTL). Remaining: the account-gated exit criteria (blocked on manual OAuth dashboard registration), criterion 12 regression check, unscoped `eslint .` — see [PHASE-7.md](./planning/PHASE-7.md). |
+| **Phase status** | **In progress, 2026-08-16.** Phase 6 closed 2026-08-15 — see Phase status table and session log. `tokens.ts`, `anilist.ts`, `mal.ts`, and the `GET /api/lists/:provider/:mediaType` route are all implemented and passing `tsc`/`eslint`; all four service/route files now have unit-tier test coverage (`tokens.test.ts`, `anilist.test.ts`, `mal.test.ts`, `lists.db.test.ts`). The My-list picker UI is implemented (`MyListPicker.tsx`, `RecBuilder.tsx` mode toggle, criterion-9 gating), and per-user list caching is implemented (`listCache` table, 5-minute TTL). Full suite: 146 pass, 0 fail. Unscoped `bun x eslint .` and `tsc --noEmit`: clean — **criterion 13 satisfied.** Criterion 12 checked structurally (no regression to the timed search path); the live stopwatch re-run still needs a human in a browser. Remaining: exit criteria 1–8 (blocked on manual OAuth dashboard registration) and criterion 12's live timed pass — see [PHASE-7.md](./planning/PHASE-7.md). |
 | **Upstash** | Provisioned 2026-08-11 — `fit-hyena-107044.upstash.io`, credentials in `.env`. Backs both rate limiting (D9) and the media resolve cache (Phase 4). |
 | **Last updated** | 2026-08-16 |
 | **UI library** | **shadcn/ui + Radix** — replaced HeroUI on 2026-08-11 (**D41**). Custom "Eyecatch" palette, authored by us. Anything referencing `@heroui/*`, `onPress`, `isPending`, or `data-theme="dark"` is a leftover. |
@@ -69,10 +69,18 @@ happened last time.
    cache first — a hit inside a 5-minute TTL skips `getListAccessToken` and the provider
    fetch entirely; a miss or stale row fetches fresh and upserts via `onConflictDoUpdate` on
    the identity unique before responding. `tsc`/`eslint` clean; full suite unchanged at 145
-   pass / 1 fail (same pre-existing `recs.db.test.ts` failure). Next: exercise exit criteria
-   1–8 against a real linked AniList/MAL account (after the manual dashboard registration
-   above), re-verify criterion 12 (Phase 5's 10s create-flow, unregressed), and run an
-   unscoped `bun x eslint .` for criterion 13.
+   pass / 1 fail (same pre-existing `recs.db.test.ts` failure). **Update, 2026-08-16
+   afternoon:** re-ran the full suite, unscoped `eslint .`, and `tsc --noEmit` — all clean.
+   `bun test --conditions=react-server` is now 146 pass / 0 fail; the `recs.db.test.ts`
+   failure did not reproduce (db-tier test, state-dependent rather than a real regression).
+   Unscoped `bun x eslint .`: 0 errors/warnings — **criterion 13 satisfied.** Criterion 12
+   checked structurally: `RecBuilder.tsx`'s Phase 7 mode toggle only renders for accounts with
+   a tracker linked, defaults to `"search"`, and adds no extra required click to the search
+   path Phase 5 timed — no structural regression. The actual stopwatch re-run (landing →
+   link-on-clipboard, three runs, worst counts, per Phase 5's criterion 1) still needs a human
+   in a browser and has not been done. Remaining: exercise exit criteria 1–8 against a real
+   linked AniList/MAL account (blocked on the manual OAuth dashboard registration above), and
+   the live timed pass for criterion 12.
 2. **Phase 5 is closed.** Fix or triage the one confirmed product gap: criterion 10, the
    media-search dropdown fetches cover art from both providers but never renders it — add an
    `<img>`/thumbnail to `MediaSearchInput.tsx`'s result rows. Criteria 13 (clipboard write

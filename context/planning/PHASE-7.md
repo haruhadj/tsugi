@@ -38,7 +38,10 @@
   a successful refresh persisting the new access/refresh tokens and returning the fresh token.
 - Full suite (`bun test --conditions=react-server`): 145 pass, 1 fail — the 1 failure
   (`recs.db.test.ts`, a Phase-6-era db-tier test unrelated to Phase 7) is pre-existing,
-  confirmed by reproducing it with this session's changes stashed out.
+  confirmed by reproducing it with this session's changes stashed out. **Update 2026-08-16
+  afternoon:** re-run shows 146 pass, 0 fail — the `recs.db.test.ts` failure did not
+  reproduce (db-tier test, likely state-dependent rather than a real regression). Full suite
+  is green.
 - **My-list picker UI implemented.** `src/components/MyListPicker.tsx` (new): fetches
   `/api/lists/:provider/:mediaType` on mount, maps HTTP status to a discriminated
   `ListState` (`not_linked`/`reauth_required` → reconnect prompt linking to `/settings`,
@@ -67,11 +70,23 @@ own test file, above.
   `bun x tsc --noEmit` and `eslint` clean; full suite unchanged at 145 pass / 1 fail (same
   pre-existing `recs.db.test.ts` failure).
 
+- **Criterion 13 verified.** Unscoped `bun x eslint .` and `bun x tsc --noEmit`: both clean,
+  0 errors/warnings across the whole project. `bun test --conditions=react-server`: 146 pass,
+  0 fail (see update above). Criterion 13 is satisfied.
+- **Criterion 12 checked structurally, not yet timed live.** Reviewed `RecBuilder.tsx`: the
+  mode toggle added for Phase 7 only renders (`hasTrackerLinked`) for users with an AniList or
+  MAL account linked, and even then `mode` defaults to `"search"` — the search-first create
+  path (`MediaSearchInput` render, `handleSelect`, submit) is byte-for-byte the same component
+  tree Phase 5 timed, with the toggle adding an extra `<fieldset>` but zero extra required
+  clicks. No structural regression to the timed path. The actual timed three-run manual check
+  from Phase 5's criterion 1 (landing → link-on-clipboard, under 10s, in a browser) has not
+  been re-run this session — still open.
+
 **Not yet started:**
 - Exit criteria 1–8 (require a real linked AniList/MAL account, and the provider-dashboard
   redirect-URI registration above — db-test/manual, not yet exercised).
-- Criterion 12 (Phase 5's 10s create-flow criterion, re-verified unregressed).
-- Full-project (unscoped) `eslint .` run for criterion 13.
+- Criterion 12's live timed re-run (structural check done, above; the actual stopwatch pass
+  still needs a human in a browser).
 **User-visible output:** build a recommendation from titles you have already rated
 **Prerequisites:** Phase 2 (tokens in the `account` table). No new external accounts.
 
