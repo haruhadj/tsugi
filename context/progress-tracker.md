@@ -33,88 +33,48 @@ happened last time.
 
 ### Immediate next steps
 
-1. **Phase 6 is closed.** The 9 synthetic test recommendations seeded during Phase 6
-   verification (including `jh5bpggljeg`, patched with a real AniList cover URL) were
-   purged from production on 2026-08-15. Phase 7 (list import) is now underway. A manual
-   real-browser pass on criterion 13 (paste a `/r/[slug]` link into actual Discord/X)
-   still remains to fully close that loop, since it can't be done by the agent.
-1a. **Phase 7 next work.** The server-side pieces are done (`tokens.ts`, `anilist.ts`,
-   `mal.ts`, `lists.ts` route). Production OAuth is verified: both providers' redirect URIs
-   follow `/api/auth/oauth2/callback/{providerId}` (not `/api/auth/callback/`), confirmed
-   against `https://tsugi-lyart.vercel.app` for both AniList and MAL, including MAL's PKCE
-   flow — `https://tsugi-lyart.vercel.app/api/auth/oauth2/callback/anilist` and `.../mal`
-   still need to be registered by hand in each provider's developer dashboard, a prerequisite
-   for exit criteria 1–8. All four service/route files now have unit-tier test coverage:
-   `mal.ts` (`mal.test.ts`, 9 tests), `lists.ts` (`lists.db.test.ts`, 2 tests, scoped to the
-   no-session 401 and invariant 10), `anilist.ts` (`anilist.test.ts`, 6 tests: bearer header,
-   401/429/timeout/network-failure/malformed-JSON on the viewer call, missing-id-or-scoreFormat),
-   and `tokens.ts` (`tokens.test.ts`, 7 tests, covering not_linked, AniList's no-refresh path,
-   the 60s expiry margin, a dead refresh token per criterion 7, and a successful refresh
-   persisting new tokens). `tokens.test.ts` was made possible by mocking `@/db` with
-   `bun:test`'s `mock.module` — a first in this codebase's test suite, needed because
-   `tokens.ts` queries Postgres directly with no injectable `db` parameter. Full success-path
-   coverage for all four still needs a real linked account and is folded into criteria 1–8,
-   since the codebase has no session-forging helper and Better-Auth signs session cookies.
-   Full suite (`bun test --conditions=react-server`): 145 pass, 1 fail — the failure
-   (`recs.db.test.ts`) is a pre-existing Phase-6-era issue, confirmed unrelated to this
-   session's changes via git-stash isolation. The **My list** picker UI on the create screen
-   is now implemented: `MyListPicker.tsx` (new component, fetches the list route, maps HTTP
-   status to a discriminated state, renders a filterable list) plus `RecBuilder.tsx` (mode
-   toggle alongside Search, `handleImport` dedup/capacity/D28-D35-aware handler, and
-   `authClient.listAccounts()`-based criterion-9 gating hiding the mode for Google-only
-   accounts). `tsc`/`eslint` clean; full suite unchanged at 145 pass / 1 fail. **Per-user list
-   caching is now implemented too:** a new `listCache` table (`src/db/schema.ts`, migration
-   `drizzle/0002_broken_triton.sql`) keyed on `(userId, provider, mediaType)` with a jsonb
-   `entries` column mirroring `ListEntry[]` and RLS enabled per D20. `lists.ts` reads the
-   cache first — a hit inside a 5-minute TTL skips `getListAccessToken` and the provider
-   fetch entirely; a miss or stale row fetches fresh and upserts via `onConflictDoUpdate` on
-   the identity unique before responding. `tsc`/`eslint` clean; full suite unchanged at 145
-   pass / 1 fail (same pre-existing `recs.db.test.ts` failure). **Update, 2026-08-16
-   afternoon:** re-ran the full suite, unscoped `eslint .`, and `tsc --noEmit` — all clean.
-   `bun test --conditions=react-server` is now 146 pass / 0 fail; the `recs.db.test.ts`
-   failure did not reproduce (db-tier test, state-dependent rather than a real regression).
-   Unscoped `bun x eslint .`: 0 errors/warnings — **criterion 13 satisfied.** Criterion 12
-   checked structurally: `RecBuilder.tsx`'s Phase 7 mode toggle only renders for accounts with
-   a tracker linked, defaults to `"search"`, and adds no extra required click to the search
-   path Phase 5 timed — no structural regression. The actual stopwatch re-run (landing →
-   link-on-clipboard, three runs, worst counts, per Phase 5's criterion 1) still needs a human
-   in a browser and has not been done. Remaining: exercise exit criteria 1–8 against a real
-   linked AniList/MAL account (blocked on the manual OAuth dashboard registration above), and
-   the live timed pass for criterion 12. **Update, 2026-08-16 evening:** both AniList and MAL
-   list imports were 500ing in production. Root cause: migration `0002_broken_triton.sql`
-   (creates `list_cache`) had never actually been applied against the production Supabase
-   database, despite an earlier migration run reporting success — the mismatch was caught by
-   comparing Drizzle's camelCase `listCache` identifier against the actual snake_case
-   `list_cache` table in production. Fixed by re-running `bun x drizzle-kit migrate` against
-   production and confirming `list_cache` exists there with RLS enabled. Separately, acting on
-   the observation that real users sync their AniList/MAL lists in the background via
-   Mihon/Aniyomi rather than live in-browser, the 5-minute TTL cache above was replaced with
-   cache-once-then-explicit-refresh: `lists.ts` now serves the cached row unconditionally
-   unless the client passes `?refresh=1`, which forces a live provider re-fetch and — new
-   behavior — falls back to the existing stale cache (`{ entries, stale: true }`) instead of
-   erroring if that forced re-fetch fails. `MyListPicker.tsx` gained a refresh button
-   (`RefreshCwIcon`, separate `refreshing` state so it doesn't blank the list while spinning)
-   and a "showing your last synced list" notice when `stale` is set. Added a boundary test
-   confirming `?refresh=1` still 401s with no session. `tsc`/`eslint` clean; full suite is now
-   149 pass, 0 fail. Committed as `5ae4181`, pushed to `main`.
-2. **Phase 5 is closed.** Fix or triage the one confirmed product gap: criterion 10, the
-   media-search dropdown fetches cover art from both providers but never renders it — add an
-   `<img>`/thumbnail to `MediaSearchInput.tsx`'s result rows. Criteria 13 (clipboard write
-   before the ShareModal finishes appearing) and 27 (Discord-copy message) could not be
-   confirmed because headless Chromium under Playwright doesn't grant clipboard-write
-   permission the way a real browser session does — this is a test-harness limitation, not a
-   product bug; re-verify manually in a real browser when convenient. Move on to Phase 6
-   planning.
-2. **Google is still deferred** — the owner asked to do AniList and MAL first. When ready:
-   register the app, add `socialProviders.google` to `src/lib/auth.ts` (built-in, not
+Both open phases are now blocked on the same class of thing: manual action outside the
+agent's reach (a provider-dashboard registration, or a human with a stopwatch and a browser).
+There is no more code to write until one of these happens.
+
+1. **Phase 7, criteria 1–8 — OAuth redirect URIs registered 2026-08-16, unblocked.** The owner
+   confirmed both `https://tsugi-lyart.vercel.app/api/auth/oauth2/callback/anilist` (AniList
+   developer settings) and `.../mal` (MyAnimeList API config) are now registered. All server
+   code (`tokens.ts`, `anilist.ts`, `mal.ts`, `lists.ts`) is implemented and unit-tested; what
+   remains is the live pass itself — sign in with a real AniList and/or MAL account, link it
+   from `/settings`, and walk criteria 1–8 (score-format capture, `POINT_100` fidelity,
+   `POINT_3` smiley rendering on all three surfaces, MAL token refresh, both-tokens-expired
+   reconnect prompt, mixed imported+searched item build). This needs a real signed-in browser
+   session, which the agent cannot drive against third-party OAuth on its own — the owner
+   should do the sign-in/link step and report back what they see (or share DB/API state) so
+   remaining checks can be verified from there.
+2. **Phase 7, criterion 12 — live timed re-run.** Structurally verified (the mode toggle adds
+   no required click to the Phase-5-timed search path); the actual stopwatch pass (landing →
+   link-on-clipboard, three runs, under 10s, in a real browser) has not been redone since
+   Phase 7's changes landed.
+3. **Phase 8, criteria 2, 4, 12, 13 — live browser re-verification.** Covered so far by code
+   inspection and reuse of already-tested paths, not a live run: signed-out `/dashboard`
+   redirect, a multi-item rec rendering all its items, `/r/[slug]` signed-in/signed-out parity,
+   and Phase 5's criterion 1 regression check.
+4. **Phase 8, criteria 1 and 6 — upgrade evidence from mocked to real sessions** (optional,
+   not blocking). Both pass today via a monkey-patched `auth.api.getSession` rather than two
+   literal signed-in browser accounts. Same standard already accepted for Phase 7's unit tier;
+   worth a real two-account pass only if the mocked coverage is ever in doubt.
+5. **Phase 6 criterion 13** — paste a real `/r/[slug]` link into Discord/X and confirm the
+   unfurl. Never done live; accepted as open debt when Phase 6 closed.
+6. **Google sign-in is still deferred** — the owner asked to do AniList and MAL first. When
+   ready: register the app, add `socialProviders.google` to `src/lib/auth.ts` (built-in, not
    `genericOAuth`), wire the button in `SignInButtons.tsx` (already rendered, currently
    disabled), and re-run Phase 2 criterion 5 (AniList + Google produce two distinct users).
-3. **Run Phase 1 criterion 25 when a Supabase MCP session is available.** `get_advisors(type:
-   "security")` needs the MCP connection, which no session so far has had. Criteria 17 and
-   22–24 were verified directly against the live database and the PostgREST endpoint instead
-   — a real row inserted as the `postgres` role was confirmed invisible to an anon read and
-   an anon write was rejected outright (`42501`) — so the substance is covered; the advisor
-   check is a second, automated opinion on the same thing, not a gap in what was tested.
+   No target date set.
+7. **Phase 1 criterion 25** — `get_advisors(type: "security")` needs a Supabase MCP session,
+   which no session so far has had. Substance already covered by direct live-database/RLS
+   checks (criteria 17, 22–24); this is a second automated opinion, not a known gap.
+
+No Phase 9 exists yet — `PLAN.md`'s phase map ends at Phase 8, and every explicitly out-of-
+scope item (editing, public profiles, following, feeds, analytics) is marked "permanently,"
+not "later." The only unresolved scope thread is Google sign-in above, which is deferred
+inside Phase 2, not a new phase.
 
 ---
 
