@@ -64,14 +64,35 @@ own test file, above.
   migration `drizzle/0002_broken_triton.sql`): one row per `(userId, provider, mediaType)`,
   `entries` jsonb mirroring `ListEntry[]` verbatim (so it already carries the D28/D35
   null-pairing invariant with nothing re-validating it), `fetchedAt` timestamp, RLS-enabled
-  per D20. `lists.ts` checks the cache first — a hit within a 5-minute TTL returns cached
-  entries without touching AniList/MAL or `getListAccessToken` at all; a miss or stale row
-  fetches fresh and upserts (`onConflictDoUpdate` on the identity unique) before responding.
-  `bun x tsc --noEmit` and `eslint` clean; full suite unchanged at 145 pass / 1 fail (same
-  pre-existing `recs.db.test.ts` failure).
+  per D20. Originally shipped with a 5-minute TTL — since replaced, see **Update 2026-08-16
+  evening** below.
+
+- **Update 2026-08-16 evening: production 500s fixed, caching redesigned.** Both AniList and
+  MAL imports were 500ing in production (`tsugi-lyart.vercel.app`). Root cause: migration
+  `0002_broken_triton.sql` (creates `list_cache`) was generated locally but never applied to
+  the production Supabase DB — `db.query.listCache.findFirst(...)` threw before either
+  provider's error handling could run. Fixed by running `bun x drizzle-kit migrate` against
+  production (confirmed via direct query: `list_cache` now exists, RLS enabled).
+  Separately, re-examined the 5-minute TTL against how the feature is actually used: real
+  users sync their AniList/MAL lists in the background via Mihon/Aniyomi, not live in the
+  browser tab, so a short TTL bought nothing but forced a live provider round-trip on almost
+  every picker open (and every 500 on a flaky provider surfaced as a hard error). Replaced
+  TTL expiry with cache-once-then-explicit-refresh: `lists.ts` now serves the cached row
+  unconditionally (no TTL check) unless the client passes `?refresh=1`, which forces a live
+  re-fetch and re-upserts on success; if that forced re-fetch fails, the route falls back to
+  the existing stale cache (`{ entries, stale: true }`) instead of erroring, so a flaky
+  provider never wipes a user's last-known list. `MyListPicker.tsx` gained a refresh button
+  (`RefreshCwIcon`, spinning via a `refreshing` state kept separate from the initial `loading`
+  state so results stay visible mid-refresh) and a "showing your last synced list" notice when
+  `stale: true`. `lists.db.test.ts` gained a boundary case confirming `?refresh=1` doesn't
+  bypass the session check (full success-path coverage for refresh/stale-fallback remains
+  deferred to criteria 1-8, alongside the rest of the live-account cases — no session-forging
+  helper exists). `bun x tsc --noEmit`, unscoped `bun x eslint .`, and
+  `bun test --conditions=react-server` all clean: 149 pass, 0 fail. Committed as `5ae4181` and
+  pushed to `main`.
 
 - **Criterion 13 verified.** Unscoped `bun x eslint .` and `bun x tsc --noEmit`: both clean,
-  0 errors/warnings across the whole project. `bun test --conditions=react-server`: 146 pass,
+  0 errors/warnings across the whole project. `bun test --conditions=react-server`: 149 pass,
   0 fail (see update above). Criterion 13 is satisfied.
 - **Criterion 12 checked structurally, not yet timed live.** Reviewed `RecBuilder.tsx`: the
   mode toggle added for Phase 7 only renders (`hasTrackerLinked`) for users with an AniList or
@@ -101,7 +122,8 @@ rated, a user picks from their own list — and their existing score comes with 
 - MAL token refresh — access tokens expire in an hour
 - Score-format capture: AniList's `Viewer.mediaListOptions.scoreFormat`
 - A **My list** mode on the create screen, filterable, alongside **Search**
-- Caching of a fetched list per user — **done**, `listCache` table, 5-minute TTL
+- Caching of a fetched list per user — **done**, `listCache` table, indefinite cache with
+  explicit `?refresh=1` re-fetch and stale-cache fallback (see Update 2026-08-16 evening above)
 
 **Explicitly out**
 - **Writing back to AniList or MAL.** Tsugi never modifies anyone's list. Read-only, both
