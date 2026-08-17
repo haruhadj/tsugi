@@ -16,10 +16,13 @@ const interTight = Inter_Tight({
   subsets: ["latin"],
 });
 
+// 600/700 are loaded because the redesign sets scores, tier letters, and vote counts
+// in bold mono; without them the browser synthesises a faux-bold that reads muddy at
+// the small sizes those appear in.
 const jetbrainsMono = JetBrains_Mono({
   variable: "--font-jetbrains-mono",
   subsets: ["latin"],
-  weight: ["400", "500"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -48,7 +51,13 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`dark ${unbounded.variable} ${interTight.variable} ${jetbrainsMono.variable}`}
     >
-      <body>{children}</body>
+      {/*
+        pb-14 under `md` keeps the end of every page clear of Header's fixed mobile
+        tab bar. It lives here rather than in Header because a fixed element is out
+        of flow — a spacer inside Header would sit at the top of the document, where
+        it clears nothing.
+      */}
+      <body className="pb-14 md:pb-0">{children}</body>
     </html>
   );
 }

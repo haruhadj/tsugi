@@ -73,12 +73,12 @@ export function ProviderConnections() {
             <li key={provider.id}>
               {index > 0 ? <Separator /> : null}
               <div className="flex items-center justify-between gap-4 py-4">
-                <span className="font-display text-sm font-semibold tracking-[0.06em] uppercase">
+                <span className="font-display text-sm font-semibold tracking-[0.06em]">
                   {provider.label}
                 </span>
                 {account ? (
                   <div className="flex items-center gap-3">
-                    <span className="flex items-center gap-2 font-mono text-xs tracking-[0.16em] text-bloom uppercase">
+                    <span className="flex items-center gap-2 font-mono text-xs tracking-[0.16em] text-success uppercase">
                       <CheckIcon className="size-3.5" aria-hidden />
                       Linked
                     </span>

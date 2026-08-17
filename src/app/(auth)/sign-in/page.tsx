@@ -27,7 +27,7 @@ export default async function SignInPage() {
             <div className="flex flex-col gap-5">
               <Wordmark />
               <div className="flex flex-col gap-2">
-                <h1 className="font-display text-2xl leading-tight font-extrabold tracking-[-0.02em] uppercase">
+                <h1 className="font-display text-2xl leading-tight font-extrabold tracking-[-0.02em]">
                   Sign in
                 </h1>
                 <p className="text-sm leading-relaxed text-muted-foreground">

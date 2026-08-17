@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Wordmark } from "@/components/Wordmark";
+import { Header } from "@/components/Header";
+import { ScoreBadge } from "@/components/ScoreBadge";
 import { Button } from "@/components/ui/button";
 import { ListBuilder } from "@/components/ListBuilder";
 import { getServerSession } from "@/lib/auth";
@@ -33,27 +34,14 @@ export default async function Home() {
   if (session) {
     return (
       <div className="min-h-screen">
-        <header className="mx-auto flex max-w-6xl items-center justify-between px-6 pt-8">
-          <Wordmark />
-          <div className="flex items-center gap-1">
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/feed">Rundown</Link>
-            </Button>
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/dashboard">Your lists</Link>
-            </Button>
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/settings">Settings</Link>
-            </Button>
-          </div>
-        </header>
+        <Header username={session.user.username ?? session.user.name} />
 
         <main className="mx-auto max-w-6xl px-6 py-16">
           <div className="animate-card-in">
             <p className="font-mono text-xs tracking-[0.28em] text-muted-foreground uppercase">
               New list
             </p>
-            <h1 className="mt-4 font-display text-[clamp(1.9rem,5vw,2.75rem)] leading-[0.95] font-extrabold tracking-[-0.03em] uppercase">
+            <h1 className="mt-4 font-display text-[clamp(1.9rem,5vw,2.75rem)] leading-[0.95] font-extrabold tracking-[-0.03em]">
               Pick, score,
               <br />
               share.
@@ -70,22 +58,7 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen">
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 pt-8">
-        <Wordmark />
-        {/*
-          The rundown is readable without an account, so it belongs in the
-          signed-out header too — it is the one place a visitor can see what
-          the product produces before making anything.
-        */}
-        <div className="flex items-center gap-1">
-          <Button asChild variant="ghost" size="sm">
-            <Link href="/feed">Rundown</Link>
-          </Button>
-          <Button asChild variant="ghost" size="sm">
-            <Link href="/sign-in">Sign in</Link>
-          </Button>
-        </div>
-      </header>
+      <Header username={null} />
 
       <main className="mx-auto max-w-6xl px-6">
         <section className="grid items-center gap-14 py-20 sm:py-28 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
@@ -93,7 +66,7 @@ export default async function Home() {
             <p className="font-mono text-xs tracking-[0.28em] text-muted-foreground uppercase">
               For anime and manga
             </p>
-            <h1 className="mt-6 font-display text-[clamp(2.6rem,7vw,4.75rem)] leading-[0.92] font-extrabold tracking-[-0.035em] text-foreground uppercase">
+            <h1 className="mt-6 font-display text-[clamp(2.6rem,7vw,4.75rem)] leading-[0.92] font-extrabold tracking-[-0.035em] text-foreground">
               One link.
               <br />
               Your whole
@@ -134,13 +107,13 @@ export default async function Home() {
           */}
           <div className="animate-card-in [animation-delay:140ms]">
             <figure className="relative">
-              <div className="relative overflow-hidden rounded-md border border-border bg-card">
-                <div className="eyecatch-edge absolute inset-y-0 left-0 w-1" />
-                <div className="p-8 pl-10 sm:p-10 sm:pl-12">
+              <div className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-xl">
+                <div className="brand-gradient h-1 w-full" />
+                <div className="p-8 sm:p-10">
                   <p className="font-mono text-[0.65rem] tracking-[0.3em] text-muted-foreground uppercase">
                     via AniList
                   </p>
-                  <p className="mt-5 font-display text-3xl leading-tight font-extrabold tracking-[-0.02em] text-foreground uppercase sm:text-4xl">
+                  <p className="mt-5 font-display text-3xl leading-tight font-extrabold tracking-[-0.02em] text-foreground sm:text-4xl">
                     Frieren
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
@@ -152,13 +125,9 @@ export default async function Home() {
                       &ldquo;Watch it slowly. It is about the parts of a journey you only
                       notice afterwards.&rdquo;
                     </p>
-                    <p className="font-mono text-4xl leading-none font-medium text-bloom">
-                      92
-                      <span className="text-base text-muted-foreground">/100</span>
-                    </p>
+                    <ScoreBadge scoreRaw={92} scoreFormat="POINT_100" size="lg" />
                   </div>
                 </div>
-                <div className="eyecatch-bar h-0.5 w-full" />
               </div>
               <figcaption className="mt-3 font-mono text-[0.65rem] tracking-[0.24em] text-muted-foreground uppercase">
                 Example preview card
@@ -171,7 +140,7 @@ export default async function Home() {
           {STEPS.map((step) => (
             <div key={step.marker} className="py-10 sm:px-8 sm:first:pl-0 sm:last:pr-0">
               <p className="font-mono text-xs tracking-[0.3em] text-primary">{step.marker}</p>
-              <h2 className="mt-4 font-display text-lg font-semibold tracking-[-0.01em] text-foreground uppercase">
+              <h2 className="mt-4 font-display text-lg font-semibold tracking-[-0.01em] text-foreground">
                 {step.title}
               </h2>
               <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted-foreground">

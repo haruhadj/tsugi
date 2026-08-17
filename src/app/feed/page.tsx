@@ -1,8 +1,12 @@
+import { CompassIcon, PlusIcon } from "lucide-react";
 import Link from "next/link";
-import { Wordmark } from "@/components/Wordmark";
-import { VoteButtons } from "@/components/VoteButtons";
+import { FeedList } from "@/components/FeedList";
+import { Header } from "@/components/Header";
+import { Button } from "@/components/ui/button";
+import { getServerSession } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import {
+  FEED_SORTS,
   listFeedCategories,
   listPublishedFeed,
   type FeedSort,
@@ -12,8 +16,15 @@ type SearchParams = Promise<{ sort?: string; page?: string; category?: string }>
 
 const PAGE_SIZE = 20;
 
+const SORT_LABELS: Record<FeedSort, string> = {
+  top: "Top",
+  new: "New",
+  views: "Most viewed",
+  items: "Longest",
+};
+
 function isFeedSort(value: string | undefined): value is FeedSort {
-  return value === "top" || value === "new";
+  return value !== undefined && (FEED_SORTS as readonly string[]).includes(value);
 }
 
 export default async function FeedPage({ searchParams }: { searchParams: SearchParams }) {
@@ -23,172 +34,192 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
   const page = Number.isInteger(pageParam) && pageParam > 0 ? pageParam : 1;
   const category = params.category || undefined;
 
-  const [entries, categories] = await Promise.all([
+  const [session, entries, categories] = await Promise.all([
+    getServerSession(),
     listPublishedFeed({ page, pageSize: PAGE_SIZE, sort, category }),
     listFeedCategories(),
   ]);
 
-  const categoryQuery = (value?: string) => (value ? `&category=${encodeURIComponent(value)}` : "");
+  const hrefFor = (next: { sort?: FeedSort; category?: string; page?: number }) => {
+    const query = new URLSearchParams({ sort: next.sort ?? sort });
+    const nextCategory = "category" in next ? next.category : category;
+    if (nextCategory) query.set("category", nextCategory);
+    if (next.page && next.page > 1) query.set("page", String(next.page));
+    return `/feed?${query}`;
+  };
 
   // Slot numbers continue across pages: page 2 opens at 21, not at 1. They are
   // the sort order made visible, so they have to keep counting to stay true.
   const firstSlot = (page - 1) * PAGE_SIZE + 1;
 
+  const totalPublished = categories.reduce((sum, entry) => sum + entry.count, 0);
+
   return (
     <div className="min-h-screen">
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 pt-8">
-        <Link href="/">
-          <Wordmark />
-        </Link>
-      </header>
+      <Header username={session ? (session.user.username ?? session.user.name) : null} />
 
-      <main className="mx-auto max-w-6xl px-6 py-16">
+      <main className="mx-auto max-w-6xl px-6 py-10">
         <div className="animate-card-in">
-          <p className="font-mono text-xs tracking-[0.28em] text-muted-foreground uppercase">
-            {category ?? "Everything"}
-          </p>
-          <h1 className="mt-4 font-display text-[clamp(1.9rem,5vw,2.75rem)] leading-[0.95] font-extrabold tracking-[-0.03em] uppercase">
-            The rundown
-          </h1>
+          <section className="relative overflow-hidden rounded-3xl border border-border bg-card/60 p-6 sm:p-10">
+            {/* Off-centre glow, purely decorative — kept behind the copy, never over it. */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -top-24 -right-16 size-72 rounded-full bg-primary/20 blur-3xl"
+            />
+            <div className="relative">
+              <p className="font-mono text-xs tracking-[0.28em] text-muted-foreground uppercase">
+                {category ?? "Everything"}
+              </p>
+              <h1 className="mt-3 font-display text-[clamp(1.9rem,5vw,2.75rem)] leading-[1.02] font-extrabold tracking-[-0.03em]">
+                The rundown
+              </h1>
+              <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground">
+                Every list people have published, ranked by what the room thinks of them.
+                Vote on the ones you have opinions about.
+              </p>
+              <Button asChild className="mt-6 rounded-full">
+                <Link href="/">
+                  <PlusIcon aria-hidden />
+                  Make a list
+                </Link>
+              </Button>
+            </div>
+          </section>
 
-          {/*
-            Two nav axes, two forms. Sort is a switcher — exactly one of two
-            states, so it is one enclosed control. Category is a filter over an
-            open-ended set, so it is an underlined rail. Making them look alike
-            (the old matching pills) implied they were the same kind of choice.
-          */}
-          <div className="mt-8 flex items-stretch divide-x divide-border rounded-xs border border-border">
-            {(["top", "new"] as const).map((option) => (
-              <Link
-                key={option}
-                href={`/feed?sort=${option}${categoryQuery(category)}`}
-                aria-current={sort === option ? "true" : undefined}
-                className={cn(
-                  "px-4 py-2 font-mono text-xs tracking-[0.2em] uppercase transition-colors",
-                  "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none",
-                  sort === option
-                    ? "bg-secondary text-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {option}
-              </Link>
-            ))}
-          </div>
-
-          {categories.length > 0 ? (
-            <nav
-              aria-label="Categories"
-              className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3"
-            >
-              {[undefined, ...categories].map((name) => {
-                const isActive = category === name;
-                return (
+          <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_18rem]">
+            <div className="min-w-0">
+              <nav aria-label="Sort" className="flex flex-wrap items-center gap-1">
+                {FEED_SORTS.map((option) => (
                   <Link
-                    key={name ?? "__all"}
-                    href={`/feed?sort=${sort}${categoryQuery(name)}`}
-                    aria-current={isActive ? "true" : undefined}
+                    key={option}
+                    href={hrefFor({ sort: option })}
+                    aria-current={sort === option ? "true" : undefined}
                     className={cn(
-                      "border-b-2 pb-1 font-mono text-xs tracking-[0.2em] uppercase transition-colors",
-                      "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none",
-                      isActive
-                        ? "border-primary text-foreground"
-                        : "border-transparent text-muted-foreground hover:text-foreground",
+                      "rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+                      "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                      sort === option
+                        ? "bg-secondary text-foreground"
+                        : "text-muted-foreground hover:bg-accent hover:text-foreground",
                     )}
                   >
-                    {name ?? "All"}
+                    {SORT_LABELS[option]}
                   </Link>
-                );
-              })}
-            </nav>
-          ) : null}
+                ))}
+              </nav>
 
-          {entries.length === 0 ? (
-            <div className="mt-10 rounded-xs border border-border p-8">
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                {category
-                  ? `Nothing published under ${category} yet. Publish a list with that category and it opens the rundown.`
-                  : "The rundown is empty. Publish a list and it takes slot 01."}
-              </p>
-              <Link
-                href="/"
-                className="mt-4 inline-block font-mono text-xs tracking-[0.2em] text-primary uppercase underline-offset-4 hover:underline"
-              >
-                Make a list
-              </Link>
+              <div className="mt-6">
+                {entries.length === 0 ? (
+                  <div className="flex flex-col items-center rounded-2xl border border-dashed border-border px-6 py-16 text-center">
+                    <div className="flex size-12 items-center justify-center rounded-2xl bg-secondary">
+                      <CompassIcon className="size-6 text-muted-foreground" aria-hidden />
+                    </div>
+                    <h2 className="mt-4 font-display text-lg font-bold">
+                      {category ? `Nothing under ${category} yet` : "The rundown is empty"}
+                    </h2>
+                    <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
+                      {category
+                        ? "Publish a list with that category and it opens the rundown."
+                        : "Publish a list and it takes slot 01."}
+                    </p>
+                    <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                      {category && (
+                        <Button asChild variant="outline" className="rounded-full">
+                          <Link href={hrefFor({ category: undefined })}>Clear filter</Link>
+                        </Button>
+                      )}
+                      <Button asChild className="rounded-full">
+                        <Link href="/">Make a list</Link>
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <FeedList entries={entries} firstSlot={firstSlot} />
+                )}
+              </div>
+
+              <div className="mt-8 flex items-center justify-between">
+                {page > 1 ? (
+                  <Button asChild variant="ghost" size="sm" className="rounded-full">
+                    <Link href={hrefFor({ page: page - 1 })}>Back</Link>
+                  </Button>
+                ) : (
+                  <span />
+                )}
+                {entries.length === PAGE_SIZE ? (
+                  <Button asChild variant="ghost" size="sm" className="rounded-full">
+                    <Link href={hrefFor({ page: page + 1 })}>
+                      Slot {firstSlot + PAGE_SIZE} onward
+                    </Link>
+                  </Button>
+                ) : null}
+              </div>
             </div>
-          ) : (
-            /*
-              One surface, hairline-divided rows — not twenty floating cards.
-              `bg-card` and the eyecatch edge stay reserved for /r/[slug], where
-              there genuinely is one card. Spending them twenty times here is
-              what flattened the feed.
-            */
-            <ul className="mt-10 divide-y divide-border rounded-xs border border-border">
-              {entries.map((entry, index) => {
-                const slot = firstSlot + index;
-                const isLead = slot === 1;
-                return (
-                  <li key={entry.slug} className="relative">
-                    {/* The lead slot is the one cyan thing on this screen. */}
-                    {isLead ? (
-                      <div className="eyecatch-edge absolute inset-y-0 left-0 w-1" aria-hidden />
-                    ) : null}
-                    <div className="flex items-start gap-5 py-6 pr-6 pl-8">
-                      <span
-                        aria-hidden
+
+            <aside className="flex flex-col gap-4">
+              {categories.length > 0 && (
+                <nav
+                  aria-label="Categories"
+                  className="rounded-2xl border border-border bg-card/60 p-4"
+                >
+                  <h2 className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
+                    Categories
+                  </h2>
+                  <ul className="mt-3 flex flex-col">
+                    <li>
+                      <Link
+                        href={hrefFor({ category: undefined })}
+                        aria-current={category === undefined ? "true" : undefined}
                         className={cn(
-                          "mt-0.5 font-mono text-2xl leading-none font-medium tabular-nums",
-                          isLead ? "text-bloom" : "text-muted-foreground/50",
+                          "flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
+                          "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                          category === undefined
+                            ? "bg-secondary text-foreground"
+                            : "text-muted-foreground hover:bg-accent hover:text-foreground",
                         )}
                       >
-                        {String(slot).padStart(2, "0")}
-                      </span>
-
-                      <Link
-                        href={`/r/${entry.slug}`}
-                        className="min-w-0 flex-1 focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none"
-                      >
-                        <p className="font-display leading-tight font-semibold tracking-[-0.01em] uppercase">
-                          {entry.name}
-                        </p>
-                        {entry.caption ? (
-                          <p className="mt-1.5 truncate text-sm text-muted-foreground">
-                            {entry.caption}
-                          </p>
-                        ) : null}
-                        <p className="mt-2 font-mono text-[0.65rem] tracking-[0.24em] text-muted-foreground uppercase">
-                          {entry.views} {entry.views === 1 ? "view" : "views"}
-                        </p>
+                        <span className="truncate">All</span>
+                        <span className="font-mono text-[11px] tabular-nums">
+                          {totalPublished}
+                        </span>
                       </Link>
+                    </li>
+                    {categories.map((entry) => (
+                      <li key={entry.name}>
+                        <Link
+                          href={hrefFor({ category: entry.name })}
+                          aria-current={category === entry.name ? "true" : undefined}
+                          className={cn(
+                            "flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
+                            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                            category === entry.name
+                              ? "bg-secondary text-foreground"
+                              : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                          )}
+                        >
+                          <span className="truncate">{entry.name}</span>
+                          <span className="font-mono text-[11px] tabular-nums">{entry.count}</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </nav>
+              )}
 
-                      <VoteButtons slug={entry.slug} initialScore={entry.score} />
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-
-          <div className="mt-8 flex items-center justify-between">
-            {page > 1 ? (
-              <Link
-                href={`/feed?sort=${sort}&page=${page - 1}${categoryQuery(category)}`}
-                className="font-mono text-xs tracking-[0.2em] text-muted-foreground uppercase underline-offset-4 transition-colors hover:text-foreground hover:underline"
-              >
-                Back
-              </Link>
-            ) : (
-              <span />
-            )}
-            {entries.length === PAGE_SIZE ? (
-              <Link
-                href={`/feed?sort=${sort}&page=${page + 1}${categoryQuery(category)}`}
-                className="font-mono text-xs tracking-[0.2em] text-muted-foreground uppercase underline-offset-4 transition-colors hover:text-foreground hover:underline"
-              >
-                Slot {firstSlot + PAGE_SIZE} onward
-              </Link>
-            ) : null}
+              <section className="rounded-2xl border border-border bg-card/60 p-4">
+                <h2 className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
+                  About Tsugi
+                </h2>
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                  Score the anime and manga you would hand to someone, and Tsugi turns them
+                  into a link worth sending. Reading takes no account at all.
+                </p>
+                {session === null && (
+                  <Button asChild variant="outline" size="sm" className="mt-4 w-full rounded-full">
+                    <Link href="/sign-in">Sign in to vote</Link>
+                  </Button>
+                )}
+              </section>
+            </aside>
           </div>
         </div>
       </main>

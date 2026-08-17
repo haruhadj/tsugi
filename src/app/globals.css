@@ -2,10 +2,13 @@
 @import "tw-animate-css";
 
 /*
-  Tsugi's visual direction is "Eyecatch" — the title card that punctuates an anime
-  episode mid-way through. Deep violet night, a two-tone screen glow, hard-edged
-  broadcast geometry. The full rationale and the token contract live in
-  context/ui-tokens.md; this file is the only place the values themselves exist.
+  Tsugi's visual direction is "Curation Desk" — a near-black zinc workspace with a rose
+  accent, soft-rounded panels, and colour-coded score tiers. The full rationale and the
+  token contract live in context/ui-tokens.md; this file is the only place the values
+  themselves exist.
+
+  This replaced the earlier violet "Eyecatch" palette (D45). If you find `#0B0A14`,
+  `#6C63FF`, `bloom`, or a 2px `--radius` anywhere, it is a leftover from that system.
 
   Tsugi ships one theme. The palette below is defined on :root so it applies with or
   without the `dark` class, and repeated under `.dark` (which <html> carries) so that
@@ -35,18 +38,51 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  /* Direction-specific. `bloom` is the cyan punctuation — one use per screen. */
-  --color-bloom: var(--bloom);
-  --color-bloom-foreground: var(--bloom-foreground);
+  /*
+    Direction-specific.
+
+    `highlight` is the amber counter-accent — it pairs with `primary` in the brand
+    gradient and marks the one "editor's pick" affordance per surface. It is not a
+    second button colour.
+
+    The `score-*` ramp is the only place score-tier colour is defined. A score's band
+    is derived from its (raw, format) pair by scoreTier() in src/lib/score.ts — never
+    by comparing a bare number in a component.
+
+    `upvote`/`downvote` are directional, not semantic: rose is not "good" and indigo is
+    not "bad", they only have to be told apart at a glance.
+
+    `anilist`/`mal` are the providers' own brand colours, used only to identify a
+    provider (connection rows, source links), never as UI accents.
+  */
+  --color-highlight: var(--highlight);
+  --color-highlight-foreground: var(--highlight-foreground);
+
+  /* Confirmed/connected/saved states. Never a button, never a score. */
+  --color-success: var(--success);
+
+  --color-score-excellent: var(--score-excellent);
+  --color-score-good: var(--score-good);
+  --color-score-fair: var(--score-fair);
+  --color-score-poor: var(--score-poor);
+  --color-score-unrated: var(--score-unrated);
+
+  --color-upvote: var(--upvote);
+  --color-downvote: var(--downvote);
+
+  --color-anilist: var(--anilist);
+  --color-mal: var(--mal);
 
   --font-display: var(--font-unbounded);
   --font-sans: var(--font-inter-tight);
   --font-mono: var(--font-jetbrains-mono);
 
-  --radius-sm: calc(var(--radius) - 1px);
-  --radius-md: var(--radius);
-  --radius-lg: calc(var(--radius) + 2px);
-  --radius-xl: calc(var(--radius) + 6px);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 10px);
+  --radius-3xl: calc(var(--radius) + 18px);
 
   --animate-wipe-in: wipe-in 0.62s cubic-bezier(0.16, 1, 0.3, 1) both;
   --animate-card-in: card-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -74,44 +110,62 @@
 
 :root,
 .dark {
-  /* Hard-edged broadcast geometry — 2px, not shadcn's stock 10px. */
-  --radius: 0.125rem;
+  /* Soft panels — 12px. Cards step up to radius-2xl/3xl, pills use rounded-full. */
+  --radius: 0.75rem;
 
   /*
     Authored in oklch(); the hex beside each is the exact sRGB equivalent, not an
-    approximation — every one round-trips. Satori cannot parse oklch(), so the OG card
-    (Phase 6) is built from these hex values by hand. Keep the two in step: if you change
-    an oklch() here without recomputing its comment, the card silently stops matching the
-    site and nothing will fail to build.
-  */
-  --background: oklch(0.1516 0.0213 288.2); /* #0B0A14 — violet-black, the studio */
-  --foreground: oklch(0.9456 0.0283 292.4); /* #EDEAFF — off-white, faintly violet */
+    approximation. Satori cannot parse oklch(), so the OG card is built from these hex
+    values by hand. Keep the two in step: if you change an oklch() here without
+    recomputing its comment, the card silently stops matching the site and nothing will
+    fail to build.
 
-  --card: oklch(0.2024 0.047 283.2); /* #14132B — the title card itself */
+    The greys are Tailwind's zinc ramp and the accents its rose/amber/emerald/indigo, so
+    a value can always be checked against the published palette rather than guessed at.
+  */
+  --background: oklch(0.141 0.005 285.823); /* #09090B — zinc-950, the desk */
+  --foreground: oklch(0.985 0 0); /* #FAFAFA — zinc-50 */
+
+  --card: oklch(0.21 0.006 285.885); /* #18181B — zinc-900, the panel */
   --card-foreground: var(--foreground);
-  --popover: oklch(0.2024 0.047 283.2); /* #14132B */
+  --popover: oklch(0.21 0.006 285.885); /* #18181B — zinc-900 */
   --popover-foreground: var(--foreground);
 
-  --primary: oklch(0.5973 0.2237 279.8); /* #6C63FF — the screen glow */
-  --primary-foreground: oklch(0.9776 0.0088 290); /* #F7F7FD */
+  --primary: oklch(0.645 0.246 16.439); /* #F43F5E — rose-500, the accent */
+  --primary-foreground: oklch(0.985 0 0); /* #FAFAFA */
 
-  --secondary: oklch(0.26 0.038 286); /* #222136 */
+  --secondary: oklch(0.274 0.006 286.033); /* #27272A — zinc-800 */
   --secondary-foreground: var(--foreground);
 
-  --muted: oklch(0.26 0.038 286); /* #222136 */
-  --muted-foreground: oklch(0.6426 0.061 290.2); /* #8C87B0 */
+  --muted: oklch(0.274 0.006 286.033); /* #27272A — zinc-800 */
+  --muted-foreground: oklch(0.705 0.015 286.067); /* #A1A1AA — zinc-400 */
 
-  --accent: oklch(0.28 0.055 284); /* #262543 */
+  /* Hover surfaces only. Not "the accent" — that is `primary`. */
+  --accent: oklch(0.274 0.006 286.033); /* #27272A — zinc-800 */
   --accent-foreground: var(--foreground);
 
-  --destructive: oklch(0.62 0.216 24); /* #EC3740 */
+  --destructive: oklch(0.637 0.237 25.331); /* #EF4444 — red-500 */
 
-  --border: oklch(0.31 0.041 286); /* #2E2D44 */
-  --input: oklch(0.34 0.045 286); /* #36344E */
-  --ring: oklch(0.5973 0.2237 279.8); /* #6C63FF */
+  --border: oklch(0.274 0.006 286.033); /* #27272A — zinc-800 */
+  --input: oklch(0.37 0.013 285.805); /* #3F3F46 — zinc-700 */
+  --ring: oklch(0.645 0.246 16.439); /* #F43F5E — rose-500 */
 
-  --bloom: oklch(0.8257 0.1252 186); /* #4CE0D2 — cyan punctuation */
-  --bloom-foreground: oklch(0.17 0.04 200); /* #001315 */
+  --highlight: oklch(0.769 0.188 70.08); /* #F59E0B — amber-500 */
+  --highlight-foreground: oklch(0.141 0.005 285.823); /* #09090B */
+
+  --success: oklch(0.696 0.17 162.48); /* #10B981 — emerald-500 */
+
+  --score-excellent: oklch(0.696 0.17 162.48); /* #10B981 — emerald-500 */
+  --score-good: oklch(0.585 0.233 277.117); /* #6366F1 — indigo-500 */
+  --score-fair: oklch(0.769 0.188 70.08); /* #F59E0B — amber-500 */
+  --score-poor: oklch(0.645 0.246 16.439); /* #F43F5E — rose-500 */
+  --score-unrated: oklch(0.705 0.015 286.067); /* #A1A1AA — zinc-400 */
+
+  --upvote: oklch(0.645 0.246 16.439); /* #F43F5E — rose-500 */
+  --downvote: oklch(0.585 0.233 277.117); /* #6366F1 — indigo-500 */
+
+  --anilist: oklch(0.685 0.169 237.323); /* #0EA5E9 — sky-500 */
+  --mal: oklch(0.585 0.233 277.117); /* #6366F1 — indigo-500 */
 }
 
 @layer base {
@@ -122,19 +176,19 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     /*
-      Two off-screen light sources: the violet key from the upper left and the cyan
+      Two off-screen light sources: the rose key from the upper left and the amber
       rim from the lower right. Fixed, so the glow belongs to the room rather than
       to the scroll position.
     */
     background-image:
       radial-gradient(
         58rem 40rem at 8% -8%,
-        color-mix(in oklab, var(--primary) 20%, transparent),
+        color-mix(in oklab, var(--primary) 14%, transparent),
         transparent 70%
       ),
       radial-gradient(
         44rem 34rem at 104% 108%,
-        color-mix(in oklab, var(--bloom) 11%, transparent),
+        color-mix(in oklab, var(--highlight) 8%, transparent),
         transparent 70%
       );
     background-attachment: fixed;
@@ -143,27 +197,23 @@
 
 @layer utilities {
   /*
-    The eyecatch bar: the glowing rule that wipes across under the wordmark. It is
-    the page's signature, so it is a real token rather than a pile of utilities
-    reassembled per screen.
+    The brand gradient: rose into amber, left to right. Used by the wordmark mark and
+    by the social card. It is the page's signature, so it is a real token rather than a
+    pile of utilities reassembled per screen.
   */
-  .eyecatch-bar {
-    background-image: linear-gradient(
-      90deg,
-      var(--primary) 0%,
-      var(--primary) 38%,
-      var(--bloom) 100%
-    );
-    box-shadow: 0 0 1.25rem -0.125rem color-mix(in oklab, var(--primary) 65%, transparent);
+  .brand-gradient {
+    background-image: linear-gradient(135deg, var(--primary) 0%, var(--highlight) 100%);
   }
 
-  /* Scanline tooth used on the eyecatch card's leading edge. */
-  .eyecatch-edge {
-    background-image: repeating-linear-gradient(
-      180deg,
-      color-mix(in oklab, var(--bloom) 55%, transparent) 0 2px,
-      transparent 2px 6px
-    );
+  /*
+    The tint recipe every badge and chip uses: a 15% fill of its own colour, the colour
+    itself for text, a 30% border. Set `--tint` to any token and apply this class,
+    rather than writing the three opacity utilities out again per badge.
+  */
+  .tint {
+    background-color: color-mix(in oklab, var(--tint) 15%, transparent);
+    border-color: color-mix(in oklab, var(--tint) 30%, transparent);
+    color: var(--tint);
   }
 }
 

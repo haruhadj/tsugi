@@ -58,7 +58,7 @@ export function UsernameField({ initialUsername }: Props) {
     <div className="flex flex-col gap-3">
       <label
         htmlFor="username"
-        className="font-display text-sm font-semibold tracking-[0.06em] uppercase"
+        className="font-display text-sm font-semibold tracking-[0.06em]"
       >
         Username
       </label>
@@ -71,7 +71,7 @@ export function UsernameField({ initialUsername }: Props) {
             setStatus({ kind: "idle" });
           }}
           maxLength={20}
-          className="w-full max-w-xs rounded-md border border-border bg-background px-3 py-2 font-mono text-sm outline-none focus:border-bloom"
+          className="w-full max-w-xs rounded-md border border-border bg-background px-3 py-2 font-mono text-sm outline-none focus:border-primary"
         />
         <Button variant="outline" size="sm" disabled={!isDirty || isSaving} onClick={save}>
           Save
@@ -81,7 +81,7 @@ export function UsernameField({ initialUsername }: Props) {
       {status.kind === "error" ? (
         <p className="font-mono text-xs tracking-[0.06em] text-destructive">{status.message}</p>
       ) : status.kind === "saved" ? (
-        <p className="flex items-center gap-2 font-mono text-xs tracking-[0.16em] text-bloom uppercase">
+        <p className="flex items-center gap-2 font-mono text-xs tracking-[0.16em] text-success uppercase">
           <CheckIcon className="size-3.5" aria-hidden />
           Saved
         </p>

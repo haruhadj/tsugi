@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/db";
 import { list, listItem, listVote } from "@/db/schema";
@@ -393,7 +393,8 @@ export async function deleteList(slug: string, userId: string): Promise<DeleteLi
   return "deleted";
 }
 
-export type FeedSort = "top" | "new";
+export const FEED_SORTS = ["top", "new", "views", "items"] as const;
+export type FeedSort = (typeof FEED_SORTS)[number];
 
 export type FeedEntry = {
   slug: string;
@@ -403,7 +404,14 @@ export type FeedEntry = {
   publishedAt: Date | null;
   createdAt: Date;
   score: number;
+  itemCount: number;
+  /** Cover art for the first few titles, for the feed's filmstrip. Nulls are kept
+   *  so a list whose lead title has no art still shows its placeholder in order. */
+  covers: (string | null)[];
 };
+
+/** How many covers each feed row carries. Enough to fill the filmstrip, no more. */
+const FEED_COVER_COUNT = 5;
 
 /**
  * Public, published-only (D42) — no `userId` in the selected columns
@@ -419,9 +427,25 @@ export async function listPublishedFeed(params: {
 }): Promise<FeedEntry[]> {
   const { page, pageSize, sort, category } = params;
   const scoreExpr = sql<number>`coalesce(sum(${listVote.direction}), 0)`;
+  /*
+    Counted as a correlated subquery rather than a second leftJoin: joining both
+    list_vote and list_item against list multiplies their rows together, and every
+    aggregate over that product is then wrong (a list with 3 votes and 4 items would
+    report 12 of each).
+  */
+  const itemCountExpr = sql<number>`(
+    select count(*) from ${listItem} where ${listItem.listId} = ${list.id}
+  )`;
   const whereExpr = category
     ? and(eq(list.published, true), eq(list.name, category))
     : eq(list.published, true);
+
+  const orderBy = {
+    top: desc(scoreExpr),
+    new: desc(list.publishedAt),
+    views: desc(list.views),
+    items: desc(itemCountExpr),
+  }[sort];
 
   const rows = await db
     .select({
@@ -432,16 +456,39 @@ export async function listPublishedFeed(params: {
       publishedAt: list.publishedAt,
       createdAt: list.createdAt,
       score: scoreExpr,
+      itemCount: itemCountExpr,
     })
     .from(list)
     .leftJoin(listVote, eq(listVote.listId, list.id))
     .where(whereExpr)
     .groupBy(list.id)
-    .orderBy(sort === "top" ? desc(scoreExpr) : desc(list.publishedAt))
+    .orderBy(orderBy)
     .limit(pageSize)
     .offset((page - 1) * pageSize);
 
-  return rows;
+  if (rows.length === 0) return [];
+
+  const slugs = rows.map((row) => row.slug);
+  const coverRows = await db
+    .select({ slug: list.slug, position: listItem.position, coverImage: listItem.coverImage })
+    .from(listItem)
+    .innerJoin(list, eq(listItem.listId, list.id))
+    // `position` is the 0-based array index assigned in createList, so the first
+    // FEED_COVER_COUNT items are 0..COUNT-1 — `lt`, not `lte`.
+    .where(and(inArray(list.slug, slugs), lt(listItem.position, FEED_COVER_COUNT)))
+    .orderBy(listItem.position);
+
+  const coversBySlug = new Map<string, (string | null)[]>();
+  for (const row of coverRows) {
+    const bucket = coversBySlug.get(row.slug);
+    if (bucket) {
+      bucket.push(row.coverImage);
+    } else {
+      coversBySlug.set(row.slug, [row.coverImage]);
+    }
+  }
+
+  return rows.map((row) => ({ ...row, covers: coversBySlug.get(row.slug) ?? [] }));
 }
 
 /**
@@ -450,16 +497,18 @@ export async function listPublishedFeed(params: {
  * fixed taxonomy, just what's actually in use right now. Capped at 20 chips
  * so a long tail of one-off names can't blow out the header UI.
  */
-export async function listFeedCategories(): Promise<string[]> {
+export type FeedCategory = { name: string; count: number };
+
+export async function listFeedCategories(): Promise<FeedCategory[]> {
   const rows = await db
-    .select({ name: list.name, count: sql<number>`count(*)` })
+    .select({ name: list.name, count: sql<number>`count(*)::int` })
     .from(list)
     .where(eq(list.published, true))
     .groupBy(list.name)
     .orderBy(desc(sql`count(*)`))
     .limit(20);
 
-  return rows.map((row) => row.name);
+  return rows;
 }
 
 export type ToggleVoteResult = { direction: 1 | -1 | 0 };

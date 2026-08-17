@@ -99,7 +99,7 @@ export function DashboardRecList({ initialRecs }: { initialRecs: ListView[] }) {
               href={`/r/${rec.slug}`}
               className="focus-visible:ring-ring block focus-visible:ring-2 focus-visible:outline-none"
             >
-              <h2 className="font-display leading-tight font-semibold tracking-[-0.01em] text-foreground uppercase">
+              <h2 className="font-display leading-tight font-semibold tracking-[-0.01em] text-foreground">
                 {rec.name}
                 <span className="sr-only">
                   {rec.published ? " — published" : " — draft"}

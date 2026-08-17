@@ -6,6 +6,7 @@ import { list } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { checkVoteLimit } from "@/server/hono/middleware";
 import {
+  FEED_SORTS,
   listFeedCategories,
   listPublishedFeed,
   toggleVote,
@@ -13,7 +14,7 @@ import {
 } from "@/server/services/lists";
 
 function isFeedSort(value: string): value is FeedSort {
-  return value === "top" || value === "new";
+  return (FEED_SORTS as readonly string[]).includes(value);
 }
 
 function isVoteDirection(value: unknown): value is 1 | -1 {

@@ -24,7 +24,7 @@ export default async function SettingsPage() {
           <p className="font-mono text-xs tracking-[0.28em] text-muted-foreground uppercase">
             Settings
           </p>
-          <h1 className="mt-4 font-display text-[clamp(1.9rem,5vw,2.75rem)] leading-[0.95] font-extrabold tracking-[-0.03em] uppercase">
+          <h1 className="mt-4 font-display text-[clamp(1.9rem,5vw,2.75rem)] leading-[0.95] font-extrabold tracking-[-0.03em]">
             Connected
             <br />
             accounts

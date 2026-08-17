@@ -1,0 +1,179 @@
+"use client";
+
+import {
+  CompassIcon,
+  LayoutDashboardIcon,
+  LogOutIcon,
+  PlusIcon,
+  SettingsIcon,
+  UserIcon,
+} from "lucide-react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { Wordmark } from "@/components/Wordmark";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { authClient } from "@/lib/auth-client";
+import { cn } from "@/lib/utils";
+
+const NAV = [
+  { href: "/feed", label: "Rundown", icon: CompassIcon, needsSession: false },
+  { href: "/", label: "Create", icon: PlusIcon, needsSession: true },
+  { href: "/dashboard", label: "Your lists", icon: LayoutDashboardIcon, needsSession: true },
+] as const;
+
+/**
+ * The app shell's top bar, on every screen. Sticky and blurred so the page scrolls
+ * under it; a matching bottom tab bar takes over under `md`, where a horizontal nav
+ * would crowd out the wordmark.
+ *
+ * `username` is null for signed-out visitors — the whole product is readable without
+ * an account (invariant 9), so this renders a Sign in button rather than hiding.
+ */
+export function Header({ username }: { username: string | null }) {
+  const pathname = usePathname();
+  const router = useRouter();
+
+  const items = NAV.filter((item) => !item.needsSession || username !== null);
+
+  const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
+
+  async function signOut() {
+    await authClient.signOut();
+    router.push("/");
+    router.refresh();
+  }
+
+  return (
+    <>
+      <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-6">
+          <div className="flex items-center gap-8">
+            <Link href="/" aria-label="Tsugi home" className="rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+              <Wordmark size="sm" />
+            </Link>
+
+            <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
+              {items.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={isActive(item.href) ? "page" : undefined}
+                  className={cn(
+                    "relative rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                    isActive(item.href)
+                      ? "text-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {item.label}
+                  {isActive(item.href) && (
+                    <span
+                      aria-hidden
+                      className="brand-gradient absolute inset-x-3 -bottom-px h-0.5 rounded-full"
+                    />
+                  )}
+                </Link>
+              ))}
+            </nav>
+          </div>
+
+          {username === null ? (
+            <Button asChild size="sm" className="rounded-full">
+              <Link href="/sign-in">Sign in</Link>
+            </Button>
+          ) : (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 rounded-full border-border pl-1.5"
+                >
+                  <span
+                    aria-hidden
+                    className="brand-gradient flex size-6 items-center justify-center rounded-full font-mono text-[11px] font-bold text-primary-foreground"
+                  >
+                    {username.charAt(0).toUpperCase()}
+                  </span>
+                  <span className="hidden max-w-32 truncate font-mono text-xs sm:inline">
+                    {username}
+                  </span>
+                </Button>
+              </DropdownMenuTrigger>
+
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="font-mono text-xs text-muted-foreground">
+                  @{username}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard">
+                    <LayoutDashboardIcon aria-hidden />
+                    Your lists
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/settings">
+                    <SettingsIcon aria-hidden />
+                    Settings
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onSelect={signOut}>
+                  <LogOutIcon aria-hidden />
+                  Sign out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
+      </header>
+
+      {/*
+        The mobile counterpart. Rendered as its own <nav> rather than a reflow of the
+        one above, because the two carry different items — the bottom bar has to reach
+        settings and sign-in, which live in the dropdown on desktop.
+      */}
+      <nav
+        aria-label="Main"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur-xl md:hidden"
+      >
+        <div className="flex items-stretch justify-around">
+          {items.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={isActive(item.href) ? "page" : undefined}
+              className={cn(
+                "flex min-h-14 flex-1 flex-col items-center justify-center gap-1 px-2 text-[10px] font-medium transition-colors",
+                isActive(item.href) ? "text-primary" : "text-muted-foreground",
+              )}
+            >
+              <item.icon className="size-5" aria-hidden />
+              {item.label}
+            </Link>
+          ))}
+          <Link
+            href={username === null ? "/sign-in" : "/settings"}
+            className={cn(
+              "flex min-h-14 flex-1 flex-col items-center justify-center gap-1 px-2 text-[10px] font-medium transition-colors",
+              isActive("/settings") ? "text-primary" : "text-muted-foreground",
+            )}
+          >
+            <UserIcon className="size-5" aria-hidden />
+            {username === null ? "Sign in" : "Settings"}
+          </Link>
+        </div>
+      </nav>
+    </>
+  );
+}
