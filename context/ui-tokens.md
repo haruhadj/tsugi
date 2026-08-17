@@ -134,6 +134,43 @@ reason in a comment. Vertical rhythm inside a card is `gap-3`; between sections 
 Cards are padded `p-8 pl-10` (`sm:p-10 sm:pl-12`) — the extra left inset clears
 `.eyecatch-edge`, which sits inside the card's own bounds.
 
+## The rundown — lists of lists
+
+The rules above were written when a screen held exactly one card, because the product was a
+link generator. It is not any more: `/feed` and `/dashboard` show many lists at once. Applying
+the card rules per row put ~20 cyan edges on one screen, which by the "spice, not a colour"
+rule means the screen had no cyan at all. So there is a second layout form.
+
+**One surface, not many cards.** A collection of lists is a single
+`divide-y divide-border rounded-xs border border-border` list — hairline-divided rows. Rows get
+no `bg-card`, no `.eyecatch-edge`, no `.eyecatch-bar`. Those stay reserved for `/r/[slug]`,
+which is the artifact the product exists to make; the rundown runs deliberately quiet so that
+arriving at a list feels like arriving somewhere.
+
+**The gutter.** Every row opens with a fixed-width mono column. It carries the one datum that
+is true of every row on that screen and that the row's own title cannot say:
+
+- `/feed` — the slot number (`01`, `02`, …), zero-padded, `tabular-nums`, continuing across
+  pages. It is the sort order made visible, so it must keep counting; page 2 opens at `21`.
+- `/dashboard` — `Live` / `Draft`, since dashboard rows are not ranked and inventing a rank
+  there would be a decoration pretending to be information.
+
+Only put something in the gutter that is genuinely uniform and genuinely data. If neither is
+true for a new surface, leave the gutter out rather than filling it.
+
+**The one cyan thing.** On the rundown it is slot `01` only — `text-bloom` on the lead number
+plus a 1px `.eyecatch-edge` tooth on that row alone. Nothing else on the screen is cyan, and
+the foot of the rundown gets no `.eyecatch-bar`: the gutter is the signature, and a second glow
+would split it.
+
+**Two nav axes, two forms.** Sort is exactly one of two states, so it is one enclosed segmented
+control (`divide-x`, bordered, `bg-secondary` on the active half). Category is a filter over an
+open-ended set, so it is an underlined rail (`border-primary` active, `border-transparent`
+inactive). Making them look alike implies they are the same kind of choice; they are not.
+
+**Row padding** is `py-6 pr-6 pl-8` on `/feed` (the `pl-8` clears the lead row's edge tooth so
+rows stay aligned) and `px-6 py-6` on `/dashboard`, which has no tooth.
+
 ## Radius and elevation
 
 `--radius: 0.125rem`. shadcn derives `--radius-sm/md/lg/xl` from it, so every component follows

@@ -24,7 +24,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "Tsugi",
-  description: "Share an anime or manga recommendation in seconds.",
+  description: "Score the anime and manga you would hand to someone, and share the list.",
 };
 
 export default function RootLayout({

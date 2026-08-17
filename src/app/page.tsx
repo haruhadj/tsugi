@@ -12,7 +12,7 @@ const STEPS = [
   {
     marker: "01",
     title: "Pick",
-    body: "Search AniList or MyAnimeList. Add one title, or up to ten.",
+    body: "Search AniList or MyAnimeList. Add one title, or a few hundred.",
   },
   {
     marker: "02",
@@ -22,7 +22,8 @@ const STEPS = [
   {
     marker: "03",
     title: "Share",
-    body: "Get a link that unfurls into a preview card. Anyone can open it, account or not.",
+    body:
+      "Get a link that unfurls into a preview card. Publish it and it joins the rundown.",
   },
 ] as const;
 
@@ -34,15 +35,23 @@ export default async function Home() {
       <div className="min-h-screen">
         <header className="mx-auto flex max-w-2xl items-center justify-between px-6 pt-8">
           <Wordmark />
-          <Button asChild variant="ghost" size="sm">
-            <Link href="/settings">Settings</Link>
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/feed">Rundown</Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/dashboard">Your lists</Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/settings">Settings</Link>
+            </Button>
+          </div>
         </header>
 
         <main className="mx-auto max-w-2xl px-6 py-16">
           <div className="animate-card-in">
             <p className="font-mono text-xs tracking-[0.28em] text-muted-foreground uppercase">
-              New recommendation
+              New list
             </p>
             <h1 className="mt-4 font-display text-[clamp(1.9rem,5vw,2.75rem)] leading-[0.95] font-extrabold tracking-[-0.03em] uppercase">
               Pick, score,
@@ -63,11 +72,19 @@ export default async function Home() {
     <div className="min-h-screen">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 pt-8">
         <Wordmark />
-        <Button asChild variant="ghost" size="sm">
-          <Link href={session ? "/settings" : "/sign-in"}>
-            {session ? "Settings" : "Sign in"}
-          </Link>
-        </Button>
+        {/*
+          The rundown is readable without an account, so it belongs in the
+          signed-out header too — it is the one place a visitor can see what
+          the product produces before making anything.
+        */}
+        <div className="flex items-center gap-1">
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/feed">Rundown</Link>
+          </Button>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/sign-in">Sign in</Link>
+          </Button>
+        </div>
       </header>
 
       <main className="mx-auto max-w-6xl px-6">
@@ -88,10 +105,22 @@ export default async function Home() {
               worth sending. Making one takes about ten seconds. Opening one takes no
               account at all.
             </p>
-            <div className="mt-9 flex flex-wrap items-center gap-4">
+            {/*
+              One primary action per screen (ui-tokens.md), so "Browse the
+              rundown" is a quiet text link rather than a second button. The
+              action is named "Make a list" here and stays that name through
+              sign-in and the builder.
+            */}
+            <div className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-4">
               <Button asChild size="lg">
-                <Link href="/sign-in">Start a rec</Link>
+                <Link href="/sign-in">Make a list</Link>
               </Button>
+              <Link
+                href="/feed"
+                className="font-mono text-xs tracking-[0.2em] text-muted-foreground uppercase underline-offset-4 transition-colors hover:text-foreground hover:underline"
+              >
+                Browse the rundown
+              </Link>
               <p className="font-mono text-xs text-muted-foreground">
                 Sign in with AniList or MyAnimeList
               </p>
@@ -157,10 +186,10 @@ export default async function Home() {
             次 — the next thing you should read or watch
           </p>
           <Link
-            href={session ? "/settings" : "/sign-in"}
+            href="/sign-in"
             className="font-mono text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
           >
-            {session ? "Settings" : "Sign in"}
+            Sign in
           </Link>
         </footer>
       </main>

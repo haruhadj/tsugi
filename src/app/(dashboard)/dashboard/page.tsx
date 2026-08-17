@@ -21,6 +21,12 @@ export default async function DashboardPage() {
         <Link href="/">
           <Wordmark />
         </Link>
+        <Link
+          href="/feed"
+          className="font-mono text-xs tracking-[0.2em] text-muted-foreground uppercase underline-offset-4 transition-colors hover:text-foreground hover:underline"
+        >
+          The rundown
+        </Link>
       </header>
 
       <main className="mx-auto max-w-2xl px-6 py-16">
@@ -34,7 +40,8 @@ export default async function DashboardPage() {
             lists
           </h1>
           <p className="mt-5 max-w-md text-sm leading-relaxed text-muted-foreground">
-            Everything you have made, newest first. Deleting one is immediate and total.
+            Everything you have made, newest first. Publishing a list puts it on the
+            rundown; deleting one is immediate and total.
           </p>
 
           <div className="mt-10">

@@ -3,7 +3,7 @@ import { formatScore, type ScoreFormat } from "@/lib/score";
 import { loadOgFonts } from "@/lib/og-fonts";
 import { getListBySlug } from "@/server/services/lists";
 
-export const alt = "A recommendation shared on Tsugi";
+export const alt = "A list shared on Tsugi";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 

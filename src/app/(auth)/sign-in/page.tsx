@@ -6,7 +6,7 @@ import { getServerSession } from "@/lib/auth";
 
 export default async function SignInPage() {
   // The mirror of /settings' guard. Without this, an already-signed-in visitor
-  // who lands here — via the hero's "Start a rec", a stale tab, or the browser
+  // who lands here — via the hero's "Make a list", a stale tab, or the browser
   // back button — sees the sign-in form again with nothing telling them
   // anything is different. That reads as a failed or forgotten login even
   // though the session is fine; it was the reported symptom, not a real auth
@@ -31,8 +31,8 @@ export default async function SignInPage() {
                   Sign in
                 </h1>
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  You only need an account to make a recommendation. Opening one never
-                  asks for anything.
+                  You only need an account to make a list. Opening one never asks for
+                  anything.
                 </p>
               </div>
             </div>

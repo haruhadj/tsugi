@@ -128,8 +128,10 @@ export function ListBuilder({ scoreFormat }: { scoreFormat: ScoreFormat }) {
   return (
     <div className="flex flex-col gap-6">
       {hasTrackerLinked && (
-        <fieldset className="flex flex-col gap-2">
-          <legend className="text-sm font-medium">Add from</legend>
+        <fieldset className="flex flex-col gap-3">
+          <legend className="font-mono text-[0.65rem] tracking-[0.24em] text-muted-foreground uppercase">
+            Add from
+          </legend>
           <RadioGroup
             value={mode}
             onValueChange={(next) => setMode(next as Mode)}
@@ -169,15 +171,27 @@ export function ListBuilder({ scoreFormat }: { scoreFormat: ScoreFormat }) {
         />
       )}
       <ItemTray items={items} onChange={setItems} scoreFormat={scoreFormat} />
+      {/*
+        The name is also the category the feed groups by (D42 — they are one
+        column). That is invisible in a bare "Name" field, and a person who
+        types "my winter picks" ends up alone in their own category. The hint
+        says so plainly rather than leaving the field to do double duty in
+        silence.
+      */}
       <div className="flex flex-col gap-2">
         <Label htmlFor="rec-name">Name</Label>
         <Input
           id="rec-name"
           value={name}
           maxLength={80}
-          placeholder="e.g. Romance, Action"
+          placeholder="Romance"
+          aria-describedby="rec-name-hint"
           onChange={(e) => setName(e.target.value)}
         />
+        <p id="rec-name-hint" className="text-xs leading-relaxed text-muted-foreground">
+          This is also how the list is filed on the rundown. Reuse a name other people
+          use and yours shows up alongside theirs.
+        </p>
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="rec-caption">Caption (optional)</Label>
@@ -205,7 +219,7 @@ export function ListBuilder({ scoreFormat }: { scoreFormat: ScoreFormat }) {
         </p>
       )}
       <Button type="button" className="min-h-11" disabled={submitting} onClick={handleSubmit}>
-        {submitting ? "Sharing…" : "Share"}
+        {submitting ? "Making…" : "Make the list"}
       </Button>
       <ShareModal
         open={shareUrl !== null}

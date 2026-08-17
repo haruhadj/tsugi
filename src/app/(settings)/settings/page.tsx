@@ -34,16 +34,20 @@ export default async function SettingsPage() {
             never replaces the first.
           </p>
 
-          <div className="relative mt-10 overflow-hidden rounded-md border border-border bg-card">
-            <div className="eyecatch-edge absolute inset-y-0 left-0 w-1" />
-            <div className="p-8 pl-10 sm:pl-12">
+          {/*
+            No eyecatch edge on either card. Settings is not an artifact, and two
+            edges plus the wordmark's 次 put three cyan things on one screen —
+            which, per ui-tokens.md, means the screen has no cyan thing. The
+            padding is uniform here because there is no edge to clear.
+          */}
+          <div className="mt-10 overflow-hidden rounded-md border border-border bg-card">
+            <div className="p-8 sm:p-10">
               <UsernameField initialUsername={session.user.username ?? ""} />
             </div>
           </div>
 
-          <div className="relative mt-6 overflow-hidden rounded-md border border-border bg-card">
-            <div className="eyecatch-edge absolute inset-y-0 left-0 w-1" />
-            <div className="p-8 pl-10 sm:pl-12">
+          <div className="mt-6 overflow-hidden rounded-md border border-border bg-card">
+            <div className="p-8 sm:p-10">
               <ProviderConnections />
             </div>
           </div>

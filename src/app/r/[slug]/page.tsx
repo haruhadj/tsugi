@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { after } from "next/server";
 import { RecView } from "@/components/RecView";
+import { Wordmark } from "@/components/Wordmark";
 import { getEnv } from "@/lib/env";
 import { getServerSession } from "@/lib/auth";
 import { getListBySlug, incrementViewCount } from "@/server/services/lists";
@@ -24,8 +26,11 @@ export async function generateMetadata({
   const appUrl = getEnv().NEXT_PUBLIC_APP_URL;
   const pageUrl = `${appUrl}/r/${slug}`;
   const imageUrl = `${appUrl}/r/${slug}/opengraph-image`;
-  const title = rec.caption ?? rec.items.map((item) => item.title).join(", ");
-  const description = rec.comment ?? "A recommendation shared on Tsugi.";
+  // The list has a name of its own now (Phase C), so the shared title is that
+  // name rather than a joined run of item titles.
+  const title = rec.name;
+  const description =
+    rec.comment ?? rec.caption ?? `${rec.items.length} titles, scored and shared on Tsugi.`;
 
   return {
     title,
@@ -59,5 +64,23 @@ export default async function RecommendationPage({ params }: { params: Params })
   // dropped most writes under 20 concurrent requests).
   after(() => incrementViewCount(slug));
 
-  return <RecView rec={rec} />;
+  // A visitor can land here from anywhere with no account, so the page has to
+  // say what it is. The wordmark is the only route back into the product.
+  return (
+    <div className="min-h-screen">
+      <header className="mx-auto flex max-w-2xl items-center justify-between px-6 pt-8">
+        <Link href="/">
+          <Wordmark />
+        </Link>
+        <Link
+          href="/feed"
+          className="font-mono text-xs tracking-[0.2em] text-muted-foreground uppercase underline-offset-4 transition-colors hover:text-foreground hover:underline"
+        >
+          The rundown
+        </Link>
+      </header>
+
+      <RecView rec={rec} />
+    </div>
+  );
 }

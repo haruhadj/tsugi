@@ -75,7 +75,7 @@ export function ShareModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bottom-0 top-auto translate-y-0 rounded-b-none sm:bottom-auto sm:top-[50%] sm:translate-y-[-50%] sm:rounded-lg">
         <DialogHeader>
-          <DialogTitle>Share your recommendation</DialogTitle>
+          <DialogTitle>Share your list</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-4">
           <div role="status" aria-live="polite" className="text-sm text-muted-foreground">
@@ -83,7 +83,7 @@ export function ShareModal({
             {copyState === "failed" && "Copy your link"}
           </div>
           <div className="flex flex-row gap-2">
-            <Input readOnly value={url} onFocus={(e) => e.target.select()} aria-label="Recommendation link" />
+            <Input readOnly value={url} onFocus={(e) => e.target.select()} aria-label="List link" />
             <Button type="button" variant="outline" onClick={handleCopy} aria-label="Copy link">
               {copyState === "copied" ? (
                 <CheckIcon aria-hidden="true" />

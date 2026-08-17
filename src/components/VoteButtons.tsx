@@ -45,42 +45,54 @@ export function VoteButtons({ slug, initialScore }: Props) {
     setIsVoting(false);
   }
 
+  // Horizontal and hairline-divided, so it reads as a level meter on the rundown
+  // row rather than a vertical Reddit stack. `bloom` is deliberately absent:
+  // it is never a button colour, and on the feed it is already spent on slot 01.
   return (
-    <div className="flex flex-col items-center gap-1">
-      <button
-        type="button"
-        disabled={isVoting}
-        onClick={() => vote(1)}
-        aria-label="Upvote"
-        className={cn(
-          "rounded-md p-1 text-muted-foreground transition-colors hover:text-bloom disabled:opacity-50",
-          myDirection === 1 && "text-bloom",
-        )}
-      >
-        <ChevronUpIcon className="size-5" aria-hidden />
-      </button>
-      <span
-        className={cn(
-          "font-mono text-sm tabular-nums transition-transform duration-200",
-          bump && "scale-125",
-        )}
-      >
-        {score}
-      </span>
-      <button
-        type="button"
-        disabled={isVoting}
-        onClick={() => vote(-1)}
-        aria-label="Downvote"
-        className={cn(
-          "rounded-md p-1 text-muted-foreground transition-colors hover:text-destructive disabled:opacity-50",
-          myDirection === -1 && "text-destructive",
-        )}
-      >
-        <ChevronDownIcon className="size-5" aria-hidden />
-      </button>
+    <div className="flex flex-col items-end gap-1">
+      <div className="flex items-stretch divide-x divide-border rounded-xs border border-border">
+        <button
+          type="button"
+          disabled={isVoting}
+          onClick={() => vote(1)}
+          aria-label="Upvote"
+          aria-pressed={myDirection === 1}
+          className={cn(
+            "px-2 py-1.5 text-muted-foreground transition-colors",
+            "hover:bg-accent hover:text-foreground disabled:opacity-50",
+            "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none",
+            myDirection === 1 && "text-primary",
+          )}
+        >
+          <ChevronUpIcon className="size-4" aria-hidden />
+        </button>
+        <span
+          aria-live="polite"
+          className={cn(
+            "flex min-w-11 items-center justify-center px-2 font-mono text-sm font-medium tabular-nums transition-transform duration-200",
+            bump && "scale-110",
+          )}
+        >
+          {score}
+        </span>
+        <button
+          type="button"
+          disabled={isVoting}
+          onClick={() => vote(-1)}
+          aria-label="Downvote"
+          aria-pressed={myDirection === -1}
+          className={cn(
+            "px-2 py-1.5 text-muted-foreground transition-colors",
+            "hover:bg-accent hover:text-foreground disabled:opacity-50",
+            "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none",
+            myDirection === -1 && "text-destructive",
+          )}
+        >
+          <ChevronDownIcon className="size-4" aria-hidden />
+        </button>
+      </div>
       {error ? (
-        <span className="max-w-20 text-center font-mono text-[10px] text-destructive">
+        <span className="text-right font-mono text-[10px] leading-tight text-destructive">
           {error}
         </span>
       ) : null}
