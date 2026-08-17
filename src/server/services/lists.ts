@@ -12,6 +12,9 @@ import { resolveMediaCached } from "@/server/services/media-cache";
 // resolves once validated.
 const RESOLVE_CONCURRENCY = 4;
 const RESOLVE_DEADLINE_MS = 8_000;
+// D36 follow-up: budget per item *per worker round*, not per item overall —
+// with 4-way concurrency an N-item list takes ceil(N/4) sequential rounds.
+const RESOLVE_DEADLINE_PER_ROUND_MS = 2_000;
 
 const SLUG_LENGTH = 12;
 const MAX_SLUG_ATTEMPTS = 3;
@@ -40,18 +43,23 @@ type ResolveOutcome = { ok: true; resolved: UnifiedMediaResult[] } | { ok: false
  * first 4 — a per-call timeout alone cannot bound this, because later items
  * do not even start until an earlier slot frees up.
  *
- * FLAG: this fixed deadline was sized for the old 10-item cap. Lists can now
- * carry up to 500 items (see createListSchema); a 100+ item list may not
- * finish resolving within 8s even at 4-way concurrency. Needs a follow-up
- * decision (scale the deadline with item count, or move resolution to a
- * background job) before "unlimited" is safe at scale.
+ * The deadline scales with item count: 8s (the original 10-item budget)
+ * floors it, and each round of 4-way concurrency beyond that adds its own
+ * budget on top, so a 100-item list gets ceil(100/4) * 2s of headroom
+ * instead of timing out on the same fixed 8s a 10-item list gets. This
+ * still bounds the *whole request* — a very large list still holds the
+ * HTTP connection open for a correspondingly long time, which is fine at
+ * today's provider latencies but would need a background job if the item
+ * cap or provider latency grows materially from here.
  */
 async function resolveAllItems(
   items: CreateListInput["items"],
   fetchImpl: typeof fetch,
 ): Promise<ResolveOutcome> {
+  const rounds = Math.ceil(items.length / RESOLVE_CONCURRENCY);
+  const deadlineMs = Math.max(RESOLVE_DEADLINE_MS, rounds * RESOLVE_DEADLINE_PER_ROUND_MS);
   const deadline = new AbortController();
-  const timer = setTimeout(() => deadline.abort(), RESOLVE_DEADLINE_MS);
+  const timer = setTimeout(() => deadline.abort(), deadlineMs);
   const deadlineFetch = withDeadline(fetchImpl, deadline.signal);
 
   const results: (UnifiedMediaResult | null)[] = new Array(items.length).fill(null);
