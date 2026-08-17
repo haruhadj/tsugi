@@ -5,7 +5,12 @@ import { db } from "@/db";
 import { list } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { checkVoteLimit } from "@/server/hono/middleware";
-import { listPublishedFeed, toggleVote, type FeedSort } from "@/server/services/lists";
+import {
+  listFeedCategories,
+  listPublishedFeed,
+  toggleVote,
+  type FeedSort,
+} from "@/server/services/lists";
 
 function isFeedSort(value: string): value is FeedSort {
   return value === "top" || value === "new";
@@ -21,9 +26,14 @@ export const feedRouter = new Hono()
     const sort = isFeedSort(sortParam) ? sortParam : "top";
     const pageParam = Number(c.req.query("page") ?? "1");
     const page = Number.isInteger(pageParam) && pageParam > 0 ? pageParam : 1;
+    const category = c.req.query("category") || undefined;
 
-    const entries = await listPublishedFeed({ page, pageSize: 20, sort });
+    const entries = await listPublishedFeed({ page, pageSize: 20, sort, category });
     return c.json({ entries });
+  })
+  .get("/feed/categories", async (c) => {
+    const categories = await listFeedCategories();
+    return c.json({ categories });
   })
   .post("/feed/:slug/vote", async (c) => {
     const session = await auth.api.getSession({ headers: c.req.raw.headers });

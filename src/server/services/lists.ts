@@ -407,9 +407,13 @@ export async function listPublishedFeed(params: {
   page: number;
   pageSize: number;
   sort: FeedSort;
+  category?: string;
 }): Promise<FeedEntry[]> {
-  const { page, pageSize, sort } = params;
+  const { page, pageSize, sort, category } = params;
   const scoreExpr = sql<number>`coalesce(sum(${listVote.direction}), 0)`;
+  const whereExpr = category
+    ? and(eq(list.published, true), eq(list.name, category))
+    : eq(list.published, true);
 
   const rows = await db
     .select({
@@ -423,13 +427,31 @@ export async function listPublishedFeed(params: {
     })
     .from(list)
     .leftJoin(listVote, eq(listVote.listId, list.id))
-    .where(eq(list.published, true))
+    .where(whereExpr)
     .groupBy(list.id)
     .orderBy(sort === "top" ? desc(scoreExpr) : desc(list.publishedAt))
     .limit(pageSize)
     .offset((page - 1) * pageSize);
 
   return rows;
+}
+
+/**
+ * Distinct `list.name` values across published lists, most-used first, for
+ * the feed's category chip list. `name` is free-text (D42) — this is not a
+ * fixed taxonomy, just what's actually in use right now. Capped at 20 chips
+ * so a long tail of one-off names can't blow out the header UI.
+ */
+export async function listFeedCategories(): Promise<string[]> {
+  const rows = await db
+    .select({ name: list.name, count: sql<number>`count(*)` })
+    .from(list)
+    .where(eq(list.published, true))
+    .groupBy(list.name)
+    .orderBy(desc(sql`count(*)`))
+    .limit(20);
+
+  return rows.map((row) => row.name);
 }
 
 export type ToggleVoteResult = { direction: 1 | -1 | 0 };
