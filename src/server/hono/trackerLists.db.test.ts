@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
 // Live-database tier (D22) — see recs.db.test.ts for why this is .db.test.ts
-// rather than a plain unit test: importing "./lists" pulls in "@/lib/auth",
-// which calls getEnv() at module load and needs a full, valid env even for a
-// request that never touches the database.
+// rather than a plain unit test: importing "./trackerLists" pulls in
+// "@/lib/auth", which calls getEnv() at module load and needs a full, valid
+// env even for a request that never touches the database.
 //
 // Scope: boundary/validation cases only. Full success-path coverage
 // (provider dispatch, score-format capture, token refresh, indefinite
@@ -16,24 +16,24 @@ import { describe, expect, test } from "bun:test";
 const hasDb = Boolean(process.env.DATABASE_URL);
 
 if (hasDb) {
-  describe("listsRouter (in-process, via Hono's own .request())", () => {
-    let listsRouter: (typeof import("./lists"))["listsRouter"];
+  describe("trackerListsRouter (in-process, via Hono's own .request())", () => {
+    let trackerListsRouter: (typeof import("./trackerLists"))["trackerListsRouter"];
 
     test("GET /lists/:provider/:mediaType with no session returns 401", async () => {
-      ({ listsRouter } = await import("./lists"));
-      const res = await listsRouter.request("/lists/anilist/anime");
+      ({ trackerListsRouter } = await import("./trackerLists"));
+      const res = await trackerListsRouter.request("/lists/anilist/anime");
       expect(res.status).toBe(401);
     });
 
     test("the 401 body never echoes any token field (invariant 10)", async () => {
-      const res = await listsRouter.request("/lists/mal/manga");
+      const res = await trackerListsRouter.request("/lists/mal/manga");
       const body = await res.json();
       expect(JSON.stringify(body)).not.toContain("accessToken");
       expect(body).toHaveProperty("error");
     });
 
     test("?refresh=1 does not bypass the session check", async () => {
-      const res = await listsRouter.request("/lists/anilist/anime?refresh=1");
+      const res = await trackerListsRouter.request("/lists/anilist/anime?refresh=1");
       expect(res.status).toBe(401);
     });
   });

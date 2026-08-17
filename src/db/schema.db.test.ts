@@ -45,8 +45,8 @@ if (hasDb) {
   describe("schema constraints (live Supabase)", () => {
     let db: (typeof import("./index"))["db"];
     let user: (typeof import("./auth-schema"))["user"];
-    let recommendation: (typeof import("./schema"))["recommendation"];
-    let recommendationItem: (typeof import("./schema"))["recommendationItem"];
+    let list: (typeof import("./schema"))["list"];
+    let listItem: (typeof import("./schema"))["listItem"];
 
     const testUserId = `test-user-${randomSlug()}`;
     const createdSlugs: string[] = [];
@@ -54,7 +54,7 @@ if (hasDb) {
     beforeAll(async () => {
       ({ db } = await import("./index"));
       ({ user } = await import("./auth-schema"));
-      ({ recommendation, recommendationItem } = await import("./schema"));
+      ({ list, listItem } = await import("./schema"));
       await db.insert(user).values({
         id: testUserId,
         name: "Schema Test User",
@@ -63,10 +63,10 @@ if (hasDb) {
     });
 
     afterAll(async () => {
-      // Cascades to recommendation_item. One round trip, not one per slug —
+      // Cascades to list_item. One round trip, not one per slug —
       // a previous per-slug loop blew past bun test's 5s hook timeout.
       if (createdSlugs.length > 0) {
-        await db.delete(recommendation).where(inArray(recommendation.slug, createdSlugs));
+        await db.delete(list).where(inArray(list.slug, createdSlugs));
       }
       await db.delete(user).where(eq(user.id, testUserId));
     });
@@ -76,18 +76,18 @@ if (hasDb) {
       return slug;
     }
 
-    test("a three-item recommendation round-trips by slug, in position order", async () => {
+    test("a three-item list round-trips by slug, in position order", async () => {
       const slug = trackSlug(randomSlug());
-      await db.insert(recommendation).values({ slug, userId: testUserId, comment: "great picks" });
-      const [rec] = await db.select().from(recommendation).where(eq(recommendation.slug, slug));
+      await db.insert(list).values({ name: "Untitled", slug, userId: testUserId, comment: "great picks" });
+      const [rec] = await db.select().from(list).where(eq(list.slug, slug));
       expect(rec).toBeDefined();
       expect(rec!.views).toBe(0);
       expect(rec!.createdAt).toBeInstanceOf(Date);
       expect(rec!.comment).toBe("great picks");
 
-      await db.insert(recommendationItem).values([
+      await db.insert(listItem).values([
         {
-          recommendationId: rec!.id,
+          listId: rec!.id,
           position: 2,
           provider: "anilist",
           externalId: 3,
@@ -95,7 +95,7 @@ if (hasDb) {
           title: "Third",
         },
         {
-          recommendationId: rec!.id,
+          listId: rec!.id,
           position: 0,
           provider: "anilist",
           externalId: 1,
@@ -103,7 +103,7 @@ if (hasDb) {
           title: "First",
         },
         {
-          recommendationId: rec!.id,
+          listId: rec!.id,
           position: 1,
           provider: "mal",
           externalId: 2,
@@ -114,20 +114,20 @@ if (hasDb) {
 
       const items = await db
         .select()
-        .from(recommendationItem)
-        .where(eq(recommendationItem.recommendationId, rec!.id))
-        .orderBy(asc(recommendationItem.position));
+        .from(listItem)
+        .where(eq(listItem.listId, rec!.id))
+        .orderBy(asc(listItem.position));
 
       expect(items.map((item) => item.title)).toEqual(["First", "Second", "Third"]);
       expect(items.map((item) => item.position)).toEqual([0, 1, 2]);
     });
 
-    test("a one-item recommendation round-trips identically to a group", async () => {
+    test("a one-item list round-trips identically to a group", async () => {
       const slug = trackSlug(randomSlug());
-      await db.insert(recommendation).values({ slug, userId: testUserId });
-      const [rec] = await db.select().from(recommendation).where(eq(recommendation.slug, slug));
-      await db.insert(recommendationItem).values({
-        recommendationId: rec!.id,
+      await db.insert(list).values({ name: "Untitled", slug, userId: testUserId });
+      const [rec] = await db.select().from(list).where(eq(list.slug, slug));
+      await db.insert(listItem).values({
+        listId: rec!.id,
         position: 0,
         provider: "anilist",
         externalId: 154587,
@@ -136,18 +136,18 @@ if (hasDb) {
       });
       const items = await db
         .select()
-        .from(recommendationItem)
-        .where(eq(recommendationItem.recommendationId, rec!.id));
+        .from(listItem)
+        .where(eq(listItem.listId, rec!.id));
       expect(items).toHaveLength(1);
       expect(items[0]!.title).toBe("Frieren");
     });
 
-    test("deleting a recommendation cascades to its items", async () => {
+    test("deleting a list cascades to its items", async () => {
       const slug = randomSlug();
-      await db.insert(recommendation).values({ slug, userId: testUserId });
-      const [rec] = await db.select().from(recommendation).where(eq(recommendation.slug, slug));
-      await db.insert(recommendationItem).values({
-        recommendationId: rec!.id,
+      await db.insert(list).values({ name: "Untitled", slug, userId: testUserId });
+      const [rec] = await db.select().from(list).where(eq(list.slug, slug));
+      await db.insert(listItem).values({
+        listId: rec!.id,
         position: 0,
         provider: "anilist",
         externalId: 1,
@@ -155,12 +155,12 @@ if (hasDb) {
         title: "Doomed",
       });
 
-      await db.delete(recommendation).where(eq(recommendation.slug, slug));
+      await db.delete(list).where(eq(list.slug, slug));
 
       const remaining = await db
         .select()
-        .from(recommendationItem)
-        .where(eq(recommendationItem.recommendationId, rec!.id));
+        .from(listItem)
+        .where(eq(listItem.listId, rec!.id));
       expect(remaining).toHaveLength(0);
     });
 
@@ -169,18 +169,18 @@ if (hasDb) {
     test("a 281-character group comment fails at the database", async () => {
       const slug = randomSlug();
       await expectPgErrorCode(
-        db.insert(recommendation).values({ slug, userId: testUserId, comment: "a".repeat(281) }),
+        db.insert(list).values({ name: "Untitled", slug, userId: testUserId, comment: "a".repeat(281) }),
         "22001",
       );
     });
 
     test("a 281-character item comment fails at the database", async () => {
       const slug = trackSlug(randomSlug());
-      await db.insert(recommendation).values({ slug, userId: testUserId });
-      const [rec] = await db.select().from(recommendation).where(eq(recommendation.slug, slug));
+      await db.insert(list).values({ name: "Untitled", slug, userId: testUserId });
+      const [rec] = await db.select().from(list).where(eq(list.slug, slug));
       await expectPgErrorCode(
-        db.insert(recommendationItem).values({
-          recommendationId: rec!.id,
+        db.insert(listItem).values({
+          listId: rec!.id,
           position: 0,
           provider: "anilist",
           externalId: 1,
@@ -194,9 +194,9 @@ if (hasDb) {
 
     test("a duplicate slug fails with 23505 (unique_violation)", async () => {
       const slug = trackSlug(randomSlug());
-      await db.insert(recommendation).values({ slug, userId: testUserId });
+      await db.insert(list).values({ name: "Untitled", slug, userId: testUserId });
       await expectPgErrorCode(
-        db.insert(recommendation).values({ slug, userId: testUserId }),
+        db.insert(list).values({ name: "Untitled", slug, userId: testUserId }),
         "23505",
       );
     });
@@ -204,19 +204,19 @@ if (hasDb) {
     test("inserting with userId = null fails", async () => {
       const slug = randomSlug();
       await expectPgErrorCode(
-        db.execute(sql`insert into "recommendation" (slug, user_id) values (${slug}, null)`),
+        db.execute(sql`insert into "list" (slug, user_id) values (${slug}, null)`),
         "23502",
       );
     });
 
     test("scoreRaw set with scoreFormat null fails, and vice versa", async () => {
       const slug = trackSlug(randomSlug());
-      await db.insert(recommendation).values({ slug, userId: testUserId });
-      const [rec] = await db.select().from(recommendation).where(eq(recommendation.slug, slug));
+      await db.insert(list).values({ name: "Untitled", slug, userId: testUserId });
+      const [rec] = await db.select().from(list).where(eq(list.slug, slug));
 
       await expectPgErrorCode(
-        db.insert(recommendationItem).values({
-          recommendationId: rec!.id,
+        db.insert(listItem).values({
+          listId: rec!.id,
           position: 0,
           provider: "anilist",
           externalId: 1,
@@ -229,8 +229,8 @@ if (hasDb) {
 
       await expectPgErrorCode(
         db.execute(
-          sql`insert into "recommendation_item"
-            (recommendation_id, position, provider, external_id, media_type, title, score_format)
+          sql`insert into "list_item"
+            (list_id, position, provider, external_id, media_type, title, score_format)
             values (${rec!.id}, 1, 'anilist', 2, 'anime', 'Y', 'POINT_10')`,
         ),
         "23514",
@@ -239,10 +239,10 @@ if (hasDb) {
 
     test("an item with both score fields null inserts fine", async () => {
       const slug = trackSlug(randomSlug());
-      await db.insert(recommendation).values({ slug, userId: testUserId });
-      const [rec] = await db.select().from(recommendation).where(eq(recommendation.slug, slug));
-      await db.insert(recommendationItem).values({
-        recommendationId: rec!.id,
+      await db.insert(list).values({ name: "Untitled", slug, userId: testUserId });
+      const [rec] = await db.select().from(list).where(eq(list.slug, slug));
+      await db.insert(listItem).values({
+        listId: rec!.id,
         position: 0,
         provider: "anilist",
         externalId: 1,
@@ -251,19 +251,19 @@ if (hasDb) {
       });
       const [item] = await db
         .select()
-        .from(recommendationItem)
-        .where(eq(recommendationItem.recommendationId, rec!.id));
+        .from(listItem)
+        .where(eq(listItem.listId, rec!.id));
       expect(item!.scoreRaw).toBeNull();
       expect(item!.scoreFormat).toBeNull();
     });
 
     test("scores store exactly with no rounding, as numbers not strings", async () => {
       const slug = trackSlug(randomSlug());
-      await db.insert(recommendation).values({ slug, userId: testUserId });
-      const [rec] = await db.select().from(recommendation).where(eq(recommendation.slug, slug));
-      await db.insert(recommendationItem).values([
+      await db.insert(list).values({ name: "Untitled", slug, userId: testUserId });
+      const [rec] = await db.select().from(list).where(eq(list.slug, slug));
+      await db.insert(listItem).values([
         {
-          recommendationId: rec!.id,
+          listId: rec!.id,
           position: 0,
           provider: "anilist",
           externalId: 1,
@@ -273,7 +273,7 @@ if (hasDb) {
           scoreFormat: "POINT_100",
         },
         {
-          recommendationId: rec!.id,
+          listId: rec!.id,
           position: 1,
           provider: "anilist",
           externalId: 2,
@@ -285,9 +285,9 @@ if (hasDb) {
       ]);
       const items = await db
         .select()
-        .from(recommendationItem)
-        .where(eq(recommendationItem.recommendationId, rec!.id))
-        .orderBy(asc(recommendationItem.position));
+        .from(listItem)
+        .where(eq(listItem.listId, rec!.id))
+        .orderBy(asc(listItem.position));
 
       expect(typeof items[0]!.scoreRaw).toBe("number");
       expect(items[0]!.scoreRaw).toBe(87);
@@ -295,18 +295,18 @@ if (hasDb) {
       expect(items[1]!.scoreRaw).toBe(8.7);
     });
 
-    test("the same identity triple twice in one recommendation fails; across two succeeds", async () => {
+    test("the same identity triple twice in one list fails; across two succeeds", async () => {
       const slugA = trackSlug(randomSlug());
       const slugB = trackSlug(randomSlug());
-      await db.insert(recommendation).values([
-        { slug: slugA, userId: testUserId },
-        { slug: slugB, userId: testUserId },
+      await db.insert(list).values([
+        { name: "Untitled", slug: slugA, userId: testUserId },
+        { name: "Untitled", slug: slugB, userId: testUserId },
       ]);
-      const [recA] = await db.select().from(recommendation).where(eq(recommendation.slug, slugA));
-      const [recB] = await db.select().from(recommendation).where(eq(recommendation.slug, slugB));
+      const [recA] = await db.select().from(list).where(eq(list.slug, slugA));
+      const [recB] = await db.select().from(list).where(eq(list.slug, slugB));
 
-      await db.insert(recommendationItem).values({
-        recommendationId: recA!.id,
+      await db.insert(listItem).values({
+        listId: recA!.id,
         position: 0,
         provider: "anilist",
         externalId: 154587,
@@ -315,8 +315,8 @@ if (hasDb) {
       });
 
       await expectPgErrorCode(
-        db.insert(recommendationItem).values({
-          recommendationId: recA!.id,
+        db.insert(listItem).values({
+          listId: recA!.id,
           position: 1,
           provider: "anilist",
           externalId: 154587,
@@ -326,9 +326,9 @@ if (hasDb) {
         "23505",
       );
 
-      // Same triple, different recommendation — a different user's post, allowed.
-      await db.insert(recommendationItem).values({
-        recommendationId: recB!.id,
+      // Same triple, different list — a different user's post, allowed.
+      await db.insert(listItem).values({
+        listId: recB!.id,
         position: 0,
         provider: "anilist",
         externalId: 154587,
@@ -337,23 +337,23 @@ if (hasDb) {
       });
       const inRecB = await db
         .select()
-        .from(recommendationItem)
-        .where(eq(recommendationItem.recommendationId, recB!.id));
+        .from(listItem)
+        .where(eq(listItem.listId, recB!.id));
       expect(inRecB).toHaveLength(1);
     });
 
     test("two items with the same mediaType/externalId but different provider both insert", async () => {
       const slug = trackSlug(randomSlug());
-      await db.insert(recommendation).values({ slug, userId: testUserId });
-      const [rec] = await db.select().from(recommendation).where(eq(recommendation.slug, slug));
+      await db.insert(list).values({ name: "Untitled", slug, userId: testUserId });
+      const [rec] = await db.select().from(list).where(eq(list.slug, slug));
 
       // AniList's Frieren (154587) and MAL's Frieren (52991) are different ids in
       // different id spaces — this pair intentionally does NOT collide with the
       // triple-uniqueness constraint, which is exactly the point being tested
       // here with a shared externalId across providers instead.
-      await db.insert(recommendationItem).values([
+      await db.insert(listItem).values([
         {
-          recommendationId: rec!.id,
+          listId: rec!.id,
           position: 0,
           provider: "anilist",
           externalId: 999,
@@ -361,7 +361,7 @@ if (hasDb) {
           title: "AniList #999",
         },
         {
-          recommendationId: rec!.id,
+          listId: rec!.id,
           position: 1,
           provider: "mal",
           externalId: 999,
@@ -371,20 +371,20 @@ if (hasDb) {
       ]);
       const items = await db
         .select()
-        .from(recommendationItem)
-        .where(eq(recommendationItem.recommendationId, rec!.id));
+        .from(listItem)
+        .where(eq(listItem.listId, rec!.id));
       expect(items).toHaveLength(2);
     });
 
     test("an out-of-range provider or scoreFormat fails at the database", async () => {
       const slug = trackSlug(randomSlug());
-      await db.insert(recommendation).values({ slug, userId: testUserId });
-      const [rec] = await db.select().from(recommendation).where(eq(recommendation.slug, slug));
+      await db.insert(list).values({ name: "Untitled", slug, userId: testUserId });
+      const [rec] = await db.select().from(list).where(eq(list.slug, slug));
 
       await expectPgErrorCode(
         db.execute(
-          sql`insert into "recommendation_item"
-            (recommendation_id, position, provider, external_id, media_type, title)
+          sql`insert into "list_item"
+            (list_id, position, provider, external_id, media_type, title)
             values (${rec!.id}, 0, 'crunchyroll', 1, 'anime', 'X')`,
         ),
         "22P02",
@@ -392,20 +392,20 @@ if (hasDb) {
 
       await expectPgErrorCode(
         db.execute(
-          sql`insert into "recommendation_item"
-            (recommendation_id, position, provider, external_id, media_type, title, score_raw, score_format)
+          sql`insert into "list_item"
+            (list_id, position, provider, external_id, media_type, title, score_raw, score_format)
             values (${rec!.id}, 0, 'anilist', 1, 'anime', 'X', 5, 'POINT_7')`,
         ),
         "22P02",
       );
     });
 
-    test("duplicate position within a recommendation fails", async () => {
+    test("duplicate position within a list fails", async () => {
       const slug = trackSlug(randomSlug());
-      await db.insert(recommendation).values({ slug, userId: testUserId });
-      const [rec] = await db.select().from(recommendation).where(eq(recommendation.slug, slug));
-      await db.insert(recommendationItem).values({
-        recommendationId: rec!.id,
+      await db.insert(list).values({ name: "Untitled", slug, userId: testUserId });
+      const [rec] = await db.select().from(list).where(eq(list.slug, slug));
+      await db.insert(listItem).values({
+        listId: rec!.id,
         position: 0,
         provider: "anilist",
         externalId: 1,
@@ -413,8 +413,8 @@ if (hasDb) {
         title: "First",
       });
       await expectPgErrorCode(
-        db.insert(recommendationItem).values({
-          recommendationId: rec!.id,
+        db.insert(listItem).values({
+          listId: rec!.id,
           position: 0,
           provider: "anilist",
           externalId: 2,
@@ -427,11 +427,11 @@ if (hasDb) {
 
     test("scoreRaw: 0 fails — 0 means unrated, not rated zero (D35)", async () => {
       const slug = trackSlug(randomSlug());
-      await db.insert(recommendation).values({ slug, userId: testUserId });
-      const [rec] = await db.select().from(recommendation).where(eq(recommendation.slug, slug));
+      await db.insert(list).values({ name: "Untitled", slug, userId: testUserId });
+      const [rec] = await db.select().from(list).where(eq(list.slug, slug));
       await expectPgErrorCode(
-        db.insert(recommendationItem).values({
-          recommendationId: rec!.id,
+        db.insert(listItem).values({
+          listId: rec!.id,
           position: 0,
           provider: "anilist",
           externalId: 1,

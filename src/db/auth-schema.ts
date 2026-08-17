@@ -1,22 +1,41 @@
-import { relations } from "drizzle-orm";
-import { boolean, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { relations, sql } from "drizzle-orm";
+import {
+  boolean,
+  check,
+  index,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 import { scoreFormatEnum } from "./enums";
 
-export const user = pgTable("user", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  email: text("email").notNull().unique(),
-  emailVerified: boolean("email_verified").default(false).notNull(),
-  image: text("image"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at")
-    .defaultNow()
-    .$onUpdate(() => /* @__PURE__ */ new Date())
-    .notNull(),
-  // The scale this user rates in (D32). A native enum, not the generator's
-  // default `text`, so an out-of-range value fails at the database (criterion 27).
-  scoreFormat: scoreFormatEnum("score_format").default("POINT_10").notNull(),
-}).enableRLS();
+export const user = pgTable(
+  "user",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    email: text("email").notNull().unique(),
+    emailVerified: boolean("email_verified").default(false).notNull(),
+    image: text("image"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+    // The scale this user rates in (D32). A native enum, not the generator's
+    // default `text`, so an out-of-range value fails at the database (criterion 27).
+    scoreFormat: scoreFormatEnum("score_format").default("POINT_10").notNull(),
+    // Defaulted once from the OAuth provider's display name at account
+    // creation (databaseHooks.user.create.before in src/lib/auth.ts), then
+    // freely editable in Settings — never overwritten by provider re-sync.
+    username: text("username"),
+  },
+  (table) => [
+    uniqueIndex("user_username_lower_idx").on(sql`lower(${table.username})`),
+    check("username_format", sql`${table.username} ~ '^[a-zA-Z0-9_]{3,20}$'`),
+  ],
+).enableRLS();
 
 export const session = pgTable(
   "session",

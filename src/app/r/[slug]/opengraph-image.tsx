@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import { formatScore, type ScoreFormat } from "@/lib/score";
 import { loadOgFonts } from "@/lib/og-fonts";
-import { getRecommendationBySlug } from "@/server/services/recommendations";
+import { getListBySlug } from "@/server/services/lists";
 
 export const alt = "A recommendation shared on Tsugi";
 export const size = { width: 1200, height: 630 };
@@ -46,7 +46,7 @@ function Cover({ src, width, height }: { src: string | null; width: number; heig
 
 export default async function Image({ params }: { params: Params }) {
   const { slug } = await params;
-  const rec = await getRecommendationBySlug(slug);
+  const rec = await getListBySlug(slug, null);
   const [{ unbounded, jetbrainsMono }] = await Promise.all([loadOgFonts()]);
 
   const items = rec?.items ?? [];

@@ -1,11 +1,11 @@
 import { MediaCover } from "@/components/MediaCover";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { SourceLink } from "@/components/SourceLink";
-import type { RecommendationView } from "@/server/services/recommendations";
+import type { ListView } from "@/server/services/lists";
 import type { MediaType, Provider } from "@/lib/types/media";
 import type { ScoreFormat } from "@/lib/score";
 
-export function RecView({ rec }: { rec: RecommendationView }) {
+export function RecView({ rec }: { rec: ListView }) {
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-8 px-4 py-16">
       <header className="flex flex-col gap-2">

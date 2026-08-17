@@ -100,3 +100,43 @@ export async function checkRecCreateLimit(userId: string): Promise<RecCreateLimi
     retryAfterSeconds: Math.max(1, Math.ceil((result.reset - Date.now()) / 1000)),
   };
 }
+
+export type ListCreateLimitResult =
+  | { allowed: true }
+  | { allowed: false; retryAfterSeconds: number };
+
+/** Same D34/D23 rules as {@link checkRecCreateLimit}, distinct key prefix. */
+export async function checkListCreateLimit(userId: string): Promise<ListCreateLimitResult> {
+  const result = await limiter.limit(`list:create:${userId}`);
+  if (result.success) return { allowed: true };
+  return {
+    allowed: false,
+    retryAfterSeconds: Math.max(1, Math.ceil((result.reset - Date.now()) / 1000)),
+  };
+}
+
+export type VoteLimitResult = { allowed: true } | { allowed: false; retryAfterSeconds: number };
+
+/** Same D34/D23 rules as {@link checkRecCreateLimit}, distinct key prefix. */
+export async function checkVoteLimit(userId: string): Promise<VoteLimitResult> {
+  const result = await limiter.limit(`vote:${userId}`);
+  if (result.success) return { allowed: true };
+  return {
+    allowed: false,
+    retryAfterSeconds: Math.max(1, Math.ceil((result.reset - Date.now()) / 1000)),
+  };
+}
+
+export type UsernameUpdateLimitResult =
+  | { allowed: true }
+  | { allowed: false; retryAfterSeconds: number };
+
+/** Same D34/D23 rules as {@link checkRecCreateLimit}, distinct key prefix. */
+export async function checkUsernameUpdateLimit(userId: string): Promise<UsernameUpdateLimitResult> {
+  const result = await limiter.limit(`username:update:${userId}`);
+  if (result.success) return { allowed: true };
+  return {
+    allowed: false,
+    retryAfterSeconds: Math.max(1, Math.ceil((result.reset - Date.now()) / 1000)),
+  };
+}

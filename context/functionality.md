@@ -69,8 +69,8 @@ Each of these was considered and rejected. The reason is the part that matters.
 | **Editing a recommendation** | A shared link is a public claim. Quietly changing the title or score behind a link a friend already posted is a small betrayal of the person who shared it. Delete (Phase 8) removes the claim honestly instead. |
 | **Writing back to AniList or MAL** | Tsugi reads your list; it never touches it. A recommendation tool that silently edits your tracker is a tool nobody trusts twice. Permanent. |
 | **Continuous list sync** | Fetch on demand, never mirror. A mirror is a second source of truth that goes stale and needs reconciliation. |
-| **Comments, replies, likes on a rec page** | Turns a share target into a social network, bringing moderation, spam, and abuse reporting — permanent cost against a promise about speed. |
-| **User profiles, following, feeds** | Same reason. Tsugi is a link generator, not a destination. |
+| ~~**Comments, replies, likes on a rec page**~~ | ~~Turns a share target into a social network, bringing moderation, spam, and abuse reporting — permanent cost against a promise about speed.~~ **Reversed (D43):** the custom-lists pivot ships a public feed with upvote/downvote voting. Free-text comments/replies remain out; voting only. |
+| ~~**User profiles, following, feeds**~~ | ~~Same reason. Tsugi is a link generator, not a destination.~~ **Reversed (D43):** `/feed` ships, and usernames identify feed entries. Following and full profile pages remain out. |
 | **Watch-list / progress tracking** | This is what AniList and MAL already do well, and doing it badly is worse than not doing it. Tsugi links *out* to them. |
 | **Recommendation algorithms / "similar titles"** | The name says recommendation, but the product means *a person recommending*, not a model inferring. No ML in scope. |
 | **Email/password or magic-link auth** | Three OAuth providers is already the ceiling. Passwords bring resets, verification mail, and an email service — a large surface for a small gain. |

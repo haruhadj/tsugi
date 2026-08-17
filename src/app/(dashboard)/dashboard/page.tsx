@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { DashboardRecList } from "@/components/DashboardRecList";
 import { Wordmark } from "@/components/Wordmark";
 import { getServerSession } from "@/lib/auth";
-import { listRecommendationsForUser } from "@/server/services/recommendations";
+import { listListsForUser } from "@/server/services/lists";
 
 // PHASE-8.md criterion 11 — a pure DB read, no provider/network calls, so
 // this page works even with both tracker APIs down.
@@ -13,7 +13,7 @@ export default async function DashboardPage() {
     redirect("/sign-in");
   }
 
-  const recs = await listRecommendationsForUser(session.user.id);
+  const recs = await listListsForUser(session.user.id);
 
   return (
     <div className="min-h-screen">
@@ -31,10 +31,10 @@ export default async function DashboardPage() {
           <h1 className="mt-4 font-display text-[clamp(1.9rem,5vw,2.75rem)] leading-[0.95] font-extrabold tracking-[-0.03em] uppercase">
             Your
             <br />
-            recommendations
+            lists
           </h1>
           <p className="mt-5 max-w-md text-sm leading-relaxed text-muted-foreground">
-            Everything you have shared, newest first. Deleting one is immediate and total.
+            Everything you have made, newest first. Deleting one is immediate and total.
           </p>
 
           <div className="mt-10">

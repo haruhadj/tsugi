@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ProviderConnections } from "@/components/ProviderConnections";
+import { UsernameField } from "@/components/UsernameField";
 import { Wordmark } from "@/components/Wordmark";
 import { getServerSession } from "@/lib/auth";
 
@@ -34,6 +35,13 @@ export default async function SettingsPage() {
           </p>
 
           <div className="relative mt-10 overflow-hidden rounded-md border border-border bg-card">
+            <div className="eyecatch-edge absolute inset-y-0 left-0 w-1" />
+            <div className="p-8 pl-10 sm:pl-12">
+              <UsernameField initialUsername={session.user.username ?? ""} />
+            </div>
+          </div>
+
+          <div className="relative mt-6 overflow-hidden rounded-md border border-border bg-card">
             <div className="eyecatch-edge absolute inset-y-0 left-0 w-1" />
             <div className="p-8 pl-10 sm:pl-12">
               <ProviderConnections />

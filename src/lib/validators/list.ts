@@ -76,24 +76,27 @@ function itemSaysSomething(item: z.infer<typeof itemSchema>): boolean {
   return item.scoreRaw !== undefined || Boolean(item.comment);
 }
 
-export const createRecSchema = z
+export const createListSchema = z
   .object({
+    name: z.string().trim().min(1).max(80),
     caption: z.string().max(120).optional(),
     comment: z.string().max(280).optional(),
-    // D36 — capped at 10, resolved 4 at a time under an 8s deadline
-    // downstream; the cap itself is enforced here so it is a
-    // field-addressable 400, not a silent truncation.
-    items: z.array(itemSchema).min(1).max(10),
+    // Phase A/D36 — the old 10-item product cap is gone (lists are now
+    // unlimited); this is a DoS ceiling only, sized well above any
+    // legitimate list, resolved 4-at-a-time under an 8s deadline downstream
+    // (see resolveAllItems's FLAG comment in lists.ts for the scaling risk).
+    items: z.array(itemSchema).min(1).max(500),
   })
   // Invariant 8, D27 — spans the group and its items, so it lives only in
   // Zod (documented exception to the three-layer rule, PHASE-1.md).
-  .refine(
-    (rec) => Boolean(rec.comment) || rec.items.some(itemSaysSomething),
-    {
-      message: "A recommendation must include at least one score or comment, at group or item level",
-      path: ["comment"],
-    },
-  );
+  .refine((rec) => Boolean(rec.comment) || rec.items.some(itemSaysSomething), {
+    message: "A list must include at least one score or comment, at group or item level",
+    path: ["comment"],
+  });
 
-export type CreateRecInput = z.infer<typeof createRecSchema>;
-export type CreateRecItem = z.infer<typeof itemSchema>;
+export const renameListSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+});
+
+export type CreateListInput = z.infer<typeof createListSchema>;
+export type CreateListItem = z.infer<typeof itemSchema>;

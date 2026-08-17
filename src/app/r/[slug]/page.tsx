@@ -3,10 +3,8 @@ import { notFound } from "next/navigation";
 import { after } from "next/server";
 import { RecView } from "@/components/RecView";
 import { getEnv } from "@/lib/env";
-import {
-  getRecommendationBySlug,
-  incrementViewCount,
-} from "@/server/services/recommendations";
+import { getServerSession } from "@/lib/auth";
+import { getListBySlug, incrementViewCount } from "@/server/services/lists";
 
 type Params = Promise<{ slug: string }>;
 
@@ -19,7 +17,8 @@ export async function generateMetadata({
   params: Params;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const rec = await getRecommendationBySlug(slug);
+  const session = await getServerSession();
+  const rec = await getListBySlug(slug, session?.user.id ?? null);
   if (!rec) return {};
 
   const appUrl = getEnv().NEXT_PUBLIC_APP_URL;
@@ -48,7 +47,8 @@ export async function generateMetadata({
 
 export default async function RecommendationPage({ params }: { params: Params }) {
   const { slug } = await params;
-  const rec = await getRecommendationBySlug(slug);
+  const session = await getServerSession();
+  const rec = await getListBySlug(slug, session?.user.id ?? null);
   if (!rec) notFound();
 
   // Deferred via after() (invariant: page-only view counting, PHASE-6.md) —

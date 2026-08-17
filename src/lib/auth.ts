@@ -4,11 +4,46 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import type { OAuth2Tokens } from "better-auth/oauth2";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
+import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { account, session, user, verification } from "@/db/auth-schema";
 import { getEnv } from "@/lib/env";
 import { sha256Base64Url } from "@/lib/pkce";
 import { synthesizeTrackerEmail } from "@/lib/synthesize-tracker-email";
+
+// Derives the one-time default username from the OAuth provider's display
+// name (Phase B, D42) — slugified to the `username_format` CHECK charset
+// (^[a-zA-Z0-9_]{3,20}$), with a numeric suffix on collision. Only ever
+// called from databaseHooks.user.create.before, i.e. exactly once per user;
+// later sign-ins never touch `username` again (overrideUserInfo only
+// re-syncs name/image/scoreFormat).
+async function deriveDefaultUsername(displayName: string, userId: string): Promise<string> {
+  const slug = displayName
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 20);
+
+  const base = slug.length >= 3 ? slug : `user_${userId}`.slice(0, 20);
+
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const suffix = attempt === 0 ? "" : `_${attempt + 1}`;
+    const candidate = (suffix ? base.slice(0, 20 - suffix.length) : base) + suffix;
+
+    const [existing] = await db
+      .select({ id: user.id })
+      .from(user)
+      .where(sql`lower(${user.username}) = lower(${candidate})`)
+      .limit(1);
+
+    if (!existing) return candidate;
+  }
+
+  // Astronomically unlikely (50 collisions on one slug) — fall back to a
+  // guaranteed-unique id-based name rather than looping forever.
+  return `user_${userId}`.slice(0, 20);
+}
 
 const env = getEnv();
 
@@ -185,6 +220,20 @@ export const auth = betterAuth({
       allowDifferentEmails: true,
     },
   },
+  databaseHooks: {
+    user: {
+      create: {
+        // Fires only at first-ever row creation — independent of
+        // genericOAuth's overrideUserInfo, which keeps refreshing
+        // name/image/scoreFormat on every later sign-in without touching
+        // username (D42, Phase B).
+        before: async (newUser) => {
+          const username = await deriveDefaultUsername(newUser.name, newUser.id);
+          return { data: { ...newUser, username } };
+        },
+      },
+    },
+  },
   user: {
     additionalFields: {
       // The scale this user rates in — read from the session in Phase 5,
@@ -194,6 +243,15 @@ export const auth = betterAuth({
         type: "string",
         required: true,
         defaultValue: "POINT_10",
+        input: false,
+      },
+      // Defaulted once at signup (deriveDefaultUsername above), then freely
+      // editable in Settings (src/server/hono/user.ts) — input: false keeps
+      // better-auth's own update-user path from touching it; that route is
+      // never called for it, all writes go through updateUsername.
+      username: {
+        type: "string",
+        required: false,
         input: false,
       },
     },

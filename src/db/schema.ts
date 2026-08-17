@@ -1,11 +1,13 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   index,
   integer,
   jsonb,
   numeric,
   pgTable,
+  smallint,
   text,
   timestamp,
   unique,
@@ -17,15 +19,21 @@ import { mediaTypeEnum, providerEnum, scoreFormatEnum } from "./enums";
 
 export { mediaTypeEnum, providerEnum, scoreFormatEnum };
 
-export const recommendation = pgTable(
-  "recommendation",
+export const list = pgTable(
+  "list",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     slug: varchar("slug", { length: 12 }).notNull().unique(),
+    // User-chosen category title, e.g. "Romance", "Action" — required (D42).
+    name: varchar("name", { length: 80 }).notNull(),
     caption: varchar("caption", { length: 120 }),
     comment: varchar("comment", { length: 280 }),
     views: integer("views").notNull().default(0),
-    // Not nullable — creating a recommendation always requires a session (D23).
+    // Draft lists are owner-only; published lists appear on /feed and are
+    // publicly readable at /r/[slug] (D42).
+    published: boolean("published").notNull().default(false),
+    publishedAt: timestamp("published_at"),
+    // Not nullable — creating a list always requires a session (D23).
     userId: text("user_id")
       .notNull()
       .references(() => user.id),
@@ -34,16 +42,19 @@ export const recommendation = pgTable(
   // Comment length is enforced by varchar(280) itself — a CHECK here would
   // never fire, since Postgres rejects an oversized value at the type level
   // (22001) before any row-level constraint is evaluated.
-  (table) => [index("recommendation_user_id_idx").on(table.userId)],
+  (table) => [
+    index("list_user_id_idx").on(table.userId),
+    index("list_published_idx").on(table.published, table.publishedAt),
+  ],
 ).enableRLS();
 
-export const recommendationItem = pgTable(
-  "recommendation_item",
+export const listItem = pgTable(
+  "list_item",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    recommendationId: uuid("recommendation_id")
+    listId: uuid("list_id")
       .notNull()
-      .references(() => recommendation.id, { onDelete: "cascade" }),
+      .references(() => list.id, { onDelete: "cascade" }),
     // Explicit order — never rely on insertion order.
     position: integer("position").notNull(),
     provider: providerEnum("provider").notNull(),
@@ -67,19 +78,44 @@ export const recommendationItem = pgTable(
     ),
     // Both trackers use 0 to mean "unrated", not "rated zero" (D35).
     check("score_positive", sql`${table.scoreRaw} is null or ${table.scoreRaw} > 0`),
-    unique("position_per_recommendation").on(table.recommendationId, table.position),
-    unique("identity_per_recommendation").on(
-      table.recommendationId,
+    unique("position_per_list").on(table.listId, table.position),
+    unique("identity_per_list").on(
+      table.listId,
       table.provider,
       table.externalId,
       table.mediaType,
     ),
     // The identity triple, in the order named by tech-stack.md and PHASE-1.md.
-    index("recommendation_item_identity_idx").on(
+    index("list_item_identity_idx").on(
       table.provider,
       table.mediaType,
       table.externalId,
     ),
+  ],
+).enableRLS();
+
+export const listVote = pgTable(
+  "list_vote",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    listId: uuid("list_id")
+      .notNull()
+      .references(() => list.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    // 1 = upvote, -1 = downvote. No "0" state — un-voting deletes the row.
+    direction: smallint("direction").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date()),
+  },
+  (table) => [
+    check("direction_valid", sql`${table.direction} in (1, -1)`),
+    unique("vote_per_user_per_list").on(table.listId, table.userId),
+    index("list_vote_list_id_idx").on(table.listId),
   ],
 ).enableRLS();
 

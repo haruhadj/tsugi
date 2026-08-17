@@ -42,13 +42,11 @@ export function MediaSearchInput({
   mediaType,
   onSelect,
   onSwitchProvider,
-  atCapacity = false,
 }: {
   provider: Provider;
   mediaType: MediaType;
   onSelect: (result: UnifiedMediaResult) => void;
   onSwitchProvider: (provider: Provider) => void;
-  atCapacity?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [state, setState] = useState<SearchState>({ status: "idle" });
@@ -101,21 +99,14 @@ export function MediaSearchInput({
         <Command shouldFilter={false} className="relative overflow-visible bg-transparent">
           <CommandInput
             autoFocus
-            disabled={atCapacity}
-            placeholder={atCapacity ? "Tray is full (10/10) — remove an item to add another" : "Search for a title…"}
+            placeholder="Search for a title…"
             value={query}
             onValueChange={(value) => {
-              if (atCapacity) return;
               setQuery(value);
               setOpen(true);
             }}
           />
-          {atCapacity && (
-            <p className="mt-1 text-sm text-muted-foreground" role="status">
-              You&apos;ve reached the 10-item limit. Remove an item to add another.
-            </p>
-          )}
-          {!atCapacity && effectiveState.status === "loading" && (
+          {effectiveState.status === "loading" && (
             <Loader2Icon
               className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 animate-spin text-muted-foreground"
               aria-hidden="true"

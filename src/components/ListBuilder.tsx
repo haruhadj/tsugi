@@ -5,34 +5,35 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { ItemTray, canAddItem, type TrayItem } from "@/components/ItemTray";
+import { ItemTray, type TrayItem } from "@/components/ItemTray";
 import { MediaSearchInput } from "@/components/MediaSearchInput";
 import { MyListPicker } from "@/components/MyListPicker";
 import { ProviderToggle } from "@/components/ProviderToggle";
 import { ShareModal } from "@/components/ShareModal";
 import { authClient } from "@/lib/auth-client";
 import type { ScoreFormat } from "@/lib/score";
-import type { CreateRecItem } from "@/lib/validators/rec";
+import type { CreateListItem } from "@/lib/validators/list";
 import type { ListEntry, MediaType, Provider, UnifiedMediaResult } from "@/lib/types/media";
 
 const MEDIA_TYPE: MediaType = "anime";
 const TRACKER_PROVIDER_IDS: Provider[] = ["anilist", "mal"];
 type Mode = "search" | "mylist";
 
-function toWireItem(item: TrayItem, scoreFormat: ScoreFormat): CreateRecItem {
+function toWireItem(item: TrayItem, scoreFormat: ScoreFormat): CreateListItem {
   return {
     provider: item.provider,
     externalId: item.externalId,
     mediaType: item.mediaType,
     ...(item.scoreRaw != null ? { scoreRaw: item.scoreRaw, scoreFormat } : {}),
     ...(item.comment ? { comment: item.comment } : {}),
-  } as CreateRecItem;
+  } as CreateListItem;
 }
 
-export function RecBuilder({ scoreFormat }: { scoreFormat: ScoreFormat }) {
+export function ListBuilder({ scoreFormat }: { scoreFormat: ScoreFormat }) {
   const [provider, setProvider] = useState<Provider>("anilist");
   const [mode, setMode] = useState<Mode>("search");
   const [items, setItems] = useState<TrayItem[]>([]);
+  const [name, setName] = useState("");
   const [caption, setCaption] = useState("");
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -49,7 +50,6 @@ export function RecBuilder({ scoreFormat }: { scoreFormat: ScoreFormat }) {
   const hasTrackerLinked = linkedProviderIds?.some((id) => TRACKER_PROVIDER_IDS.includes(id as Provider)) ?? false;
 
   const handleSelect = (result: UnifiedMediaResult) => {
-    if (!canAddItem(items)) return;
     if (items.some((item) => item.provider === result.provider && item.externalId === result.externalId)) {
       return;
     }
@@ -57,7 +57,6 @@ export function RecBuilder({ scoreFormat }: { scoreFormat: ScoreFormat }) {
   };
 
   const handleImport = (entry: ListEntry) => {
-    if (!canAddItem(items)) return;
     if (items.some((item) => item.provider === entry.provider && item.externalId === entry.externalId)) {
       return;
     }
@@ -81,6 +80,10 @@ export function RecBuilder({ scoreFormat }: { scoreFormat: ScoreFormat }) {
   const handleSubmit = async () => {
     setError(null);
 
+    if (!name.trim()) {
+      setError("Give your list a name.");
+      return;
+    }
     if (items.length === 0) {
       setError("Add at least one title.");
       return;
@@ -93,10 +96,11 @@ export function RecBuilder({ scoreFormat }: { scoreFormat: ScoreFormat }) {
 
     setSubmitting(true);
     try {
-      const res = await fetch("/api/recs", {
+      const res = await fetch("/api/lists", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          name,
           caption: caption || undefined,
           comment: comment || undefined,
           items: items.map((item) => toWireItem(item, scoreFormat)),
@@ -109,12 +113,12 @@ export function RecBuilder({ scoreFormat }: { scoreFormat: ScoreFormat }) {
         return;
       }
       if (res.status === 429) {
-        setError("Too many recommendations created recently. Try again shortly.");
+        setError("Too many lists created recently. Try again shortly.");
       } else if (res.status === 401) {
-        setError("Sign in to create a recommendation.");
+        setError("Sign in to create a list.");
       } else {
         const data = (await res.json().catch(() => null)) as { error?: string } | null;
-        setError(data?.error ?? "Could not save this recommendation.");
+        setError(data?.error ?? "Could not save this list.");
       }
     } finally {
       setSubmitting(false);
@@ -153,20 +157,28 @@ export function RecBuilder({ scoreFormat }: { scoreFormat: ScoreFormat }) {
           mediaType={MEDIA_TYPE}
           onSelect={handleSelect}
           onSwitchProvider={setProvider}
-          atCapacity={!canAddItem(items)}
         />
       ) : (
         <MyListPicker
           provider={provider}
           mediaType={MEDIA_TYPE}
           onImport={handleImport}
-          atCapacity={!canAddItem(items)}
           isSelected={(entry) =>
             items.some((item) => item.provider === entry.provider && item.externalId === entry.externalId)
           }
         />
       )}
       <ItemTray items={items} onChange={setItems} scoreFormat={scoreFormat} />
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="rec-name">Name</Label>
+        <Input
+          id="rec-name"
+          value={name}
+          maxLength={80}
+          placeholder="e.g. Romance, Action"
+          onChange={(e) => setName(e.target.value)}
+        />
+      </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="rec-caption">Caption (optional)</Label>
         <Input

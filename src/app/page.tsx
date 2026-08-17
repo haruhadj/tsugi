@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Wordmark } from "@/components/Wordmark";
 import { Button } from "@/components/ui/button";
-import { RecBuilder } from "@/components/RecBuilder";
+import { ListBuilder } from "@/components/ListBuilder";
 import { getServerSession } from "@/lib/auth";
 import type { ScoreFormat } from "@/lib/score";
 
@@ -51,7 +51,7 @@ export default async function Home() {
             </h1>
 
             <div className="mt-10">
-              <RecBuilder scoreFormat={session.user.scoreFormat as ScoreFormat} />
+              <ListBuilder scoreFormat={session.user.scoreFormat as ScoreFormat} />
             </div>
           </div>
         </main>

@@ -877,6 +877,32 @@ in, it is the one the registry's own reference implementation expects.
 correction), `ui-registry.md` (shadcn primitives list, `MediaSearchInput`'s planned-row note),
 `ui-rules.md` (Accessibility section combobox callout).
 
+### D43 — Pivot from recommendations to custom lists reverses two permanent exclusions
+
+The owner pivoted the product from single recommendations to user-owned, named lists with
+unlimited items, a public feed (`/feed`, `GET /api/feed`) of published lists ranked by a live
+upvote/downvote score, and per-user usernames (defaulted at signup, editable in Settings).
+This directly contradicts two entries `functionality.md` had marked **permanent**:
+"Comments, replies, likes on a rec page" and "User profiles, following, feeds" — both
+justified there as protecting a "link generator, not a destination" promise from social-network
+moderation costs.
+
+**Why the reversal is accepted rather than resisted.** A public feed with voting *is* a feed,
+and a username *is* the seed of a profile — there is no way to build what was asked for
+without doing the thing the exclusion table forbade. The owner confirmed this explicitly
+(`AskUserQuestion`, "Pivot is intentional — continue") rather than the assistant unilaterally
+reinterpreting scope. What's still excluded: no comments/replies (voting only, no free-text
+social surface), no following, no per-user profile pages beyond a username on a feed entry —
+the moderation/spam cost the original entries were protecting against stays out of scope even
+though feeds and light identity are now in.
+
+**Propagated through:** `functionality.md` (Out of scope table, both rows struck and
+cross-referenced here rather than deleted, so the reasoning that was once true stays legible).
+
+**Revisit if:** the feed's vote-abuse or spam surface grows past what `checkVoteLimit`'s
+per-user rate limit (**D34**'s pattern) can contain — that would be the first sign the
+excluded comments/moderation costs are showing up anyway.
+
 **Revisit if:** `cmdk`'s bundle weight measurably fails Phase 5's interaction-latency
 criterion, or a future Radix release ships a native combobox and removes the need for a
 second listbox implementation.

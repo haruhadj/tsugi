@@ -31,7 +31,7 @@ const REASON_STATUS: Record<
   reauth_required: 409,
 };
 
-export const listsRouter = new Hono().get("/lists/:provider/:mediaType", async (c) => {
+export const trackerListsRouter = new Hono().get("/lists/:provider/:mediaType", async (c) => {
   const session = await auth.api.getSession({ headers: c.req.raw.headers });
   if (!session) {
     return c.json({ error: "Sign in to import a list." }, 401);

@@ -9,8 +9,6 @@ import { ScoreInput } from "@/components/ScoreInput";
 import type { ScoreFormat } from "@/lib/score";
 import type { UnifiedMediaResult } from "@/lib/types/media";
 
-export const MAX_ITEMS = 10;
-
 export type TrayItem = UnifiedMediaResult & {
   scoreRaw: number | null;
   comment: string;
@@ -36,7 +34,7 @@ export function ItemTray({
   return (
     <div className="flex flex-col gap-3">
       <h3 className="text-sm font-medium text-muted-foreground">
-        Items ({items.length}/{MAX_ITEMS})
+        Items ({items.length})
       </h3>
       <ul className="flex flex-col gap-3">
         {items.map((item, index) => {
@@ -117,6 +115,3 @@ export function ItemTray({
   );
 }
 
-export function canAddItem(items: TrayItem[]): boolean {
-  return items.length < MAX_ITEMS;
-}

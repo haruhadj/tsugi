@@ -31,13 +31,11 @@ export function MyListPicker({
   provider,
   mediaType,
   onImport,
-  atCapacity = false,
   isSelected,
 }: {
   provider: Provider;
   mediaType: MediaType;
   onImport: (entry: ListEntry) => void;
-  atCapacity?: boolean;
   isSelected: (entry: ListEntry) => boolean;
 }) {
   const [state, setState] = useState<ListState>({ status: "loading" });
@@ -166,18 +164,13 @@ export function MyListPicker({
           {PROVIDER_LABELS[provider]} isn&apos;t responding right now — showing your last synced list.
         </p>
       )}
-      {atCapacity && (
-        <p className="text-sm text-muted-foreground" role="status">
-          You&apos;ve reached the 10-item limit. Remove an item to add another.
-        </p>
-      )}
       <ul className="flex max-h-80 flex-col gap-1 overflow-y-auto">
         {filtered.length === 0 && (
           <li className="py-4 text-sm text-muted-foreground">No titles match.</li>
         )}
         {filtered.map((entry) => {
           const selected = isSelected(entry);
-          const disabled = atCapacity || selected;
+          const disabled = selected;
           return (
             <li key={`${entry.provider}-${entry.externalId}`}>
               <button
