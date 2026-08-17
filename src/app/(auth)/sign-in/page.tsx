@@ -21,11 +21,11 @@ export default async function SignInPage() {
     <main className="flex min-h-screen flex-col items-center justify-center px-6 py-16">
       <div className="w-full max-w-md animate-card-in">
         {/* Same card as the hero's example, at the other end of the flow. */}
-        <div className="relative overflow-hidden rounded-md border border-border bg-card">
-          <div className="eyecatch-edge absolute inset-y-0 left-0 w-1" />
-          <div className="flex flex-col gap-8 p-8 pl-10 sm:p-10 sm:pl-12">
+        <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-xl">
+          <div className="brand-gradient h-1 w-full" />
+          <div className="flex flex-col gap-8 p-8 sm:p-10">
             <div className="flex flex-col gap-5">
-              <Wordmark />
+              <Wordmark size="lg" />
               <div className="flex flex-col gap-2">
                 <h1 className="font-display text-2xl leading-tight font-extrabold tracking-[-0.02em]">
                   Sign in
@@ -39,7 +39,6 @@ export default async function SignInPage() {
 
             <SignInButtons />
           </div>
-          <div className="eyecatch-bar h-0.5 w-full" />
         </div>
 
         <Link

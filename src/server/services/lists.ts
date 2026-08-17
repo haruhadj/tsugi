@@ -393,6 +393,110 @@ export async function deleteList(slug: string, userId: string): Promise<DeleteLi
   return "deleted";
 }
 
+export type DashboardStats = {
+  listCount: number;
+  publishedCount: number;
+  totalViews: number;
+  totalItems: number;
+  /** Net vote score across the owner's published lists — upvotes minus downvotes. */
+  totalScore: number;
+};
+
+/**
+ * The dashboard's four headline numbers, aggregated in the database rather than by
+ * summing listListsForUser's rows in the page: votes are not on ListView at all, and
+ * item counts would otherwise be right only because that query happens to fetch every
+ * item of every list.
+ */
+export async function getDashboardStats(userId: string): Promise<DashboardStats> {
+  const [row] = await db
+    .select({
+      listCount: sql<number>`count(*)::int`,
+      publishedCount: sql<number>`count(*) filter (where ${list.published})::int`,
+      totalViews: sql<number>`coalesce(sum(${list.views}), 0)::int`,
+      totalItems: sql<number>`coalesce(sum((
+        select count(*) from ${listItem} where ${listItem.listId} = ${list.id}
+      )), 0)::int`,
+      totalScore: sql<number>`coalesce(sum((
+        select coalesce(sum(${listVote.direction}), 0)
+        from ${listVote} where ${listVote.listId} = ${list.id}
+      )), 0)::int`,
+    })
+    .from(list)
+    .where(eq(list.userId, userId));
+
+  return (
+    row ?? { listCount: 0, publishedCount: 0, totalViews: 0, totalItems: 0, totalScore: 0 }
+  );
+}
+
+export type DuplicateListResult =
+  | { status: "duplicated"; slug: string }
+  | { status: "not_found" }
+  | { status: "forbidden" };
+
+/**
+ * Clones a list and its items as a fresh draft owned by the same user.
+ *
+ * The copy always starts unpublished with its counters reset: views and votes belong
+ * to the original's history, and silently carrying them over would let anyone mint a
+ * list that looks popular by duplicating one that is. Items are copied straight from
+ * the stored rows rather than re-resolved against the providers — they were resolved
+ * server-side when the original was created, so a second round of network calls would
+ * add failure modes for no new information.
+ */
+export async function duplicateList(
+  slug: string,
+  userId: string,
+): Promise<DuplicateListResult> {
+  const [existing] = await db
+    .select({ id: list.id, userId: list.userId, name: list.name, caption: list.caption, comment: list.comment })
+    .from(list)
+    .where(eq(list.slug, slug))
+    .limit(1);
+
+  if (!existing) return { status: "not_found" };
+  if (existing.userId !== userId) return { status: "forbidden" };
+
+  const sourceItems = await db
+    .select(itemColumns)
+    .from(listItem)
+    .where(eq(listItem.listId, existing.id))
+    .orderBy(listItem.position);
+
+  for (let attempt = 0; attempt < MAX_SLUG_ATTEMPTS; attempt++) {
+    const newSlug = nanoid(SLUG_LENGTH);
+    try {
+      await db.transaction(async (tx) => {
+        const [created] = await tx
+          .insert(list)
+          .values({
+            slug: newSlug,
+            name: existing.name,
+            caption: existing.caption,
+            comment: existing.comment,
+            userId,
+          })
+          .returning({ id: list.id });
+
+        if (sourceItems.length > 0) {
+          await tx.insert(listItem).values(
+            sourceItems.map((item) => ({ ...item, listId: created!.id })),
+          );
+        }
+      });
+
+      return { status: "duplicated", slug: newSlug };
+    } catch (error) {
+      if (isSlugCollision(error) && attempt < MAX_SLUG_ATTEMPTS - 1) continue;
+      throw error;
+    }
+  }
+
+  // Unreachable — the loop above always returns or rethrows.
+  throw new Error("Exhausted slug attempts without returning");
+}
+
 export const FEED_SORTS = ["top", "new", "views", "items"] as const;
 export type FeedSort = (typeof FEED_SORTS)[number];
 

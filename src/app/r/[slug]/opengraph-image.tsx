@@ -7,17 +7,19 @@ export const alt = "A list shared on Tsugi";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-// Eyecatch palette, hardcoded hex — the single sanctioned exception to the
-// no-hardcoded-colors rule (context/ui-tokens.md § OG card). Satori cannot
-// parse oklch(), so the CSS variable originals are kept here as comments.
+// Hardcoded hex — the single sanctioned exception to the no-hardcoded-colors rule
+// (context/ui-tokens.md § OG card), because Satori cannot parse oklch(). Every value
+// here is the exact sRGB equivalent of its token in globals.css, kept as a comment so
+// the two can be checked against each other. If the palette changes there, change it
+// here too: nothing will fail to build, the card will just stop matching the site.
 const COLOR = {
-  background: "#0B0A14", // oklch(0.1516 0.0213 288.2)
-  card: "#14132B", // oklch(0.2024 0.047 283.2)
-  border: "#2E2D44", // oklch(0.31 0.041 286)
-  foreground: "#EDEAFF", // oklch(0.9456 0.0283 292.4)
-  mutedForeground: "#8C87B0", // oklch(0.6426 0.061 290.2)
-  primary: "#6C63FF", // oklch(0.5973 0.2237 279.8)
-  bloom: "#4CE0D2", // oklch(0.8257 0.1252 186)
+  background: "#09090B", // --background, oklch(0.141 0.005 285.823)
+  card: "#18181B", // --card, oklch(0.21 0.006 285.885)
+  border: "#27272A", // --border, oklch(0.274 0.006 286.033)
+  foreground: "#FAFAFA", // --foreground, oklch(0.985 0 0)
+  mutedForeground: "#A1A1AA", // --muted-foreground, oklch(0.705 0.015 286.067)
+  primary: "#F43F5E", // --primary, oklch(0.645 0.246 16.439)
+  highlight: "#F59E0B", // --highlight, oklch(0.769 0.188 70.08)
 };
 
 type Params = Promise<{ slug: string }>;
@@ -28,7 +30,7 @@ function Cover({ src, width, height }: { src: string | null; width: number; heig
       style={{
         width,
         height,
-        borderRadius: 2,
+        borderRadius: 12,
         overflow: "hidden",
         display: "flex",
         flexShrink: 0,
@@ -87,7 +89,7 @@ export default async function Image({ params }: { params: Params }) {
               fontSize: 12,
               letterSpacing: 4,
               textTransform: "uppercase",
-              color: COLOR.bloom,
+              color: COLOR.primary,
             }}
           >
             Tsugi
@@ -99,7 +101,6 @@ export default async function Image({ params }: { params: Params }) {
               fontSize: 56,
               fontWeight: 800,
               lineHeight: 1.15,
-              textTransform: "uppercase",
               letterSpacing: -1,
               color: COLOR.foreground,
             }}
@@ -136,7 +137,7 @@ export default async function Image({ params }: { params: Params }) {
                       fontFamily: "JetBrains Mono",
                       fontSize: 24,
                       letterSpacing: 2,
-                      color: COLOR.primary,
+                      color: COLOR.highlight,
                     }}
                   >
                     {formatScore(items[0]!.scoreRaw, items[0]!.scoreFormat as ScoreFormat)}
@@ -171,7 +172,7 @@ export default async function Image({ params }: { params: Params }) {
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          backgroundColor: "rgba(11, 10, 20, 0.72)",
+                          backgroundColor: "rgba(9, 9, 11, 0.72)", // COLOR.background at 72%
                           fontFamily: "JetBrains Mono",
                           fontSize: 28,
                           color: COLOR.foreground,

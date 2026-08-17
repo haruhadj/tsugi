@@ -7,6 +7,7 @@ import { checkListCreateLimit } from "@/server/hono/middleware";
 import {
   createList,
   deleteList,
+  duplicateList,
   getListBySlug,
   listListsForUser,
   publishList,
@@ -78,6 +79,29 @@ export const userListsRouter = new Hono()
       return c.json({ error: "Not found" }, 404);
     }
     return c.body(null, 204);
+  })
+  .post("/lists/:slug/duplicate", async (c) => {
+    const session = await auth.api.getSession({ headers: c.req.raw.headers });
+    if (!session) {
+      return c.json({ error: "Sign in to duplicate a list." }, 401);
+    }
+
+    // A duplicate writes a whole list plus its items, so it costs the same as a
+    // create and shares its limiter rather than being unmetered.
+    const limit = await checkListCreateLimit(session.user.id);
+    if (!limit.allowed) {
+      return c.json({ retryAfter: limit.retryAfterSeconds }, 429);
+    }
+
+    const result = await duplicateList(c.req.param("slug"), session.user.id);
+    if (result.status === "not_found") {
+      return c.json({ error: "Not found" }, 404);
+    }
+    if (result.status === "forbidden") {
+      return c.json({ error: "Not yours to duplicate." }, 403);
+    }
+
+    return c.json({ slug: result.slug }, 201);
   })
   .post("/lists/:slug/unpublish", async (c) => {
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
