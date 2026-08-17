@@ -16,7 +16,7 @@ import type { ScoreFormat } from "@/lib/score";
  */
 export function RecView({ rec }: { rec: ListView }) {
   return (
-    <main className="mx-auto max-w-2xl px-6 py-16">
+    <main className="mx-auto max-w-6xl px-6 py-16">
       <article className="animate-card-in relative overflow-hidden rounded-md border border-border bg-card">
         <div className="eyecatch-edge absolute inset-y-0 left-0 w-1" aria-hidden />
 

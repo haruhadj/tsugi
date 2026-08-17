@@ -68,7 +68,7 @@ export default async function RecommendationPage({ params }: { params: Params })
   // say what it is. The wordmark is the only route back into the product.
   return (
     <div className="min-h-screen">
-      <header className="mx-auto flex max-w-2xl items-center justify-between px-6 pt-8">
+      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 pt-8">
         <Link href="/">
           <Wordmark />
         </Link>

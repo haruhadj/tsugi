@@ -36,13 +36,13 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
 
   return (
     <div className="min-h-screen">
-      <header className="mx-auto flex max-w-2xl items-center justify-between px-6 pt-8">
+      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 pt-8">
         <Link href="/">
           <Wordmark />
         </Link>
       </header>
 
-      <main className="mx-auto max-w-2xl px-6 py-16">
+      <main className="mx-auto max-w-6xl px-6 py-16">
         <div className="animate-card-in">
           <p className="font-mono text-xs tracking-[0.28em] text-muted-foreground uppercase">
             {category ?? "Everything"}
