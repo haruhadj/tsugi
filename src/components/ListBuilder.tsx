@@ -126,101 +126,115 @@ export function ListBuilder({ scoreFormat }: { scoreFormat: ScoreFormat }) {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      {hasTrackerLinked && (
-        <fieldset className="flex flex-col gap-3">
-          <legend className="font-mono text-[0.65rem] tracking-[0.24em] text-muted-foreground uppercase">
-            Add from
-          </legend>
-          <RadioGroup
-            value={mode}
-            onValueChange={(next) => setMode(next as Mode)}
-            className="flex flex-row gap-4"
-          >
-            <div className="flex items-center gap-2">
-              <RadioGroupItem value="search" id="mode-search" className="size-[18px]" />
-              <Label htmlFor="mode-search" className="min-h-11 flex items-center">
-                Search
-              </Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <RadioGroupItem value="mylist" id="mode-mylist" className="size-[18px]" />
-              <Label htmlFor="mode-mylist" className="min-h-11 flex items-center">
-                My list
-              </Label>
-            </div>
-          </RadioGroup>
-        </fieldset>
-      )}
-      <ProviderToggle value={provider} onChange={setProvider} />
-      {mode === "search" ? (
-        <MediaSearchInput
-          provider={provider}
-          mediaType={MEDIA_TYPE}
-          onSelect={handleSelect}
-          onSwitchProvider={setProvider}
-        />
-      ) : (
-        <MyListPicker
-          provider={provider}
-          mediaType={MEDIA_TYPE}
-          onImport={handleImport}
-          isSelected={(entry) =>
-            items.some((item) => item.provider === entry.provider && item.externalId === entry.externalId)
-          }
-        />
-      )}
-      <ItemTray items={items} onChange={setItems} scoreFormat={scoreFormat} />
-      {/*
-        The name is also the category the feed groups by (D42 — they are one
-        column). That is invisible in a bare "Name" field, and a person who
-        types "my winter picks" ends up alone in their own category. The hint
-        says so plainly rather than leaving the field to do double duty in
-        silence.
-      */}
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="rec-name">Name</Label>
-        <Input
-          id="rec-name"
-          value={name}
-          maxLength={80}
-          placeholder="Romance"
-          aria-describedby="rec-name-hint"
-          onChange={(e) => setName(e.target.value)}
-        />
-        <p id="rec-name-hint" className="text-xs leading-relaxed text-muted-foreground">
-          This is also how the list is filed on the rundown. Reuse a name other people
-          use and yours shows up alongside theirs.
-        </p>
+    /*
+      Two columns from lg up. Choosing titles and describing the list are two
+      separate passes, and in a single column at the page's full width every
+      text field stretched to ~1100px — a line length nothing typed here ever
+      fills. Splitting them holds the fields to a readable measure and gives
+      the tray the room it actually wants. Below lg they stack in source order,
+      which is still the order the work happens in.
+    */
+    <div className="grid items-start gap-8 lg:grid-cols-2 lg:gap-12">
+      <div className="flex flex-col gap-6">
+        {hasTrackerLinked && (
+          <fieldset className="flex flex-col gap-3">
+            <legend className="font-mono text-[0.65rem] tracking-[0.24em] text-muted-foreground uppercase">
+              Add from
+            </legend>
+            <RadioGroup
+              value={mode}
+              onValueChange={(next) => setMode(next as Mode)}
+              className="flex flex-row gap-4"
+            >
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="search" id="mode-search" className="size-[18px]" />
+                <Label htmlFor="mode-search" className="min-h-11 flex items-center">
+                  Search
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="mylist" id="mode-mylist" className="size-[18px]" />
+                <Label htmlFor="mode-mylist" className="min-h-11 flex items-center">
+                  My list
+                </Label>
+              </div>
+            </RadioGroup>
+          </fieldset>
+        )}
+        <ProviderToggle value={provider} onChange={setProvider} />
+        {mode === "search" ? (
+          <MediaSearchInput
+            provider={provider}
+            mediaType={MEDIA_TYPE}
+            onSelect={handleSelect}
+            onSwitchProvider={setProvider}
+          />
+        ) : (
+          <MyListPicker
+            provider={provider}
+            mediaType={MEDIA_TYPE}
+            onImport={handleImport}
+            isSelected={(entry) =>
+              items.some((item) => item.provider === entry.provider && item.externalId === entry.externalId)
+            }
+          />
+        )}
+        <ItemTray items={items} onChange={setItems} scoreFormat={scoreFormat} />
       </div>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="rec-caption">Caption (optional)</Label>
-        <Input
-          id="rec-caption"
-          value={caption}
-          maxLength={120}
-          placeholder="A short line about this list"
-          onChange={(e) => setCaption(e.target.value)}
-        />
+
+      <div className="flex flex-col gap-6">
+        {/*
+          The name is also the category the feed groups by (D42 — they are one
+          column). That is invisible in a bare "Name" field, and a person who
+          types "my winter picks" ends up alone in their own category. The hint
+          says so plainly rather than leaving the field to do double duty in
+          silence.
+        */}
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="rec-name">Name</Label>
+          <Input
+            id="rec-name"
+            value={name}
+            maxLength={80}
+            placeholder="Romance"
+            aria-describedby="rec-name-hint"
+            onChange={(e) => setName(e.target.value)}
+          />
+          <p id="rec-name-hint" className="text-xs leading-relaxed text-muted-foreground">
+            This is also how the list is filed on the rundown. Reuse a name other people
+            use and yours shows up alongside theirs.
+          </p>
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="rec-caption">Caption (optional)</Label>
+          <Input
+            id="rec-caption"
+            value={caption}
+            maxLength={120}
+            placeholder="A short line about this list"
+            onChange={(e) => setCaption(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="rec-comment">Comment (optional)</Label>
+          <Input
+            id="rec-comment"
+            value={comment}
+            maxLength={280}
+            placeholder="Why you're sharing this"
+            onChange={(e) => setComment(e.target.value)}
+          />
+        </div>
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
+        <Button type="button" className="min-h-11" disabled={submitting} onClick={handleSubmit}>
+          {submitting ? "Making…" : "Make the list"}
+        </Button>
       </div>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="rec-comment">Comment (optional)</Label>
-        <Input
-          id="rec-comment"
-          value={comment}
-          maxLength={280}
-          placeholder="Why you're sharing this"
-          onChange={(e) => setComment(e.target.value)}
-        />
-      </div>
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
-      <Button type="button" className="min-h-11" disabled={submitting} onClick={handleSubmit}>
-        {submitting ? "Making…" : "Make the list"}
-      </Button>
+
       <ShareModal
         open={shareUrl !== null}
         onOpenChange={(open) => {
