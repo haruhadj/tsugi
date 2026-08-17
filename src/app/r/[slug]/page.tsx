@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { after } from "next/server";
+import { Header } from "@/components/Header";
 import { RecView } from "@/components/RecView";
-import { Wordmark } from "@/components/Wordmark";
 import { getEnv } from "@/lib/env";
 import { getServerSession } from "@/lib/auth";
 import { getListBySlug, incrementViewCount } from "@/server/services/lists";
@@ -64,23 +63,12 @@ export default async function RecommendationPage({ params }: { params: Params })
   // dropped most writes under 20 concurrent requests).
   after(() => incrementViewCount(slug));
 
-  // A visitor can land here from anywhere with no account, so the page has to
-  // say what it is. The wordmark is the only route back into the product.
+  // A visitor can land here from anywhere with no account, so the page carries the
+  // full header — it is the only route back into the product.
   return (
     <div className="min-h-screen">
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 pt-8">
-        <Link href="/">
-          <Wordmark />
-        </Link>
-        <Link
-          href="/feed"
-          className="font-mono text-xs tracking-[0.2em] text-muted-foreground uppercase underline-offset-4 transition-colors hover:text-foreground hover:underline"
-        >
-          The rundown
-        </Link>
-      </header>
-
-      <RecView rec={rec} />
+      <Header username={session ? (session.user.username ?? session.user.name) : null} />
+      <RecView rec={rec} viewerId={session?.user.id ?? null} />
     </div>
   );
 }

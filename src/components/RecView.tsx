@@ -1,5 +1,7 @@
 import { EyeIcon } from "lucide-react";
+import { CommentSection, toWireComments } from "@/components/CommentSection";
 import { ListItemViews } from "@/components/ListItemViews";
+import { listComments } from "@/server/services/comments";
 import type { ListView } from "@/server/services/lists";
 
 /**
@@ -10,7 +12,19 @@ import type { ListView } from "@/server/services/lists";
  * The header is a Server Component; only the item layouts below it need client state
  * (the ranked/tier/gallery switch), so that is where the boundary sits.
  */
-export function RecView({ rec }: { rec: ListView }) {
+export async function RecView({
+  rec,
+  viewerId,
+}: {
+  rec: ListView;
+  viewerId: string | null;
+}) {
+  // Loaded here rather than fetched on mount, so the discussion is in the first
+  // paint's HTML and is visible to crawlers along with the list itself.
+  const comments = rec.published
+    ? toWireComments((await listComments(rec.slug, viewerId, "top")) ?? [])
+    : [];
+
   return (
     <main className="mx-auto max-w-6xl px-6 py-10 sm:py-16">
       <article className="animate-card-in overflow-hidden rounded-3xl border border-border bg-card/60 shadow-xl">
@@ -58,6 +72,19 @@ export function RecView({ rec }: { rec: ListView }) {
           </header>
 
           <ListItemViews items={rec.items} />
+
+          {/*
+            Discussion only exists once a list is public. On a draft the owner is the
+            only possible reader, so a comment box there would be talking to nobody.
+          */}
+          {rec.published && (
+            <CommentSection
+              slug={rec.slug}
+              items={rec.items.map((item) => ({ position: item.position, title: item.title }))}
+              isSignedIn={viewerId !== null}
+              initialComments={comments}
+            />
+          )}
         </div>
       </article>
     </main>

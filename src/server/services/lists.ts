@@ -2,7 +2,7 @@ import "server-only";
 import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/db";
-import { list, listItem, listVote } from "@/db/schema";
+import { list, listComment, listItem, listVote } from "@/db/schema";
 import type { CreateListInput } from "@/lib/validators/list";
 import type { UnifiedMediaResult } from "@/lib/types/media";
 import { resolveMediaCached } from "@/server/services/media-cache";
@@ -405,6 +405,7 @@ export type FeedEntry = {
   createdAt: Date;
   score: number;
   itemCount: number;
+  commentCount: number;
   /** Cover art for the first few titles, for the feed's filmstrip. Nulls are kept
    *  so a list whose lead title has no art still shows its placeholder in order. */
   covers: (string | null)[];
@@ -436,6 +437,9 @@ export async function listPublishedFeed(params: {
   const itemCountExpr = sql<number>`(
     select count(*) from ${listItem} where ${listItem.listId} = ${list.id}
   )`;
+  const commentCountExpr = sql<number>`(
+    select count(*) from ${listComment} where ${listComment.listId} = ${list.id}
+  )`;
   const whereExpr = category
     ? and(eq(list.published, true), eq(list.name, category))
     : eq(list.published, true);
@@ -457,6 +461,7 @@ export async function listPublishedFeed(params: {
       createdAt: list.createdAt,
       score: scoreExpr,
       itemCount: itemCountExpr,
+      commentCount: commentCountExpr,
     })
     .from(list)
     .leftJoin(listVote, eq(listVote.listId, list.id))

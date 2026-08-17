@@ -140,3 +140,15 @@ export async function checkUsernameUpdateLimit(userId: string): Promise<Username
     retryAfterSeconds: Math.max(1, Math.ceil((result.reset - Date.now()) / 1000)),
   };
 }
+
+export type CommentLimitResult = { allowed: true } | { allowed: false; retryAfterSeconds: number };
+
+/** Same D34/D23 rules as {@link checkListCreateLimit}, distinct key prefix. */
+export async function checkCommentLimit(userId: string): Promise<CommentLimitResult> {
+  const result = await limiter.limit(`comment:${userId}`);
+  if (result.success) return { allowed: true };
+  return {
+    allowed: false,
+    retryAfterSeconds: Math.max(1, Math.ceil((result.reset - Date.now()) / 1000)),
+  };
+}
