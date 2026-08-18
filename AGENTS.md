@@ -25,10 +25,12 @@ Read these in order at the start of a session. Stop when you have what the task 
 | 9 | `context/user-flow.md` | Every screen and the paths between them |
 | 10 | `context/planning/PLAN.md` | Phase map and the reasoning behind the shape of the build |
 
-`context/ai-prompt.xml` is the **original client brief**. It is a historical record, not a
-specification. Several of its claims are factually wrong on current package versions — see
-the amendments in `context/progress-tracker.md`. When the brief and this context set
-disagree, **this context set wins.**
+`context/ai-prompt.xml` was the **original client brief**; it was rewritten on 2026-08-17 to
+describe the project as it actually is — stack, product shape, API surface, phase status. It
+is a **summary for orientation**, not a specification: `progress-tracker.md` and the phase
+specs stay authoritative, and when they disagree with the XML, **they win.** The brief's
+original claims (DaisyUI, `@vercel/og`, single-item recs, GitHub OAuth) survive only as
+reasoning in the decision log, D1–D43.
 
 ---
 
@@ -51,12 +53,20 @@ These hold in every phase. A violation is a bug regardless of what you were work
    `src/server/**`. A component importing Drizzle is always wrong.
 4. **Every API input is validated at the Hono boundary** with `@hono/zod-validator` and a
    schema from `src/lib/validators/`. No hand-rolled `c.req.json()` parsing.
-5. **Every visual value comes from a shadcn semantic token** (`bg-background`,
-   `text-foreground`, `bg-primary`, `text-bloom`, …). No raw hex, no `rgb()`, no arbitrary
-   values like `bg-[#0B0A14]` in components. The palette is authored **once**, in
-   `src/app/globals.css`, and nowhere else (**D41**, which reversed **D37**). The accent is
-   `primary`; `bloom` is the cyan punctuation and gets **one use per screen**. Note this is
-   the inverse of the HeroUI-era rule — under HeroUI there was no `primary` token at all.
+5. **Every visual value comes from a semantic token** (`bg-background`, `text-foreground`,
+   `bg-primary`, `text-highlight`, `text-score-excellent`, …). No raw hex, no `rgb()`, no
+   arbitrary values like `bg-[#09090B]` in components. The palette is authored **once**, in
+   `src/app/globals.css` (**D45**, which reversed **D41**/**D37**). The accent is `primary`
+   (rose); `highlight` (amber) is the counter-accent. Score colour comes from `scoreTier()`
+   in `src/lib/score.ts`, never from comparing a bare number.
+
+   **Two files legitimately copy the palette as hex** and must be changed with it:
+   `src/app/r/[slug]/opengraph-image.tsx` (Satori) and `src/lib/canvasExport.ts` (canvas).
+   Neither can parse `oklch()`. Nothing fails to build when they drift.
+
+   Leftovers from dead systems: `bloom`, `text-bloom`, `.eyecatch-bar`, `.eyecatch-edge`,
+   `#6C63FF`, and a 2px `--radius` are pre-**D45**; `bg-accent`-as-the-accent and
+   `data-theme="dark"` are pre-**D41**.
 6. **A score is a `(raw, format)` pair, never a bare number.** The five AniList scales —
    `POINT_100`, `POINT_10_DECIMAL`, `POINT_10`, `POINT_5`, `POINT_3` — are preserved as the
    user rated them; MAL is `POINT_10`. A number without its format is meaningless: `5` could
@@ -67,8 +77,15 @@ These hold in every phase. A violation is a bug regardless of what you were work
 
    The format a user rates in lives on `user.scoreFormat`, written at sign-in and refreshed
    on every list fetch. Read it from the session — never re-derive it per surface (**D32**).
-7. **Comments are ≤280 characters**, at both group and item level. Enforced in three places
-   — the Zod schema, the database column, and the input control. All three, every time.
+7. **Comments are ≤280 characters** — the author's own, at group and item level, *and* a
+   reader's discussion comment (**D44**). Enforced in three places — the Zod schema, the
+   database column, and the input control. All three, every time.
+
+   **Discussion threading is one level deep, enforced in the service, not the UI.** A reply's
+   parent must itself be a root *and* belong to the same list; `createComment` rejects
+   anything else. Deletes remove the subtree explicitly in a transaction — `parentId`
+   deliberately does not cascade, because a self-referential cascade deletes an unbounded
+   number of rows from one statement.
 8. **A recommendation must say something**: at least one score *or* one comment, at group or
    item level. An empty rec is not a recommendation.
 9. **Creating requires a session. Viewing never does.** Every write path checks the session;
@@ -109,6 +126,9 @@ These hold in every phase. A violation is a bug regardless of what you were work
 **Code**
 - TypeScript strict. No `any`, no non-null `!` assertions, no `@ts-ignore`.
 - Server-only modules start with `import "server-only"`.
+- Live-database tests (`*.db.test.ts`) need an explicit per-test timeout — several
+  sequential round-trips to a remote pooler comfortably exceed Bun's 5s default, and the
+  failure looks like a hang rather than latency.
 - Every phase's mechanically-checkable exit criteria become `bun test` cases in that same
   phase. A criterion that could be a test and is left as a manual checklist item will stop
   being checked by phase 3.
@@ -149,6 +169,11 @@ that is its stated trigger, and Phase 1 is exactly the case it exists for.
   `data-theme="night"` are DaisyUI leftovers; `@heroui/*` imports, `isPending`,
   `onPress`, `isDisabled`, and `bg-accent`-as-the-accent are HeroUI leftovers. Two dead
   stacks means two vocabularies that look plausible and render nothing.
+- **`public/tsugi-(次)/` is a reference prototype, not part of the build.** It is a separate
+  Vite/React app generated in AI Studio, kept because **D45** adapted its design and **D44**
+  its comment feature. It is excluded from `tsconfig.json` and `eslint.config.mjs`. Never
+  import from it, and never copy its code directly — it uses localStorage, fake OAuth, and
+  raw hex, all of which violate invariants here.
 - `globals.css` **does** `@import "tailwindcss"` now, and must — nothing else pulls Tailwind
   in since `@heroui/styles` left. Under HeroUI that same import was a double-import bug.
   The file is also the only place the palette exists.
