@@ -169,11 +169,12 @@ that is its stated trigger, and Phase 1 is exactly the case it exists for.
   `data-theme="night"` are DaisyUI leftovers; `@heroui/*` imports, `isPending`,
   `onPress`, `isDisabled`, and `bg-accent`-as-the-accent are HeroUI leftovers. Two dead
   stacks means two vocabularies that look plausible and render nothing.
-- **`public/tsugi-(次)/` is a reference prototype, not part of the build.** It is a separate
-  Vite/React app generated in AI Studio, kept because **D45** adapted its design and **D44**
-  its comment feature. It is excluded from `tsconfig.json` and `eslint.config.mjs`. Never
-  import from it, and never copy its code directly — it uses localStorage, fake OAuth, and
-  raw hex, all of which violate invariants here.
+- **`reference/ai-studio-prototype/` is reference material, not part of the build.** It is a
+  separate Vite/React app generated in AI Studio, kept because **D45** adapted its design and
+  **D44** its comment feature. It is excluded from `tsconfig.json` and `eslint.config.mjs`.
+  Never import from it, and never copy its code directly — it uses localStorage, fake OAuth,
+  and raw hex, all of which violate invariants here. It arrived under `public/`, which Next
+  serves at the site root; it was moved out so a second app's source is not published.
 - `globals.css` **does** `@import "tailwindcss"` now, and must — nothing else pulls Tailwind
   in since `@heroui/styles` left. Under HeroUI that same import was a double-import bug.
   The file is also the only place the palette exists.

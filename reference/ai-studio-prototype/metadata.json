@@ -1,0 +1,6 @@
+{
+  "name": "Tsugi (次)",
+  "description": "Fast anime and manga curation app for building, sharing, and discovering curated lists with rich social previews and community rankings.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
