@@ -8,11 +8,12 @@ within a week, and then there are two.
 
 ## Status
 
-Rewritten 2026-08-17. The rows below describe the app after **D44** (comments) and **D45**
-(the palette replacement) — several entries that used to describe the single-recommendation
-product and the Eyecatch visual system were stale and have been corrected.
+Rewritten 2026-08-17 for **D45** (the palette replacement), which corrected a batch of rows
+still describing the single-recommendation product and the Eyecatch visual system.
+`CommentSection` was added by **D44** and removed the next day by **D46** — do not re-add it
+without reading D46 first.
 
-Twenty-three components built. Everything else is still planned, carried from the phase specs in
+Twenty-two components built. Everything else is still planned, carried from the phase specs in
 `planning/`. **Planned is not built.** Move a row into "Built" only when the component
 exists, is used, and its props are accurate here.
 
@@ -36,11 +37,10 @@ exists, is used, and its props are accurate here.
 | `RecView` | `src/components/RecView.tsx` | `rec: ListView`, `viewerId: string \| null` | `/r/[slug]` | **Async server component.** The artifact card. Loads the discussion server-side via `listComments` + `toWireComments` so the thread is in the first paint and visible to crawlers, and builds the share URL from `NEXT_PUBLIC_APP_URL` (never `window.location`) plus the markdown and card payloads |
 | `ListItemViews` | `src/components/ListItemViews.tsx` | `items: ListView["items"]` | `RecView` | Client component. The ranked / tier / gallery switch. Tier bands come from `tierBandFor()` in `src/lib/score.ts` — never from comparing raw numbers across formats. Unscored items get their own dashed "no score" band rather than being dropped |
 | `SourceLink` | `src/components/SourceLink.tsx` | `provider`, `mediaType`, `externalId`, `className?` | `ListItemViews` | External "View on AniList / MyAnimeList" link |
-| `VotePill` | `src/components/VotePill.tsx` | `score`, `direction`, `onVote`, `disabled?`, `orientation?`, `size?`, `className?` | `VoteButtons`, `CommentSection` | Client component, presentational and fully controlled — it owns no score and makes no request, because its three callers post to different endpoints. Active state is colour **and** `aria-pressed` **and** a thicker icon stroke |
+| `VotePill` | `src/components/VotePill.tsx` | `score`, `direction`, `onVote`, `disabled?`, `orientation?`, `size?`, `className?` | `VoteButtons` | Client component, presentational and fully controlled — it owns no score and makes no request, so a second caller can post to a different endpoint. Kept split from `VoteButtons` for that reason even though comments (**D46**) removed the second caller. Active state is colour **and** `aria-pressed` **and** a thicker icon stroke |
 | `VoteButtons` | `src/components/VoteButtons.tsx` | `slug`, `initialScore`, `orientation?`, `className?` | `FeedList` | Client component. Wraps `VotePill` with the `/api/feed/:slug/vote` call. Direction is optimistic-only — `FeedEntry` carries no "your vote", so this knows only what this browser clicked this page load |
 | `FeedList` | `src/components/FeedList.tsx` | `entries: FeedEntry[]`, `firstSlot: number` | `/feed` | Client component. The stream / compact / grid densities. Density is client state and deliberately **not** a URL param — it is a reading preference, not part of what the page shows, so a shared `/feed` link must not carry it |
 | `DashboardRecList` | `src/components/DashboardRecList.tsx` | `initialRecs: ListView[]` | `/dashboard` | Client component. All/Published/Drafts filter over already-fetched rows, plus per-row publish/unpublish, duplicate, open, and a two-press delete. Duplicate calls `router.refresh()` rather than guessing the server-assigned slug |
-| `CommentSection` | `src/components/CommentSection.tsx` | `slug`, `items: {position,title}[]`, `isSignedIn`, `initialComments: WireComment[]` | `RecView` | Client component (D44). Composer with a 280-char counter, emoji bar, and favourite-pick select; sort pills; one level of replies. `initialComments` is server-rendered, so there is **no fetch-on-mount effect** — every refresh is driven by something the reader did. `WireComment` lives in `src/lib/types/comment.ts` and `toWireComments` in the service, because a `"use client"` module's functions cannot be called from the server |
 | `ShareModal` | `src/components/ShareModal.tsx` | `open`, `onOpenChange`, `url`, `text?`, `markdown?`, `card?` | `ListBuilder`, `ShareListButton` | Client component, `Dialog` + `Tabs`. Bottom sheet under `sm`. Auto-copies on open, with a `role="status"` region that never claims a success it did not have. `markdown` and `card` are optional: `ListBuilder` opens this the moment a list is created, when it has the URL but not the resolved titles, and those tabs only appear once there is something to put in them |
 | `ShareListButton` | `src/components/ShareListButton.tsx` | `url`, `text`, `markdown`, `card` | `RecView` | Client component. The share entry point on `/r/[slug]` — opens `ShareModal` over payloads that were built on the server |
 
@@ -53,8 +53,10 @@ nobody re-adds one that is already here.
 `button` · `card` · `separator` · `popover` · `command` · `dialog` · `radio-group` · `input` ·
 `badge` · `alert` · `label` · `dropdown-menu` · `tabs` · `textarea` · `select`
 
-The last four were added 2026-08-17 for `Header`'s account menu, `ShareModal`'s tabs, and the
-comment composer.
+`dropdown-menu` and `tabs` were added 2026-08-17 for `Header`'s account menu and
+`ShareModal`'s tabs. `textarea` and `select` arrived with the comment composer (**D44**) and
+are currently **unused** after **D46** — leave them; they cost nothing and the next form will
+want them.
 
 `dialog` arrived as a transitive dependency of `command` (`bun x shadcn add command popover`,
 2026-08-15) — now used directly by `ShareModal`.

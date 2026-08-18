@@ -903,10 +903,10 @@ cross-referenced here rather than deleted, so the reasoning that was once true s
 per-user rate limit (**D34**'s pattern) can contain — that would be the first sign the
 excluded comments/moderation costs are showing up anyway.
 
-> **Superseded in part by D44 (2026-08-17):** the "no comments/replies" half of this entry
-> no longer holds. The rest — no following, no profile pages — still does.
+> **Briefly reversed by D44 (2026-08-17), then restored by D46 (2026-08-18).** Comments were
+> built and removed within a day. This entry stands as written.
 
-### D44 — Comments ship, reversing D43's "voting only"
+### D44 — Comments ship, reversing D43's "voting only" *(reversed by D46 — see below)*
 
 The owner asked for the AI Studio prototype's feature set to be adapted wholesale, which
 includes its discussion thread. Asked directly whether that was meant to override D43's
@@ -935,6 +935,43 @@ here), this file's D43 entry (superseded note).
 **Revisit if:** anyone reports a comment they cannot get removed. That is the signal that a
 moderation surface is no longer optional, and it should be built before the next social
 feature rather than after.
+
+> **Reversed by D46 the next day.** The "cost is real and unpaid" paragraph above turned out
+> to be the whole decision, not a caveat to it.
+
+### D46 — Comments removed; D43's exclusion restored
+
+The owner — the project's only developer — read D44's moderation-cost paragraph and asked
+whether comments should be removed entirely. They should, and they were.
+
+**The argument that decided it.** Spam scales with traffic, so "wait until it becomes a
+problem" is a reasonable strategy for spam. It is not a reasonable strategy for the worst
+case: a single bad actor can put illegal content on the domain at zero users, and with no
+admin view and no alerting the owner would learn about it from a takedown notice or a search
+delisting rather than from their own tooling. The risk does not scale with user count, so
+there is no traffic threshold at which it becomes safe to have waited.
+
+Against that, the benefit was zero — the feature had no users, and voting already carries the
+social signal the feed ranks on. D43 designed it that way deliberately.
+
+**Middle options considered and rejected:** list-owner delete rights, per-list opt-in, and
+rejecting URLs in comment bodies would each have shrunk the surface materially. All three
+were real work and ongoing maintenance for a feature nobody was using, and none of them
+reduce the residual risk to zero — the domain still hosts the text either way.
+
+**What was removed.** `CommentSection`, the `/api/lists/:slug/comments` and `/api/comments/*`
+routes, `src/server/services/comments.ts`, its validator, its wire type, `checkCommentLimit`,
+`FeedEntry.commentCount`, and both tables (migration `0005`, which drops them — `0004` stays,
+because an applied migration is never deleted). Both tables were empty; nothing was lost.
+
+**What was deliberately kept**, because it was never comment-specific: the `PATCH`/`DELETE`
+exports on the API route (they fixed a real pre-existing 405 on delete-list, rename-list, and
+username-update), the regex constraint on the tracker importer's route (it fixed a real
+path collision), and `VotePill` (the feed uses it).
+
+**Revisit if:** the product has enough real users that discussion is being asked for, *and*
+there is appetite to build report/block/admin tooling in the same change. Restoring the code
+is a revert of commit `70743c8`, not a rewrite.
 
 ### D45 — The Eyecatch palette is replaced by the prototype's, reversing D37/D41's visual work
 

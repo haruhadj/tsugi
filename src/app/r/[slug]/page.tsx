@@ -68,7 +68,7 @@ export default async function RecommendationPage({ params }: { params: Params })
   return (
     <div className="min-h-screen">
       <Header username={session ? (session.user.username ?? session.user.name) : null} />
-      <RecView rec={rec} viewerId={session?.user.id ?? null} />
+      <RecView rec={rec} />
     </div>
   );
 }

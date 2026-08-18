@@ -3,7 +3,6 @@ import {
   boolean,
   check,
   index,
-  type AnyPgColumn,
   integer,
   jsonb,
   numeric,
@@ -117,72 +116,6 @@ export const listVote = pgTable(
     check("direction_valid", sql`${table.direction} in (1, -1)`),
     unique("vote_per_user_per_list").on(table.listId, table.userId),
     index("list_vote_list_id_idx").on(table.listId),
-  ],
-).enableRLS();
-
-/*
-  Discussion on a published list (D44, which reversed D43's "voting only").
-
-  Threading is one level deep and enforced in the service layer: a reply's parentId
-  must name a comment whose own parentId is null. The column cannot express that, and
-  a deeper tree would need recursive reads and a collapse UI that the product does not
-  have.
-
-  `parentId` deliberately does NOT cascade. A self-referential cascade means deleting
-  one row silently deletes an unbounded subtree, so deleteComment removes replies
-  explicitly, in a transaction, where the count is knowable.
-*/
-export const listComment = pgTable(
-  "list_comment",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    listId: uuid("list_id")
-      .notNull()
-      .references(() => list.id, { onDelete: "cascade" }),
-    authorId: text("author_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    parentId: uuid("parent_id").references((): AnyPgColumn => listComment.id),
-    // 280 everywhere a comment exists — invariant 7. Mirrored in the Zod schema
-    // (src/lib/validators/comment.ts) and in the composer's counter.
-    content: varchar("content", { length: 280 }).notNull(),
-    /*
-      The commenter's pick from the list, as the item's `position` rather than its
-      row id: invariant 1 forbids a database id in an API response, and position is
-      already public — it is the slot number rendered beside every title. Validated
-      against the list's own items on insert, and resolved back to a title on read.
-    */
-    favoritePosition: integer("favorite_position"),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-  },
-  (table) => [
-    index("list_comment_list_id_created_at_idx").on(table.listId, table.createdAt),
-    index("list_comment_parent_id_idx").on(table.parentId),
-  ],
-).enableRLS();
-
-export const listCommentVote = pgTable(
-  "list_comment_vote",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    commentId: uuid("comment_id")
-      .notNull()
-      .references(() => listComment.id, { onDelete: "cascade" }),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    // Same contract as listVote: 1 or -1, and un-voting deletes the row.
-    direction: smallint("direction").notNull(),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at")
-      .notNull()
-      .defaultNow()
-      .$onUpdate(() => /* @__PURE__ */ new Date()),
-  },
-  (table) => [
-    check("comment_direction_valid", sql`${table.direction} in (1, -1)`),
-    unique("vote_per_user_per_comment").on(table.commentId, table.userId),
-    index("list_comment_vote_comment_id_idx").on(table.commentId),
   ],
 ).enableRLS();
 

@@ -1,11 +1,9 @@
 import { EyeIcon } from "lucide-react";
-import { CommentSection } from "@/components/CommentSection";
 import { ListItemViews } from "@/components/ListItemViews";
 import { ShareListButton } from "@/components/ShareListButton";
 import type { SocialCardInput } from "@/lib/canvasExport";
 import { getEnv } from "@/lib/env";
 import { buildMarkdownExport } from "@/lib/markdown";
-import { listComments, toWireComments } from "@/server/services/comments";
 import type { ListView } from "@/server/services/lists";
 
 /**
@@ -13,22 +11,10 @@ import type { ListView } from "@/server/services/lists";
  * that gets the full card treatment. The feed deliberately runs quieter so that
  * arriving here feels like arriving somewhere.
  *
- * The header is a Server Component; only the item layouts below it need client state
- * (the ranked/tier/gallery switch), so that is where the boundary sits.
+ * A Server Component; only the item layouts below it need client state (the
+ * ranked/tier/gallery switch) and the share modal, so that is where the boundary sits.
  */
-export async function RecView({
-  rec,
-  viewerId,
-}: {
-  rec: ListView;
-  viewerId: string | null;
-}) {
-  // Loaded here rather than fetched on mount, so the discussion is in the first
-  // paint's HTML and is visible to crawlers along with the list itself.
-  const comments = rec.published
-    ? toWireComments((await listComments(rec.slug, viewerId, "top")) ?? [])
-    : [];
-
+export function RecView({ rec }: { rec: ListView }) {
   // Built server-side from NEXT_PUBLIC_APP_URL rather than window.location, so the
   // shared link is the canonical one no matter what host served the page.
   const shareUrl = `${getEnv().NEXT_PUBLIC_APP_URL}/r/${rec.slug}`;
@@ -103,19 +89,6 @@ export async function RecView({
           </header>
 
           <ListItemViews items={rec.items} />
-
-          {/*
-            Discussion only exists once a list is public. On a draft the owner is the
-            only possible reader, so a comment box there would be talking to nobody.
-          */}
-          {rec.published && (
-            <CommentSection
-              slug={rec.slug}
-              items={rec.items.map((item) => ({ position: item.position, title: item.title }))}
-              isSignedIn={viewerId !== null}
-              initialComments={comments}
-            />
-          )}
         </div>
       </article>
     </main>

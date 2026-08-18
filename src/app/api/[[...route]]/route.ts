@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import { handle } from "hono/vercel";
 import { auth } from "@/lib/auth";
-import { commentsRouter } from "@/server/hono/comments";
 import { feedRouter } from "@/server/hono/feed";
 import { trackerListsRouter } from "@/server/hono/trackerLists";
 import { userListsRouter } from "@/server/hono/userLists";
@@ -16,7 +15,6 @@ app.on(["POST", "GET"], "/auth/*", (c) => auth.handler(c.req.raw));
 app.route("/", trackerListsRouter);
 app.route("/", userListsRouter);
 app.route("/", feedRouter);
-app.route("/", commentsRouter);
 app.route("/", userRouter);
 
 /*

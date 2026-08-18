@@ -77,15 +77,14 @@ These hold in every phase. A violation is a bug regardless of what you were work
 
    The format a user rates in lives on `user.scoreFormat`, written at sign-in and refreshed
    on every list fetch. Read it from the session — never re-derive it per surface (**D32**).
-7. **Comments are ≤280 characters** — the author's own, at group and item level, *and* a
-   reader's discussion comment (**D44**). Enforced in three places — the Zod schema, the
-   database column, and the input control. All three, every time.
+7. **Comments are ≤280 characters**, at both group and item level. Enforced in three places
+   — the Zod schema, the database column, and the input control. All three, every time.
 
-   **Discussion threading is one level deep, enforced in the service, not the UI.** A reply's
-   parent must itself be a root *and* belong to the same list; `createComment` rejects
-   anything else. Deletes remove the subtree explicitly in a transaction — `parentId`
-   deliberately does not cascade, because a self-referential cascade deletes an unbounded
-   number of rows from one statement.
+   These are the **author's own** notes on their own list. There is no reader-facing comment
+   or reply surface, and adding one needs a new decision entry with the moderation cost
+   written down first — free-text discussion was built and removed inside a day (**D44**,
+   reversed by **D46**), so a future session finding traces of it in git history should read
+   D46 before reviving any of it.
 8. **A recommendation must say something**: at least one score *or* one comment, at group or
    item level. An empty rec is not a recommendation.
 9. **Creating requires a session. Viewing never does.** Every write path checks the session;
