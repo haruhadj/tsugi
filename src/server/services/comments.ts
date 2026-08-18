@@ -3,6 +3,7 @@ import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { list, listComment, listCommentVote, listItem } from "@/db/schema";
 import { user } from "@/db/auth-schema";
+import type { WireComment } from "@/lib/types/comment";
 import type { CreateCommentInput, CommentSort } from "@/lib/validators/comment";
 
 export type CommentView = {
@@ -287,3 +288,16 @@ export async function toggleCommentVote(
   });
 }
 
+/**
+ * Maps service rows to the shape the client works with — Dates become ISO strings so
+ * the server-rendered first paint and the JSON refresh path agree. Lives here rather
+ * than beside the component because a "use client" module's functions cannot be
+ * called from the server.
+ */
+export function toWireComments(comments: CommentView[]): WireComment[] {
+  return comments.map((comment) => ({
+    ...comment,
+    createdAt: comment.createdAt.toISOString(),
+    replies: toWireComments(comment.replies),
+  }));
+}

@@ -1,7 +1,11 @@
 import { EyeIcon } from "lucide-react";
-import { CommentSection, toWireComments } from "@/components/CommentSection";
+import { CommentSection } from "@/components/CommentSection";
 import { ListItemViews } from "@/components/ListItemViews";
-import { listComments } from "@/server/services/comments";
+import { ShareListButton } from "@/components/ShareListButton";
+import type { SocialCardInput } from "@/lib/canvasExport";
+import { getEnv } from "@/lib/env";
+import { buildMarkdownExport } from "@/lib/markdown";
+import { listComments, toWireComments } from "@/server/services/comments";
 import type { ListView } from "@/server/services/lists";
 
 /**
@@ -24,6 +28,24 @@ export async function RecView({
   const comments = rec.published
     ? toWireComments((await listComments(rec.slug, viewerId, "top")) ?? [])
     : [];
+
+  // Built server-side from NEXT_PUBLIC_APP_URL rather than window.location, so the
+  // shared link is the canonical one no matter what host served the page.
+  const shareUrl = `${getEnv().NEXT_PUBLIC_APP_URL}/r/${rec.slug}`;
+  const markdown = buildMarkdownExport({
+    name: rec.name,
+    caption: rec.caption,
+    comment: rec.comment,
+    url: shareUrl,
+    items: rec.items,
+  });
+  const card: SocialCardInput = {
+    title: rec.caption ?? rec.name,
+    subtitle: rec.caption ? rec.name : null,
+    comment: rec.comment,
+    itemCount: rec.items.length,
+    items: rec.items.map((item) => ({ title: item.title, coverImage: item.coverImage })),
+  };
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10 sm:py-16">
@@ -54,20 +76,29 @@ export async function RecView({
               </p>
             )}
 
-            <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-1.5">
-                <EyeIcon className="size-3.5" aria-hidden />
-                {rec.views.toLocaleString()} {rec.views === 1 ? "view" : "views"}
-              </span>
-              {rec.publishedAt && (
-                <time dateTime={rec.publishedAt.toISOString()}>
-                  {rec.publishedAt.toLocaleDateString(undefined, {
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </time>
-              )}
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5">
+                  <EyeIcon className="size-3.5" aria-hidden />
+                  {rec.views.toLocaleString()} {rec.views === 1 ? "view" : "views"}
+                </span>
+                {rec.publishedAt && (
+                  <time dateTime={rec.publishedAt.toISOString()}>
+                    {rec.publishedAt.toLocaleDateString(undefined, {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </time>
+                )}
+              </div>
+
+              <ShareListButton
+                url={shareUrl}
+                text={rec.caption ?? rec.name}
+                markdown={markdown}
+                card={card}
+              />
             </div>
           </header>
 

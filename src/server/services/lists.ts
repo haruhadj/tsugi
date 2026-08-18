@@ -531,7 +531,13 @@ export async function listPublishedFeed(params: {
   category?: string;
 }): Promise<FeedEntry[]> {
   const { page, pageSize, sort, category } = params;
-  const scoreExpr = sql<number>`coalesce(sum(${listVote.direction}), 0)`;
+  /*
+    Every aggregate here is cast to int. Postgres returns count() as bigint and sum()
+    as numeric, both of which postgres.js hands back as *strings* to avoid precision
+    loss — so without the cast these arrive typed `number` but valued "3", and every
+    `=== 1` comparison downstream silently fails.
+  */
+  const scoreExpr = sql<number>`coalesce(sum(${listVote.direction}), 0)::int`;
   /*
     Counted as a correlated subquery rather than a second leftJoin: joining both
     list_vote and list_item against list multiplies their rows together, and every
@@ -539,10 +545,10 @@ export async function listPublishedFeed(params: {
     report 12 of each).
   */
   const itemCountExpr = sql<number>`(
-    select count(*) from ${listItem} where ${listItem.listId} = ${list.id}
+    select count(*)::int from ${listItem} where ${listItem.listId} = ${list.id}
   )`;
   const commentCountExpr = sql<number>`(
-    select count(*) from ${listComment} where ${listComment.listId} = ${list.id}
+    select count(*)::int from ${listComment} where ${listComment.listId} = ${list.id}
   )`;
   const whereExpr = category
     ? and(eq(list.published, true), eq(list.name, category))

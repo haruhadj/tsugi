@@ -1,154 +1,146 @@
-<project_spec name="Tsugi (次)">
+<project_spec name="Tsugi (次)" status="current" last_updated="2026-08-17">
+  <!--
+    HISTORY: this file began as the original client brief (2026-08-09). It was rewritten on
+    2026-08-17 to describe the project as it actually is. The brief's factual claims were by
+    then wrong in almost every particular — DaisyUI, `@vercel/og`, `tailwind.config.ts`, a
+    single-item `recommendation` table, IP-keyed rate limiting, GitHub OAuth, an Edge-runtime
+    OG route. The reasoning behind each departure is preserved in `context/progress-tracker.md`'s
+    decision log (D1–D43); nothing was deleted there.
+
+    This file is a SUMMARY. `context/progress-tracker.md` and `context/planning/PHASE-N.md`
+    remain authoritative. When they disagree with this file, they win.
+  -->
+
   <overview>
-    Tsugi (次) is a fast, ultra-modern, edge-ready anime and manga recommendation app built for speed.
-    The primary goal is to let users generate and share a recommendation link in under 10 seconds without unnecessary friction.
+    Tsugi (次) is a fast, edge-ready anime and manga app for building and sharing curated
+    lists. A signed-in user creates a named, categorised list of titles — searched from a
+    provider or imported from their own AniList/MAL library — scores and comments them, and
+    publishes a shareable link with a rich social preview. Anyone can open that link; only
+    creating needs an account (D23). Published lists also appear on a public, vote-ranked
+    feed at `/feed` (D43).
   </overview>
 
   <core_mission>
-    <principle>Zero-friction creation: Minimal clicks to go from search -> selection -> share link.</principle>
-    <principle>Instant sharing: Auto-copy share link to clipboard upon creation with ready-to-share social buttons (Twitter/X, Discord, WhatsApp).</principle>
-    <principle>Rich previews: Every generated link (e.g. tsugi.app/r/a9Xk2L8q) MUST render a stunning social image preview (@vercel/og) when posted anywhere online.</principle>
+    <principle>Zero-friction creation: landing to link-on-clipboard in under 10 seconds.</principle>
+    <principle>Instant sharing: auto-copied share link with one-click X / Discord / WhatsApp buttons.</principle>
+    <principle>Rich previews: every `/r/[slug]` link renders a 1200x630 social card via `next/og`.</principle>
+    <principle>Public discovery: `/feed` ranks published lists by live upvote/downvote score, filterable by category.</principle>
   </core_mission>
 
-  <tech_stack>
+  <product_shape>
+    <!-- The pivot: D26 (1..N items per rec), then D43 (named lists, feed, voting, usernames). -->
+    <entity name="list">Slug-addressed, user-owned, named (category, e.g. "Romance"), optional caption + comment (≤280), draft or published, view-counted.</entity>
+    <entity name="listItem">Ordered by explicit `position`. Identified by the triple `(provider, mediaType, externalId)`. Optional score and optional ≤280-char comment.</entity>
+    <entity name="listVote">One vote per user per list; drives feed ranking. Rate-limited per user.</entity>
+    <entity name="listCache">Per-user cached tracker-library fetch. Cache-once-then-explicit-refresh (`?refresh=1`), with stale fallback on provider failure.</entity>
+    <entity name="user">Better-Auth user plus `username` (defaulted at signup, editable in Settings) and `scoreFormat` (D32).</entity>
+    <excluded>No comments/replies, no following, no per-user profile pages, no editing history, no analytics (see `functionality.md`).</excluded>
+  </product_shape>
+
+  <tech_stack verified="2026-08-17">
     <package_manager>Bun</package_manager>
-    <framework>Next.js 14+ (App Router, React)</framework>
-    <styling>Tailwind CSS + DaisyUI</styling>
-    <api_layer>Hono.js mounted at `/api/[[...route]]`</api_layer>
+    <framework>Next.js 16.3.0 (App Router, React 19.2.8, Turbopack default)</framework>
+    <styling>Tailwind CSS 4.3.3 (CSS-configured — there is NO `tailwind.config.ts`) + shadcn/ui on Radix (D41). Custom "Eyecatch" palette authored once in `src/app/globals.css`.</styling>
+    <api_layer>Hono 4.13.1 mounted at `/api/[[...route]]`</api_layer>
     <database>
-      <provider>Supabase PostgreSQL (Transaction Pooler port 6543)</provider>
-      <orm>Drizzle ORM</orm>
+      <provider>Supabase PostgreSQL 17.6, `ap-southeast-2`, Transaction Pooler (`prepare: false`, D8)</provider>
+      <orm>Drizzle ORM 0.45.2 / drizzle-kit 0.31.10 — migrations only, never DDL via MCP (D19)</orm>
+      <security>RLS enabled on every table, from the first migration (D20)</security>
     </database>
-    <authentication>Better-Auth with GitHub OAuth &amp; Drizzle Adapter</authentication>
-    <validation>Zod with `@hono/zod-validator`</validation>
+    <authentication>Better-Auth 1.6.26 mounted inside Hono (D6). `genericOAuth` for AniList and MAL (MAL needs custom PKCE token exchange, D30). Google deferred. GitHub OAuth was never built.</authentication>
+    <validation>Zod 4.4.3 with `@hono/zod-validator` 0.9.0 at every boundary</validation>
     <data_providers>
-      <primary>AniList GraphQL API</primary>
-      <fallback>MyAnimeList (Jikan REST API v4)</fallback>
+      <tier1>AniList GraphQL (id space `anilist`)</tier1>
+      <tier2>MyAnimeList — Jikan REST v4 and official MAL API v2, both id space `mal`</tier2>
+      <note>No cross-provider fallback: the id spaces are disjoint (D15, D29).</note>
     </data_providers>
     <infrastructure>
-      <hosting>Vercel</hosting>
-      <rate_limiting>Upstash Redis (`@upstash/ratelimit`)</rate_limiting>
-      <social_cards>`@vercel/og`</social_cards>
-      <ci_cd>GitHub Actions</ci_cd>
+      <hosting>Vercel — `https://tsugi-lyart.vercel.app`. Node runtime everywhere the DB is touched (D21).</hosting>
+      <rate_limiting>Upstash Redis `fit-hyena-107044.upstash.io` (`@upstash/ratelimit` 2.0.8). Create limiter keys on the user, not the IP (D34).</rate_limiting>
+      <social_cards>`next/og` — `@vercel/og` is NOT a dependency (D5)</social_cards>
+      <ci_cd>GitHub Actions: `tsc --noEmit` → `eslint .` → `bun test --conditions=react-server`</ci_cd>
     </infrastructure>
+    <other>nanoid 6 (12-char slugs, collision retry, D11), cmdk 1.1.1 (combobox, D42), lucide-react, class-variance-authority, tailwind-merge</other>
   </tech_stack>
 
   <directory_structure>
     <![CDATA[
 tsugi/
-├── .github/
-│   └── workflows/
-│       └── ci.yml
+├── .github/workflows/ci.yml
+├── context/                       # AGENTS.md-indexed context set (authoritative)
+│   ├── progress-tracker.md        # phases, decision log D1–D43, session log
+│   ├── planning/PHASE-0..8.md, PLAN.md
+│   ├── architecture.md, functionality.md, tech-stack.md, code-standards.md
+│   ├── ui-registry.md, ui-tokens.md, ui-rules.md, user-flow.md
+│   └── ai-prompt.xml              # this file
 ├── src/
 │   ├── app/
-│   │   ├── (auth)/
-│   │   ├── (dashboard)/
-│   │   ├── api/
-│   │   │   └── [[...route]]/
-│   │   │       └── route.ts
-│   │   ├── r/
-│   │   │   └── [slug]/
-│   │   │       ├── page.tsx
-│   │   │       └── opengraph-image.tsx
+│   │   ├── (auth)/sign-in/page.tsx
+│   │   ├── (dashboard)/dashboard/page.tsx
+│   │   ├── (settings)/settings/page.tsx
+│   │   ├── api/[[...route]]/route.ts
+│   │   ├── feed/page.tsx
+│   │   ├── r/[slug]/{page.tsx,opengraph-image.tsx}
+│   │   ├── globals.css            # the entire palette lives here, and only here
 │   │   ├── layout.tsx
 │   │   └── page.tsx
-│   ├── db/
-│   │   ├── index.ts
-│   │   └── schema.ts
-│   ├── lib/
-│   │   ├── auth.ts
-│   │   ├── types/
-│   │   │   └── media.ts
-│   │   └── validators/
-│   │       └── rec.ts
+│   ├── db/{index.ts,schema.ts,auth-schema.ts,enums.ts,schema.db.test.ts}
+│   ├── lib/{auth.ts,auth-client.ts,env.ts,score.ts,share.ts,pkce.ts,og-fonts.ts,
+│   │        source-url.ts,synthesize-tracker-email.ts,utils.ts,
+│   │        types/media.ts, validators/{list.ts,username.ts}}
 │   ├── server/
-│   │   ├── hono/
-│   │   │   └── middleware.ts
-│   │   └── services/
-│   │       └── media.ts
+│   │   ├── hono/{middleware.ts,feed.ts,userLists.ts,trackerLists.ts,users.ts}
+│   │   └── services/{media.ts,media-cache.ts,lists/{anilist.ts,mal.ts,tokens.ts}}
 │   └── components/
-│       ├── QuickRecForm.tsx
-│       ├── ShareModal.tsx
-│       └── MediaSearchInput.tsx
+│       ├── ui/                    # shadcn source — ours, edited in place
+│       ├── ListBuilder.tsx, ItemTray.tsx, MediaSearchInput.tsx, MyListPicker.tsx
+│       ├── RecView.tsx, VoteButtons.tsx, ScoreInput.tsx, ScoreBadge.tsx
+│       ├── DashboardRecList.tsx, ShareModal.tsx, ProviderConnections.tsx
+│       └── SignInButtons.tsx, UsernameField.tsx, MediaCover.tsx, SourceLink.tsx, Wordmark.tsx
 ├── drizzle.config.ts
-├── tailwind.config.ts
 ├── next.config.mjs
-├── bun.lockb
 └── package.json
     ]]>
   </directory_structure>
 
-  <requirements>
-    <requirement id="1">
-      <title>Quick-Share UX &amp; DaisyUI Components</title>
-      <description>
-        Design the homepage (`src/app/page.tsx`) around a lightning-fast recommendation flow:
-        1. Instant live search input for Anime/Manga.
-        2. Quick score picker (1-10 rating badges) and an optional 280-char comment field.
-        3. One-click "Generate Share Link" action that instantly pops up a DaisyUI modal containing the unique URL, a "Copy Link" button, and 1-click share buttons for Twitter/X and WhatsApp.
-      </description>
-    </requirement>
+  <api_surface>
+    <route method="POST"   path="/api/lists">Create a list (Zod-validated, user-keyed rate limit)</route>
+    <route method="GET"    path="/api/lists">List the session user's lists</route>
+    <route method="GET"    path="/api/lists/:slug">Read one owned list</route>
+    <route method="PATCH"  path="/api/lists/:slug">Rename</route>
+    <route method="POST"   path="/api/lists/:slug/publish">Publish to the feed</route>
+    <route method="POST"   path="/api/lists/:slug/unpublish">Return to draft</route>
+    <route method="DELETE" path="/api/lists/:slug">Delete</route>
+    <route method="GET"    path="/api/lists/:provider/:mediaType">Import the user's tracker library (cached; `?refresh=1` forces re-fetch)</route>
+    <route method="GET"    path="/api/feed">Published lists, vote-ranked, paginated, category-filterable</route>
+    <route method="GET"    path="/api/feed/categories">Category discovery for the filter chips</route>
+    <route method="POST"   path="/api/feed/:slug/vote">Up/down vote (per-user rate limited)</route>
+    <route method="*"      path="/api/auth/**">Better-Auth, mounted inside Hono</route>
+  </api_surface>
 
-    <requirement id="2">
-      <title>Styling &amp; Aesthetic</title>
-      <description>
-        Install and configure `daisyui` plugin in `tailwind.config.ts`.
-        Use dark mode DaisyUI themes (`dark`, `night`, or `dim`) with vibrant accent colors for high visual punch.
-      </description>
-    </requirement>
+  <current_state date="2026-08-17">
+    <phase id="0" status="complete">Foundation &amp; CI — 2026-08-10</phase>
+    <phase id="1" status="complete">Data layer — 2026-08-10 (criterion 25 unverified)</phase>
+    <phase id="2" status="closed">Authentication — 11/14 verified; Google deferred</phase>
+    <phase id="3" status="closed">Media providers — 14/14</phase>
+    <phase id="4" status="closed">API surface — 25/26</phase>
+    <phase id="5" status="closed">Create &amp; share UX — 27/31, 1 accepted open</phase>
+    <phase id="6" status="closed">Public page &amp; OG cards — 22/25, deployed to Vercel</phase>
+    <phase id="7" status="in_progress">List import — code complete and unit-tested; criteria 1–8 need a real linked account, criterion 12 needs a live stopwatch pass</phase>
+    <phase id="8" status="implementation_complete">Dashboard — `/dashboard`, list CRUD, provider unlink with last-provider guard</phase>
+    <phase id="9" status="unplanned">The custom-lists pivot (D43) — feed, voting, categories, usernames, ListBuilder two-column layout — shipped ahead of a written phase spec. `PLAN.md`'s phase map still ends at 8; a PHASE-9 spec is the outstanding planning debt.</phase>
+    <blocked_on>
+      Live browser/OAuth verification by a human (Phase 7 criteria 1–8 and 12, Phase 8 criteria
+      2/4/12/13, Phase 6 criterion 13's real Discord/X unfurl). No code is blocked.
+    </blocked_on>
+  </current_state>
 
-    <requirement id="3">
-      <title>Database Schema (Drizzle ORM)</title>
-      <description>
-        Define schema in `src/db/schema.ts` including Better-Auth tables (`user`, `session`, `account`, `verification`) 
-        and the `recommendation` table with fields: `id`, `slug` (varchar 12, unique), `title`, `mediaType` (enum: anime/manga), 
-        `externalId`, `coverImage`, `score` (integer), `comment`, `views` (integer default 0), `userId` (nullable foreign key), `createdAt`.
-      </description>
-    </requirement>
-
-    <requirement id="4">
-      <title>Dual Search Media Service</title>
-      <description>
-        Implement `src/server/services/media.ts` with a unified return type `UnifiedMediaResult`.
-        Allow searching via AniList GraphQL (primary) and Jikan REST API (fallback). Include auto-fallback handling if the primary provider throws an error.
-      </description>
-    </requirement>
-
-    <requirement id="5">
-      <title>Hono API &amp; Upstash Rate Limiting</title>
-      <description>
-        Mount Hono at `src/app/api/[[...route]]/route.ts`.
-        Implement Upstash Redis rate-limiting middleware in `src/server/hono/middleware.ts` restricting POST requests on `/api/recs` to 5 requests per minute per IP.
-        Handle creation of recommendations with Nanoid slug generation and retrieval of recommendations by slug (incrementing view count).
-      </description>
-    </requirement>
-
-    <requirement id="6">
-      <title>Dynamic OG Social Cards</title>
-      <description>
-        Implement `src/app/r/[slug]/opengraph-image.tsx` using `@vercel/og` with Edge runtime.
-        Generate a 1200x630 PNG displaying the media cover image, title, media type, score, user review quote, and Tsugi branding.
-      </description>
-    </requirement>
-
-    <requirement id="7">
-      <title>GitHub Actions CI/CD Pipeline</title>
-      <description>
-        Create `.github/workflows/ci.yml` using `oven-sh/setup-bun` action to run linting and TypeScript compilation (`bun x tsc --noEmit`) on every push/PR to main.
-      </description>
-    </requirement>
-  </requirements>
-
-  <execution_instructions>
-    1. Initialize the project dependencies:
-       `bun add hono @hono/zod-validator better-auth drizzle-orm postgres zod nanoid @vercel/og @upstash/ratelimit @upstash/redis`
-       `bun add -d daisyui@latest drizzle-kit typescript @types/node`
-    2. Configure `tailwind.config.ts` to include `require('daisyui')` in plugins and select dark themes (`night`/`dim`).
-    3. Create `src/db/schema.ts` and `src/db/index.ts` configured for Supabase Transaction Pooler.
-    4. Build `src/lib/types/media.ts` and `src/server/services/media.ts` for dual-provider searching.
-    5. Set up `src/server/hono/middleware.ts` and the main Hono catch-all route handler.
-    6. Build the dynamic OG image generator (`src/app/r/[slug]/opengraph-image.tsx`) and public recommendation view page (`src/app/r/[slug]/page.tsx`).
-    7. Build the fast creation flow (`src/components/QuickRecForm.tsx` &amp; `src/components/ShareModal.tsx`).
-    8. Ensure clean type safety, zero ESLint errors, and full TypeScript compliance.
-  </execution_instructions>
+  <working_rules>
+    Read `AGENTS.md` first — it holds the 15 invariants, the process/code/UI rules, and the
+    session workflow, and they override anything summarised here. In particular: slugs are the
+    only public identifier; media identity is `(provider, mediaType, externalId)`; the ORM never
+    leaves the server; every visual value is a shadcn semantic token; a score is a
+    `(raw, format)` pair and `0` means unrated; provider tokens never reach the client; and
+    every phase ends with `context/` updated.
+  </working_rules>
 </project_spec>

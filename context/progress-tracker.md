@@ -903,6 +903,66 @@ cross-referenced here rather than deleted, so the reasoning that was once true s
 per-user rate limit (**D34**'s pattern) can contain — that would be the first sign the
 excluded comments/moderation costs are showing up anyway.
 
+> **Superseded in part by D44 (2026-08-17):** the "no comments/replies" half of this entry
+> no longer holds. The rest — no following, no profile pages — still does.
+
+### D44 — Comments ship, reversing D43's "voting only"
+
+The owner asked for the AI Studio prototype's feature set to be adapted wholesale, which
+includes its discussion thread. Asked directly whether that was meant to override D43's
+explicit "no free-text social surface", they confirmed it was.
+
+**What shipped.** `list_comment` and `list_comment_vote` (both RLS-enabled), a
+`/api/lists/:slug/comments` + `/api/comments/:id` surface, and `CommentSection` on
+`/r/[slug]`. One level of threading, upvote/downvote per comment, a Curator badge for the
+list's owner, and an optional "favourite pick" tagging one of the list's titles.
+
+**What the shape protects.** Threading is capped at one level in the service layer, not just
+the UI: a reply's parent must itself be a root *and* belong to the same list. Depth is what
+turns a comment box into a forum, and an uncapped tree would need recursive reads and a
+collapse UI this product has no room for. Deletes are author-only and remove the subtree
+explicitly in a transaction rather than via a self-referential cascade, so a delete can never
+take an unbounded number of rows with it. Creates run through `checkCommentLimit`, the same
+per-user limiter pattern as votes and list creation.
+
+**The cost D43 was avoiding is now real and unpaid:** there is no moderation surface — no
+report, no block, no admin view, no soft-delete. A comment can only be removed by its author.
+That is acceptable at zero users and is the first thing that will hurt.
+
+**Propagated through:** `functionality.md` (Out of scope table — the comments row now points
+here), this file's D43 entry (superseded note).
+
+**Revisit if:** anyone reports a comment they cannot get removed. That is the signal that a
+moderation surface is no longer optional, and it should be built before the next social
+feature rather than after.
+
+### D45 — The Eyecatch palette is replaced by the prototype's, reversing D37/D41's visual work
+
+The owner generated a full-app prototype in Google AI Studio and asked for it to be adapted
+"exactly", confirming when asked that this meant the look as well as the layouts — the
+zinc/rose palette, large radii, card-based rows, and colour-coded score tiers, in place of the
+violet "Eyecatch" system.
+
+**What changed.** `globals.css` is rewritten: zinc surfaces, `primary` is rose, a new amber
+`highlight`, a `score-*` ramp, `upvote`/`downvote`, provider brand colours, and `success`.
+`--radius` goes from 2px to 12px. `bloom` and the `.eyecatch-bar`/`.eyecatch-edge` utilities
+are gone, along with the "one cyan thing per screen" rule they existed to serve.
+
+**What did not change, and must not.** Invariant 5's *mechanism* survives intact: every value
+is still authored once in `globals.css` and consumed as a token, never inlined. Only the
+values moved. The OG card's hardcoded hex block remains the single sanctioned exception, and
+`src/lib/canvasExport.ts` now carries a second copy of it for the same reason (Satori and
+canvas both need literal colours) — those two and `globals.css` have to be changed together.
+
+**Cost accepted.** Several documented decisions now describe a system that no longer exists;
+`ui-tokens.md` and `ui-rules.md` were rewritten, but D37 and D41 are left standing as history.
+The "rundown = hairline rows, not cards" rule is retired outright — the feed and dashboard are
+card-based now, matching the prototype.
+
+**Revisit if:** the score-tier colours prove unreadable for colour-blind readers. They are
+decorative today — every badge also spells out its value and scale — but the tier view leans
+on them harder than the badges do.
+
 **Revisit if:** `cmdk`'s bundle weight measurably fails Phase 5's interaction-latency
 criterion, or a future Radix release ships a native combobox and removes the need for a
 second listbox implementation.

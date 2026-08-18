@@ -1,0 +1,174 @@
+<project_spec name="Tsugi (次)">
+  <!--
+    Self-contained build specification. Everything needed to build this project is in this
+    file; it references no other document, repository, or conversation.
+  -->
+
+  <overview>
+    Tsugi (次) is a fast, edge-ready web app for building and sharing curated anime and manga
+    lists. A signed-in user creates a named, categorised list of titles — found by searching a
+    provider or imported from their own AniList/MyAnimeList library — scores and comments on
+    them, and publishes a shareable link with a rich social preview. Anyone can open a
+    published link; only creating requires an account. Published lists also appear on a
+    public feed ranked by upvote/downvote score and filterable by category.
+  </overview>
+
+  <goals>
+    <goal>Zero-friction creation: from landing page to a share link on the clipboard in under 10 seconds.</goal>
+    <goal>Instant sharing: the link is auto-copied on publish, with one-click share buttons for X, Discord, and WhatsApp.</goal>
+    <goal>Rich previews: every public list URL renders a 1200x630 social card when pasted anywhere online.</goal>
+    <goal>Public discovery: a feed of published lists, vote-ranked and category-filterable.</goal>
+  </goals>
+
+  <out_of_scope>
+    <item>Comments and replies on lists — voting is the only social signal.</item>
+    <item>Following, friend graphs, notifications.</item>
+    <item>Per-user profile pages beyond a username shown on a feed entry.</item>
+    <item>Analytics dashboards, editing history, moderation tooling.</item>
+  </out_of_scope>
+
+  <tech_stack>
+    <package_manager>Bun</package_manager>
+    <framework>Next.js 16 (App Router, React 19, Turbopack)</framework>
+    <styling>Tailwind CSS 4 — configured in CSS, with no `tailwind.config.ts` — plus shadcn/ui components on Radix primitives</styling>
+    <api_layer>Hono, mounted as a catch-all at `/api/[[...route]]`</api_layer>
+    <database>PostgreSQL (Supabase), Drizzle ORM and drizzle-kit migrations, transaction pooler with prepared statements disabled</database>
+    <authentication>Better-Auth, mounted inside the Hono app, with OAuth against AniList and MyAnimeList</authentication>
+    <validation>Zod, applied at every API boundary via `@hono/zod-validator`</validation>
+    <data_providers>AniList GraphQL API; MyAnimeList via the Jikan REST API and the official MAL API v2</data_providers>
+    <social_cards>`next/og` (not `@vercel/og`)</social_cards>
+    <rate_limiting>Upstash Redis with `@upstash/ratelimit`</rate_limiting>
+    <ids>nanoid — 12-character public slugs</ids>
+    <hosting>Vercel</hosting>
+    <ci>GitHub Actions running, in order: `tsc --noEmit`, `eslint .`, `bun test --conditions=react-server`</ci>
+  </tech_stack>
+
+  <data_model>
+    <table name="user">
+      Better-Auth user fields, plus `username` (assigned a default at signup, editable in
+      settings, unique) and `scoreFormat` (the scale the user rates on, captured at sign-in
+      and refreshed whenever their tracker library is fetched).
+    </table>
+    <table name="session">Better-Auth sessions.</table>
+    <table name="account">
+      Better-Auth OAuth accounts, holding provider access and refresh tokens. Server-read only.
+    </table>
+    <table name="verification">Better-Auth verification tokens.</table>
+
+    <table name="list">
+      `id` (uuid), `slug` (varchar 12, unique — the only public identifier), `name`
+      (varchar 80, required — the user-chosen category, e.g. "Romance"), `caption`
+      (varchar 120, optional), `comment` (varchar 280, optional), `views` (integer, default 0),
+      `published` (boolean, default false), `publishedAt` (timestamp, nullable), `userId`
+      (not null, FK to user), `createdAt`. Indexed on `userId` and on `(published, publishedAt)`.
+    </table>
+
+    <table name="listItem">
+      `id`, `listId` (FK, cascade delete), `position` (integer — explicit ordering, never rely
+      on insertion order), `provider` (enum: anilist | mal), `mediaType` (enum: anime | manga),
+      `externalId`, `title`, `coverImage`, `score` (nullable), `scoreFormat` (nullable),
+      `comment` (varchar 280, nullable).
+    </table>
+
+    <table name="listVote">
+      `userId` + `listId` unique together, `value` (+1 or -1), `createdAt`. One vote per user
+      per list; changing a vote updates the row.
+    </table>
+
+    <table name="listCache">
+      Per-user cached copy of a fetched tracker library, keyed by `(userId, provider, mediaType)`,
+      storing the entries as JSON with a fetch timestamp.
+    </table>
+
+    <rule>Enable row-level security on every table. The database is exposed through a public
+    REST endpoint by default; a table without RLS is a writable public API that bypasses all
+    validation, rate limiting, and server-side logic.</rule>
+  </data_model>
+
+  <api_surface>
+    <route method="POST"   path="/api/lists">Create a list. Zod-validated. Rate-limited per user.</route>
+    <route method="GET"    path="/api/lists">The session user's own lists, newest first.</route>
+    <route method="GET"    path="/api/lists/:slug">Read one list owned by the session user.</route>
+    <route method="PATCH"  path="/api/lists/:slug">Rename / edit caption and comment.</route>
+    <route method="POST"   path="/api/lists/:slug/publish">Publish to the public feed.</route>
+    <route method="POST"   path="/api/lists/:slug/unpublish">Return the list to draft.</route>
+    <route method="DELETE" path="/api/lists/:slug">Delete the list and its items.</route>
+    <route method="GET"    path="/api/lists/:provider/:mediaType">
+      Import the signed-in user's own library from a tracker. Serves the cached copy
+      unconditionally; `?refresh=1` forces a live re-fetch, and if that fetch fails it falls
+      back to the existing cache marked stale rather than erroring.
+    </route>
+    <route method="GET"    path="/api/feed">Published lists, vote-ranked, paginated, optionally filtered by category.</route>
+    <route method="GET"    path="/api/feed/categories">Distinct categories present in the feed, for filter chips.</route>
+    <route method="POST"   path="/api/feed/:slug/vote">Cast or change a vote. Requires a session. Rate-limited per user.</route>
+    <route method="ALL"    path="/api/auth/**">Better-Auth handler.</route>
+  </api_surface>
+
+  <screens>
+    <screen path="/">Landing page and, when signed in, the entry point to the list builder.</screen>
+    <screen path="/sign-in">OAuth sign-in with AniList and MyAnimeList.</screen>
+    <screen path="/feed">The public feed: slot-numbered published lists, category filter chips, vote controls, pagination.</screen>
+    <screen path="/dashboard">The signed-in user's lists, with live/draft status, share, and delete.</screen>
+    <screen path="/settings">Username editing and connected-provider management, including unlinking (never the last remaining provider).</screen>
+    <screen path="/r/[slug]">The public list page. No session required. Fire-and-forget view counting.</screen>
+    <screen path="/r/[slug]/opengraph-image">A 1200x630 PNG social card: cover art, list name, item count, score, author, and Tsugi branding.</screen>
+  </screens>
+
+  <invariants>
+    <rule id="1">Slugs are the only public identifier. Database ids never appear in a URL, an API response, or rendered HTML.</rule>
+    <rule id="2">
+      Provider JSON is converted to a single unified media type at the adapter boundary and
+      never escapes it. Media is identified by the triple `(provider, mediaType, externalId)`,
+      never by id alone: AniList and MyAnimeList id spaces are disjoint, so resolving an id
+      against the wrong provider returns a different title or nothing. `provider` names the id
+      space (`anilist` | `mal`), not the API vendor that answered — Jikan and the official MAL
+      API both return `mal` ids.
+    </rule>
+    <rule id="3">There is no cross-provider fallback, because ids do not translate between providers.</rule>
+    <rule id="4">The ORM never escapes the server. Database modules are importable only by server code; a component importing the ORM is always a bug.</rule>
+    <rule id="5">Every API input is validated at the Hono boundary with a Zod schema. No hand-rolled JSON parsing.</rule>
+    <rule id="6">
+      Every visual value comes from a semantic design token (`bg-background`, `text-foreground`,
+      `bg-primary`, …). No raw hex, no `rgb()`, no arbitrary Tailwind values in components. The
+      palette is authored once, in the global stylesheet, and nowhere else.
+    </rule>
+    <rule id="7">
+      A score is a `(raw, format)` pair, never a bare number. Supported formats: `POINT_100`,
+      `POINT_10_DECIMAL`, `POINT_10`, `POINT_5`, `POINT_3` (smileys — it has no numeric
+      rendering). A number without its format is meaningless. `0` means "unrated", not a score:
+      every format floors at 1, and an imported `0` stores as `(null, null)`.
+    </rule>
+    <rule id="8">Comments are at most 280 characters, at both list and item level, enforced in the Zod schema, the database column, and the input control — all three, every time.</rule>
+    <rule id="9">A list must say something: at least one score or one comment, at list or item level.</rule>
+    <rule id="10">Creating requires a session; viewing never does. The public list page and its social card must stay open to anonymous visitors, or the product has no distribution.</rule>
+    <rule id="11">Provider access tokens never reach the client. They are read server-side only, never returned by an API route, never embedded in HTML, never logged.</rule>
+    <rule id="12">Nothing without a timeout blocks the create flow. Every outbound provider call has an explicit timeout and a defined failure behaviour.</rule>
+    <rule id="13">`params` and `searchParams` are always awaited, including in the social-card route.</rule>
+    <rule id="14">Public reads must not require the database to be writable. View counting is fire-and-forget and may never block or fail a render.</rule>
+    <rule id="15">Anything that touches the database runs on the Node runtime — the Postgres driver needs TCP, which the Edge runtime does not have. This includes the social-card route.</rule>
+    <rule id="16">Rate limiting on write paths keys on the user, not the IP, since creating already requires a session.</rule>
+  </invariants>
+
+  <code_standards>
+    <rule>TypeScript strict. No `any`, no non-null assertions, no `@ts-ignore`.</rule>
+    <rule>Server-only modules begin with `import "server-only"`.</rule>
+    <rule>Secrets are referenced only in server and database modules. Only `NEXT_PUBLIC_`-prefixed variables may appear in client code.</rule>
+    <rule>Prefer shadcn components over hand-written equivalents; once added they are project source and are edited in place, not wrapped.</rule>
+    <rule>Add `"use client"` only where a hook or event handler needs it, and to the smallest component possible.</rule>
+    <rule>Schema changes go through generated migration files committed to the repository — never ad-hoc DDL.</rule>
+    <rule>Every mechanically-checkable requirement becomes a test in the same change that introduces it.</rule>
+  </code_standards>
+
+  <build_order>
+    <step n="1">Scaffold: Next.js + Tailwind 4 + shadcn, environment validation, CI running typecheck, lint, and tests.</step>
+    <step n="2">Data layer: Drizzle schema for all tables above, migrations, RLS on every table.</step>
+    <step n="3">Authentication: Better-Auth inside Hono, AniList and MAL OAuth (MAL requires a custom PKCE token exchange), sign-in and settings screens, username assignment.</step>
+    <step n="4">Media providers: unified media type, AniList and Jikan search adapters with timeouts and caching.</step>
+    <step n="5">API surface: the Hono routers above, Zod validation, slug generation with collision retry, rate limiting.</step>
+    <step n="6">Create and share UX: search, item tray, ordering, scoring, comments, publish, share modal with auto-copy.</step>
+    <step n="7">Public page and social cards.</step>
+    <step n="8">Library import: token lookup and refresh, AniList and MAL list fetchers, per-user cache with explicit refresh, the import picker UI.</step>
+    <step n="9">Dashboard: the user's lists with status, share, delete, and provider unlinking.</step>
+    <step n="10">Feed: vote-ranked published lists, category filtering and discovery, vote controls.</step>
+  </build_order>
+</project_spec>

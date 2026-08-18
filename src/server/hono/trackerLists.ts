@@ -31,75 +31,84 @@ const REASON_STATUS: Record<
   reauth_required: 409,
 };
 
-export const trackerListsRouter = new Hono().get("/lists/:provider/:mediaType", async (c) => {
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  if (!session) {
-    return c.json({ error: "Sign in to import a list." }, 401);
-  }
-
-  const providerParam = c.req.param("provider");
-  const mediaTypeParam = c.req.param("mediaType");
-  if (!isProvider(providerParam) || !isMediaType(mediaTypeParam)) {
-    return c.json({ error: "Unknown provider or media type." }, 400);
-  }
-
-  const force = c.req.query("refresh") === "1";
-
-  if (!force) {
-    const cached = await db.query.listCache.findFirst({
-      where: and(
-        eq(listCache.userId, session.user.id),
-        eq(listCache.provider, providerParam),
-        eq(listCache.mediaType, mediaTypeParam),
-      ),
-    });
-    if (cached) {
-      return c.json({ entries: cached.entries as ListEntry[] });
+/*
+  Both params are pinned to their actual value sets with a regex. Unconstrained, this
+  path is `/lists/:a/:b`, which swallows every other two-segment route under /lists —
+  `/lists/:slug/comments` was being answered by this handler with "Sign in to import a
+  list." Any new `/lists/<slug>/<something>` route would have hit the same wall.
+*/
+export const trackerListsRouter = new Hono().get(
+  "/lists/:provider{anilist|mal}/:mediaType{anime|manga}",
+  async (c) => {
+    const session = await auth.api.getSession({ headers: c.req.raw.headers });
+    if (!session) {
+      return c.json({ error: "Sign in to import a list." }, 401);
     }
-  }
 
-  const token = await getListAccessToken(session.user.id, providerParam);
-  if (!token.ok) {
-    return c.json(
-      { error: "Reconnect this provider to import your list." },
-      token.reason === "not_linked" ? 404 : 409,
-    );
-  }
+    const providerParam = c.req.param("provider");
+    const mediaTypeParam = c.req.param("mediaType");
+    if (!isProvider(providerParam) || !isMediaType(mediaTypeParam)) {
+      return c.json({ error: "Unknown provider or media type." }, 400);
+    }
 
-  const result =
-    providerParam === "anilist"
-      ? await fetchAniListList(session.user.id, token.accessToken, mediaTypeParam)
-      : await fetchMalList(token.accessToken, mediaTypeParam);
+    const force = c.req.query("refresh") === "1";
 
-  if (!result.ok) {
-    if (force) {
-      const stale = await db.query.listCache.findFirst({
+    if (!force) {
+      const cached = await db.query.listCache.findFirst({
         where: and(
           eq(listCache.userId, session.user.id),
           eq(listCache.provider, providerParam),
           eq(listCache.mediaType, mediaTypeParam),
         ),
       });
-      if (stale) {
-        return c.json({ entries: stale.entries as ListEntry[], stale: true });
+      if (cached) {
+        return c.json({ entries: cached.entries as ListEntry[] });
       }
     }
-    return c.json({ error: "Could not load your list." }, REASON_STATUS[result.reason]);
-  }
 
-  await db
-    .insert(listCache)
-    .values({
-      userId: session.user.id,
-      provider: providerParam,
-      mediaType: mediaTypeParam,
-      entries: result.data,
-      fetchedAt: new Date(),
-    })
-    .onConflictDoUpdate({
-      target: [listCache.userId, listCache.provider, listCache.mediaType],
-      set: { entries: result.data, fetchedAt: new Date() },
-    });
+    const token = await getListAccessToken(session.user.id, providerParam);
+    if (!token.ok) {
+      return c.json(
+        { error: "Reconnect this provider to import your list." },
+        token.reason === "not_linked" ? 404 : 409,
+      );
+    }
 
-  return c.json({ entries: result.data });
-});
+    const result =
+      providerParam === "anilist"
+        ? await fetchAniListList(session.user.id, token.accessToken, mediaTypeParam)
+        : await fetchMalList(token.accessToken, mediaTypeParam);
+
+    if (!result.ok) {
+      if (force) {
+        const stale = await db.query.listCache.findFirst({
+          where: and(
+            eq(listCache.userId, session.user.id),
+            eq(listCache.provider, providerParam),
+            eq(listCache.mediaType, mediaTypeParam),
+          ),
+        });
+        if (stale) {
+          return c.json({ entries: stale.entries as ListEntry[], stale: true });
+        }
+      }
+      return c.json({ error: "Could not load your list." }, REASON_STATUS[result.reason]);
+    }
+
+    await db
+      .insert(listCache)
+      .values({
+        userId: session.user.id,
+        provider: providerParam,
+        mediaType: mediaTypeParam,
+        entries: result.data,
+        fetchedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [listCache.userId, listCache.provider, listCache.mediaType],
+        set: { entries: result.data, fetchedAt: new Date() },
+      });
+
+    return c.json({ entries: result.data });
+  },
+);

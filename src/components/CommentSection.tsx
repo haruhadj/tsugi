@@ -16,8 +16,8 @@ import { useCallback, useState } from "react";
 import { VotePill, type VoteDirection } from "@/components/VotePill";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import type { WireComment } from "@/lib/types/comment";
 import { COMMENT_SORTS, type CommentSort } from "@/lib/validators/comment";
-import type { CommentView } from "@/server/services/comments";
 import { cn } from "@/lib/utils";
 
 const MAX_LENGTH = 280;
@@ -29,25 +29,6 @@ const SORT_LABELS: Record<CommentSort, string> = {
 };
 
 const QUICK_EMOJI = ["🔥", "💯", "😭", "🎌", "👏", "🤯", "✨", "☕"];
-
-/**
- * What this component works with. `createdAt` is a string rather than a Date because
- * the refresh path goes through JSON, and a component that sometimes gets a Date and
- * sometimes a string would break on whichever it was not written for. The server
- * passes its rows through {@link toWireComments} so both paths agree.
- */
-export type WireComment = Omit<CommentView, "createdAt" | "replies"> & {
-  createdAt: string;
-  replies: WireComment[];
-};
-
-export function toWireComments(comments: CommentView[]): WireComment[] {
-  return comments.map((comment) => ({
-    ...comment,
-    createdAt: comment.createdAt.toISOString(),
-    replies: toWireComments(comment.replies),
-  }));
-}
 
 function relativeTime(iso: string): string {
   const then = new Date(iso);
