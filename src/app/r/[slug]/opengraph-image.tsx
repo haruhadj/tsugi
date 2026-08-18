@@ -4,7 +4,9 @@ import { loadOgFonts } from "@/lib/og-fonts";
 import { getListBySlug } from "@/server/services/lists";
 
 export const alt = "A list shared on Tsugi";
-export const size = { width: 1200, height: 630 };
+const WIDTH = 1200;
+const HEIGHT = 630;
+export const size = { width: WIDTH, height: HEIGHT };
 export const contentType = "image/png";
 
 // Hardcoded hex — the single sanctioned exception to the no-hardcoded-colors rule
@@ -75,6 +77,23 @@ export default async function Image({ params }: { params: Params }) {
           fontFamily: "Inter Tight, sans-serif",
         }}
       >
+        {/*
+          The brand rule across the top, matching /r/[slug]'s card and the canvas
+          exporter. Absolute so it sits flush with the edge rather than inside the
+          64px padding the rest of the card uses.
+        */}
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: WIDTH,
+            height: 8,
+            display: "flex",
+            backgroundImage: `linear-gradient(90deg, ${COLOR.primary} 0%, ${COLOR.highlight} 100%)`,
+          }}
+        />
+
         <div
           style={{
             display: "flex",

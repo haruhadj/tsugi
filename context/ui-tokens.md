@@ -4,26 +4,30 @@
 even when it looks right — it is the thing that makes "change the theme without touching a
 component" false, and nobody notices until one button is the wrong colour.
 
-Superseded the HeroUI palette on 2026-08-11 (**D41**). If you find `bg-accent` used as *the*
-accent, `data-theme="dark"`, or an `oklch(12% 0.005 285.823)` anywhere, it is from that era.
+Rewritten on 2026-08-17 (**D45**) to match the AI Studio prototype, replacing the violet
+"Eyecatch" palette that **D41** had established. If you find `#6C63FF`, `bloom`, `text-bloom`,
+`.eyecatch-bar`, `.eyecatch-edge`, or a 2px `--radius`, it is from that era. Older leftovers
+still worth recognising: `bg-accent` used as *the* accent and `data-theme="dark"` are HeroUI,
+pre-**D41**.
 
-## The direction — "Eyecatch"
+## The direction — "Curation Desk"
 
-Tsugi's screens are built on the **eyecatch**: the title card that punctuates an anime episode
-half-way through. Hard-edged broadcast geometry, a deep violet night, and a two-tone screen
-glow — a violet key light and a cyan rim. The product's whole output is a card you send
-someone, so the site is made of that same card.
+Tsugi's screens are a near-black workspace where the lists are the only colour. Zinc surfaces,
+a rose accent, soft-rounded panels, and score tiers that carry their own meaning in colour.
 
 This is a direction, not a mood board. It cashes out as four rules:
 
-1. **The ground is violet-black, not neutral black.** `--background` carries real chroma
-   (`0.024`). A neutral grey-black reads as a generic dark theme and loses the direction.
-2. **Two accents, unequal.** `primary` (violet) is the action colour. `bloom` (cyan) is
-   punctuation — **one use per screen**, and never on a button.
-3. **Radius is 2px.** Broadcast graphics are hard-edged. shadcn's stock `0.625rem` was
-   deliberately overridden.
-4. **Separation comes from surface and hairline, not shadow.** On a dark ground shadows read
-   as murk. `--card` against `--background`, plus a 1px `--border`.
+1. **The ground is neutral, so the content is not.** `--background` is zinc-950. Everything
+   with chroma on a screen — a rose accent, an amber pick, a green score — is content or an
+   action, never chrome.
+2. **Two accents, unequal.** `primary` (rose) is the action colour. `highlight` (amber) is the
+   counter-accent: the brand gradient's far end, and the one "editor's pick" mark per surface.
+   It is not a second button colour.
+3. **Radius is 12px, and panels go further.** Cards are `rounded-2xl`/`rounded-3xl`, pills and
+   badges are `rounded-full`. Nothing in this system is hard-edged.
+4. **Separation comes from surface, hairline, and — on the artifact — shadow.** `--card`
+   against `--background` plus a 1px `--border` does most of it; `/r/[slug]`'s card is the one
+   place a real shadow is spent, because it is the one real card.
 
 ## How theming works here
 
@@ -45,30 +49,54 @@ way that only shows on the few components that use `dark:`.
 ## Colour — semantic names only
 
 Every token is exposed through Tailwind's theme layer by the `@theme inline` block, so each is
-an ordinary utility: `bg-background`, `text-muted-foreground`, `border-border`, `text-bloom`.
+an ordinary utility: `bg-background`, `text-muted-foreground`, `border-border`, `text-primary`.
 
 Use the semantic token. Never the underlying value.
 
-Hex below is the **exact** sRGB equivalent of the `oklch()` in `globals.css`, verified
-against the compiled stylesheet on 2026-08-11 — not an approximation. Phase 6's OG card is
-built from this column, so the two must stay in step.
+Hex below is the **exact** sRGB equivalent of the `oklch()` in `globals.css` — not an
+approximation. The greys are Tailwind's zinc ramp and the accents its rose/amber/emerald/
+indigo, so any value can be checked against the published palette rather than guessed at.
+
+**Two files copy this column** and must be changed with it: the OG card
+(`src/app/r/[slug]/opengraph-image.tsx`) and the downloadable card (`src/lib/canvasExport.ts`).
+Neither Satori nor canvas can parse `oklch()`. Nothing fails to build when they drift — the
+shared card just stops matching the site.
 
 | Token | Hex | Use for |
 |---|---|---|
-| `background` | `#0B0A14` | page ground — violet-black |
-| `card` / `popover` | `#14132B` | raised surfaces — the eyecatch card, the modal |
-| `foreground` | `#EDEAFF` | body text, faintly violet off-white |
-| `muted-foreground` | `#8C87B0` | secondary text — metadata, helper lines, view count |
-| `muted` / `secondary` | `#222136` | quiet chrome, secondary buttons |
-| `accent` / `accent-foreground` | `#262543` | **hover surfaces only** — not the accent colour |
-| `primary` | `#6C63FF` | the one action that matters on a screen |
-| `primary-foreground` | `#F7F7FD` | text on `primary` |
-| `bloom` | `#4CE0D2` | cyan punctuation — **once per screen** |
-| `bloom-foreground` | `#001315` | text on `bloom` |
-| `border` | `#2E2D44` | borders, dividers |
-| `input` | `#36344E` | input outlines |
-| `ring` | `#6C63FF` | focus rings — aliased to `primary` |
-| `destructive` | `#EC3740` | destructive actions only, never decoration |
+| `background` | `#09090B` | page ground — zinc-950 |
+| `card` / `popover` | `#18181B` | raised surfaces — panels, the modal |
+| `foreground` | `#FAFAFA` | body text |
+| `muted-foreground` | `#A1A1AA` | secondary text — metadata, helper lines, view count |
+| `muted` / `secondary` | `#27272A` | quiet chrome, secondary buttons |
+| `accent` / `accent-foreground` | `#27272A` | **hover surfaces only** — not the accent colour |
+| `primary` | `#F43F5E` | the one action that matters on a screen |
+| `primary-foreground` | `#FAFAFA` | text on `primary` |
+| `highlight` | `#F59E0B` | the amber counter-accent — gradient end, "pick" marks |
+| `success` | `#10B981` | confirmed / connected / saved. Never a button, never a score |
+| `border` | `#27272A` | borders, dividers |
+| `input` | `#3F3F46` | input outlines |
+| `ring` | `#F43F5E` | focus rings — aliased to `primary` |
+| `destructive` | `#EF4444` | destructive actions only, never decoration |
+
+**Score tiers.** The only place score colour is defined. A score's band comes from
+`scoreTier()` in `src/lib/score.ts`, which derives it from the `(raw, format)` pair — never
+from comparing a bare number, which would put 8/10 and 8/100 in the same band (invariant 6).
+
+| Token | Hex | Band |
+|---|---|---|
+| `score-excellent` | `#10B981` | top 15% of the scale |
+| `score-good` | `#6366F1` | 65–85% |
+| `score-fair` | `#F59E0B` | 40–65% |
+| `score-poor` | `#F43F5E` | bottom 40% |
+| `score-unrated` | `#A1A1AA` | no score — `(null, null)` |
+
+Colour here is **decoration on top of text, never instead of it**: every `ScoreBadge` also
+spells out its value and scale, so the badge survives colour-blindness and high-contrast modes.
+
+**Directional and brand tokens.** `upvote` (`#F43F5E`) and `downvote` (`#6366F1`) only have to
+be told apart — rose is not "good" and indigo is not "bad". `anilist` (`#0EA5E9`) and `mal`
+(`#6366F1`) identify a provider and are never used as UI accents.
 
 ```html
 <!-- yes -->
@@ -81,17 +109,6 @@ built from this column, so the two must stay in step.
 
 **One primary action per screen.** If two things are `bg-primary`, neither is primary.
 
-**`bloom` is a spice, not a colour.** It has exactly two jobs, and eyebrows are not one of
-them (they were, in the first pass — three cyan things on the landing page, which is how a
-spice becomes a colour):
-
-1. **The mark** — the `次` in `Wordmark`, and the `.eyecatch-edge` / `.eyecatch-bar`
-   terminus, which are the same mark by other means.
-2. **Live data or state** — a score numeral, the "Linked" indicator. Never a static label.
-
-Everything else that wants emphasis takes `muted-foreground` and earns its emphasis from
-type and spacing instead. A screen with three cyan things has no cyan thing.
-
 **Note the reversal from the HeroUI era.** There, `primary` was the token that did not exist
 and `accent` was the real accent. It is now exactly the other way round: `primary` is the
 accent, and `accent` is a quiet hover surface. This is the single most likely leftover.
@@ -103,8 +120,13 @@ of utilities reassembled per screen, because the signature has to be identical e
 
 | Utility | What it is |
 |---|---|
-| `.eyecatch-bar` | The glowing violet→cyan rule. Pair with `animate-wipe-in` on first paint; static at the foot of a card. |
-| `.eyecatch-edge` | The cyan scanline tooth down a card's leading edge. `absolute inset-y-0 left-0 w-1`. |
+| `.brand-gradient` | Rose→amber at 135°. The wordmark's mark, the rule across the top of a card, the active-nav underline. |
+| `.tint` | The badge recipe: 15% fill of `--tint`, that colour as text, a 30% border. Set `--tint` to any token instead of writing the three opacity utilities out again. |
+
+**The badge recipe is the system's most repeated shape.** Every chip, pill, and status badge
+is a 15% fill / full-strength text / 30% border of one token. Where the token is known at
+build time, write it out (`bg-primary/15 text-primary border-primary/30`) so Tailwind can see
+the class names — an interpolated `bg-${token}/15` emits nothing.
 
 ## Type
 
@@ -112,9 +134,9 @@ Three faces, three roles, loaded via `next/font/google` in `layout.tsx` as varia
 
 | Role | Face | Class | Use |
 |---|---|---|---|
-| Display | **Unbounded** 600/800 | `font-display` | Headlines, the wordmark, card titles, section headings. Always `uppercase`, always tight tracking (`-0.02em` to `-0.035em`). |
+| Display | **Unbounded** 600/800 | `font-display` | Headlines, the wordmark, card titles, section headings. Tight tracking (`-0.02em` to `-0.035em`). Not uppercase — that was the Eyecatch era (**D45**). |
 | Body | **Inter Tight** variable | `font-sans` (default) | Prose, helper text, button labels. |
-| Utility | **JetBrains Mono** 400/500 | `font-mono` | Scores, eyebrows, captions, step markers, metadata. Wide tracking (`0.2em`–`0.3em`) when uppercase. |
+| Utility | **JetBrains Mono** 400/500/600/700 | `font-mono` | Scores, eyebrows, captions, tier letters, vote counts, slugs, metadata. Wide tracking (`0.2em`–`0.3em`) when uppercase. 600/700 are loaded because the redesign sets scores and counts in bold. |
 
 **Scores are always mono.** A score is the only real data the product carries; setting it in
 the body face makes it read as prose.
@@ -123,32 +145,38 @@ Headline sizes use `clamp()` rather than breakpoint jumps — `clamp(2.6rem, 7vw
 the hero, `clamp(1.9rem, 5vw, 2.75rem)` on a page title. Body text uses the standard scale:
 `text-xs` metadata, `text-sm` secondary, `text-base` body.
 
-Weights: `font-extrabold` for display headlines, `font-semibold` for smaller display, normal
-for prose, `font-medium` for mono numerals. Nothing else.
+Weights: `font-extrabold` for display headlines, `font-bold` for card and item titles, normal
+for prose, `font-semibold`/`font-bold` for mono numerals. Nothing else.
 
 ## Spacing
 
 The 4-point scale, restricted to `1 · 2 · 3 · 4 · 6 · 8 · 12 · 16`. Values outside it need a
 reason in a comment. Vertical rhythm inside a card is `gap-3`; between sections it is `gap-8`.
 
-Cards are padded `p-8 pl-10` (`sm:p-10 sm:pl-12`) — the extra left inset clears
-`.eyecatch-edge`, which sits inside the card's own bounds.
+Cards are padded `p-4`/`p-5` for rows and `p-6 sm:p-10` for the artifact. Padding is uniform —
+the asymmetric left inset existed only to clear `.eyecatch-edge`, which is gone (**D45**).
 
 ## The rundown — lists of lists
 
-The rules above were written when a screen held exactly one card, because the product was a
-link generator. It is not any more: `/feed` and `/dashboard` show many lists at once. Applying
-the card rules per row put ~20 cyan edges on one screen, which by the "spice, not a colour"
-rule means the screen had no cyan at all. So there is a second layout form.
+`/feed` and `/dashboard` show many lists at once, and both are **card-based**: each row is its
+own `rounded-2xl border border-border bg-card/60` panel, in a `gap-3` stack.
 
-**One surface, not many cards.** A collection of lists is a single
-`divide-y divide-border rounded-xs border border-border` list — hairline-divided rows. Rows get
-no `bg-card`, no `.eyecatch-edge`, no `.eyecatch-bar`. Those stay reserved for `/r/[slug]`,
-which is the artifact the product exists to make; the rundown runs deliberately quiet so that
-arriving at a list feels like arriving somewhere.
+> This reverses the "one surface, hairline-divided rows — never per-row cards" rule that stood
+> until **D45**. That rule existed to protect the cyan `bloom` accent from being spent twenty
+> times on one screen; with `bloom` gone there is nothing left for it to protect.
 
-**The gutter.** Every row opens with a fixed-width mono column. It carries the one datum that
-is true of every row on that screen and that the row's own title cannot say:
+**The feed has three densities**, a client-side toggle that is deliberately *not* a URL param —
+it is a reading preference, not part of what the page is showing, so a shared `/feed` link must
+not carry it. Sort, category, and page all do live in the URL.
+
+| Density | Shape |
+|---|---|
+| `stream` | Large card: vertical vote pillar, category chip, title, cover filmstrip, stats row |
+| `compact` | One row: slot number, single thumbnail, title, inline meta, horizontal vote pill |
+| `grid` | Two-up cards with a fanned, overlapping cover stack |
+
+**The gutter.** Rows still open with a fixed-width mono column carrying the one datum true of
+every row on that screen that the row's own title cannot say:
 
 - `/feed` — the slot number (`01`, `02`, …), zero-padded, `tabular-nums`, continuing across
   pages. It is the sort order made visible, so it must keep counting; page 2 opens at `21`.
@@ -158,28 +186,39 @@ is true of every row on that screen and that the row's own title cannot say:
 Only put something in the gutter that is genuinely uniform and genuinely data. If neither is
 true for a new surface, leave the gutter out rather than filling it.
 
-**The one cyan thing.** On the rundown it is slot `01` only — `text-bloom` on the lead number
-plus a 1px `.eyecatch-edge` tooth on that row alone. Nothing else on the screen is cyan, and
-the foot of the rundown gets no `.eyecatch-bar`: the gutter is the signature, and a second glow
-would split it.
+**The artifact still outranks the rundown.** `/r/[slug]` is the only surface that gets
+`rounded-3xl`, a real `shadow-xl`, and the `.brand-gradient` rule across its top. The rundown
+runs quieter so that arriving at a list feels like arriving somewhere.
 
-**Two nav axes, two forms.** Sort is exactly one of two states, so it is one enclosed segmented
-control (`divide-x`, bordered, `bg-secondary` on the active half). Category is a filter over an
-open-ended set, so it is an underlined rail (`border-primary` active, `border-transparent`
-inactive). Making them look alike implies they are the same kind of choice; they are not.
+**Two nav axes, two forms.** Sort is a small closed set, so it is a row of pills with
+`bg-secondary` on the active one. Category is an open-ended filter over a list that grows with
+the data, so it is a sidebar directory with a live count per row. Making them look alike
+implies they are the same kind of choice; they are not.
 
-**Row padding** is `py-6 pr-6 pl-8` on `/feed` (the `pl-8` clears the lead row's edge tooth so
-rows stay aligned) and `px-6 py-6` on `/dashboard`, which has no tooth.
+**The pill-group is this system's switcher.** Density, view mode, comment sort, and dashboard
+filter all use the same shape: `rounded-full border border-border bg-secondary/40 p-0.5`
+wrapping buttons that take `bg-primary text-primary-foreground` when active. Each group is a
+`role="group"` with an `aria-label`, and each button carries `aria-pressed`.
 
 ## Radius and elevation
 
-`--radius: 0.125rem`. shadcn derives `--radius-sm/md/lg/xl` from it, so every component follows
-from that one line. Do not set `rounded-lg` by hand on a shadcn component; change `--radius`.
+`--radius: 0.75rem`, up from 2px (**D45**). `--radius-sm` through `--radius-3xl` all derive
+from it, so every shadcn component follows from that one line. Do not set `rounded-lg` by hand
+on a shadcn component; change `--radius`.
 
-Elevation is one step: the modal's own shadow, nothing on anything else. Separation comes from
-`card` against `background` and a 1px `border`.
+Above the derived scale, the app uses three shapes directly:
 
-The ambient glow on `body` — two fixed radial gradients, violet from the upper left and cyan
+| Shape | Where |
+|---|---|
+| `rounded-full` | Pills, badges, chips, avatars, vote controls, and every button in a switcher group |
+| `rounded-2xl` | Row cards on the feed and dashboard, panels, sidebar sections |
+| `rounded-3xl` | The artifact card on `/r/[slug]`, and the share modal at `sm` and up |
+
+Elevation is two steps: `shadow-xl` on the artifact card and the sign-in card, the modal's own
+shadow, and nothing anywhere else. Everything else separates with `card` against `background`
+and a 1px `border`.
+
+The ambient glow on `body` — two fixed radial gradients, rose from the upper left and amber
 from the lower right — is the room's lighting. It is `background-attachment: fixed` on purpose,
 so it belongs to the page rather than the scroll position. Do not add a third light source.
 
@@ -187,7 +226,8 @@ so it belongs to the page rather than the scroll position. Do not add a third li
 
 One orchestrated entrance, then nothing.
 
-- `animate-wipe-in` — the eyecatch bar clips in from the left, 620ms. First paint only.
+- `animate-wipe-in` — clips in from the left, 620ms. First paint only. (Retained from the
+  Eyecatch era but currently unused; the bar it animated is gone.)
 - `animate-card-in` — content rises 12px and fades, 550ms, staggered with
   `[animation-delay:…]` for a second element.
 - `transition-colors`/`transition-all` on interactive elements, ~150ms. shadcn's button
@@ -207,12 +247,14 @@ it to that query by name.
 it takes inline styles only. Its palette is therefore hardcoded in that one file, and that is
 the single sanctioned exception to the rule at the top of this document.
 
-Match it to the hex values in the table above, and note in that file that it is a deliberate
-copy. If the theme ever changes, this file must be updated by hand — the OG card is the one
-place where a rebrand is not automatic.
+**`src/lib/canvasExport.ts` is a second copy of the same exception.** It draws the same card
+to a `<canvas>` so the reader can save it as a PNG, and canvas needs literal colours for the
+same reason Satori does. Three files therefore carry the palette — `globals.css`, the OG route,
+and the canvas exporter — and a rebrand has to touch all three by hand. Nothing fails to build
+when they drift; the shared card just stops matching the site.
 
-The card should read as an eyecatch: violet-black ground, the scanline edge, the title in a
-heavy face, the score in mono, the violet→cyan bar along the foot.
+The card should read as the site does: zinc ground, the rose→amber rule across the top, the
+title in a heavy face, the score in mono, covers fanned along the bottom.
 
 **Satori does not understand `oklch()`.** `globals.css` authors the palette in `oklch()` with
 the hex in a comment beside each — use the hex there, and keep the `oklch()` in a comment so

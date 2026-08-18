@@ -157,8 +157,11 @@ the dependency rule in `AGENTS.md` and approved (**D42**, 2026-08-15, `tech-stac
 - Copy-to-clipboard announces its result in a live region. A purely visual "Copied!" is
   invisible to the people most reliant on keyboard flow.
 - Colour is never the only signal. The selected score carries a shape or a check, not just
-  `bg-primary`. The same applies to `bloom`: "Linked" in `ProviderConnections` is cyan **and**
-  a check icon **and** the word.
+  `bg-primary`. "Linked" in `ProviderConnections` is green **and** a check icon **and** the
+  word. `ScoreBadge`'s tier colour sits on top of text that already names the value and its
+  scale. `VotePill`'s active direction is colour **and** `aria-pressed` **and** a heavier icon
+  stroke. Every switcher group (density, view mode, comment sort, dashboard filter) is a
+  `role="group"` with an `aria-label`, and each button carries `aria-pressed`.
 - **Do not strip Radix's built-in behaviour to match a mockup.** Removing a focus ring,
   suppressing an announcement, or replacing keyboard handling with click handlers undoes the
   main reason a primitive library is here. If the visual has to change, change the visual.
