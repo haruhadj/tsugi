@@ -78,6 +78,65 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
 
   const totalPublished = categories.reduce((sum, entry) => sum + entry.count, 0);
 
+  // Built here rather than inline below because FeedList lays them out around its own
+  // density toggle: the sort tabs share the toggle's row, the filter bar sits under it.
+  const sortNav = (
+    <nav aria-label="Sort" className="flex flex-wrap items-center gap-1">
+      {FEED_SORTS.map((option) => (
+        <Link
+          key={option}
+          href={hrefFor({ sort: option })}
+          aria-current={sort === option ? "true" : undefined}
+          className={cn(
+            "rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+            sort === option
+              ? "bg-secondary text-foreground"
+              : "text-muted-foreground hover:bg-accent hover:text-foreground",
+          )}
+        >
+          {SORT_LABELS[option]}
+        </Link>
+      ))}
+    </nav>
+  );
+
+  // The active-filter bar. Only built when something is actually filtering — an
+  // always-present empty bar would be chrome that teaches nothing.
+  const filterBar = hasFilter ? (
+    <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card/40 p-2.5">
+      <span className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground uppercase">
+        Filtered
+      </span>
+      {category && (
+        <Link
+          href={hrefFor({ category: undefined })}
+          className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/15 px-2.5 py-1 font-mono text-[10px] font-semibold text-primary transition-colors hover:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        >
+          {category}
+          <XIcon className="size-3" aria-hidden />
+          <span className="sr-only">Remove category filter</span>
+        </Link>
+      )}
+      {genre && (
+        <Link
+          href={hrefFor({ genre: undefined })}
+          className="inline-flex items-center gap-1 rounded-full border border-highlight/30 bg-highlight/15 px-2.5 py-1 font-mono text-[10px] font-semibold text-highlight transition-colors hover:border-highlight/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        >
+          #{genre}
+          <XIcon className="size-3" aria-hidden />
+          <span className="sr-only">Remove genre filter</span>
+        </Link>
+      )}
+      <Link
+        href={hrefFor({ category: undefined, genre: undefined })}
+        className="ml-auto text-xs text-primary underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      >
+        Clear all
+      </Link>
+    </div>
+  ) : null;
+
   return (
     <div className="min-h-screen">
       <Header username={session ? (session.user.username ?? session.user.name) : null} />
@@ -112,67 +171,11 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
 
           <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_18rem]">
             <div className="min-w-0">
-              <nav aria-label="Sort" className="flex flex-wrap items-center gap-1">
-                {FEED_SORTS.map((option) => (
-                  <Link
-                    key={option}
-                    href={hrefFor({ sort: option })}
-                    aria-current={sort === option ? "true" : undefined}
-                    className={cn(
-                      "rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
-                      "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                      sort === option
-                        ? "bg-secondary text-foreground"
-                        : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                    )}
-                  >
-                    {SORT_LABELS[option]}
-                  </Link>
-                ))}
-              </nav>
-
-              {/*
-                The active-filter bar. Only rendered when something is actually
-                filtering — an always-present empty bar would be chrome that
-                teaches nothing.
-              */}
-              {hasFilter && (
-                <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card/40 p-2.5">
-                  <span className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground uppercase">
-                    Filtered
-                  </span>
-                  {category && (
-                    <Link
-                      href={hrefFor({ category: undefined })}
-                      className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/15 px-2.5 py-1 font-mono text-[10px] font-semibold text-primary transition-colors hover:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                    >
-                      {category}
-                      <XIcon className="size-3" aria-hidden />
-                      <span className="sr-only">Remove category filter</span>
-                    </Link>
-                  )}
-                  {genre && (
-                    <Link
-                      href={hrefFor({ genre: undefined })}
-                      className="inline-flex items-center gap-1 rounded-full border border-highlight/30 bg-highlight/15 px-2.5 py-1 font-mono text-[10px] font-semibold text-highlight transition-colors hover:border-highlight/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                    >
-                      #{genre}
-                      <XIcon className="size-3" aria-hidden />
-                      <span className="sr-only">Remove genre filter</span>
-                    </Link>
-                  )}
-                  <Link
-                    href={hrefFor({ category: undefined, genre: undefined })}
-                    className="ml-auto text-xs text-primary underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                  >
-                    Clear all
-                  </Link>
-                </div>
-              )}
-
-              <div className="mt-6">
-                {entries.length === 0 ? (
-                  <div className="flex flex-col items-center rounded-2xl border border-dashed border-border px-6 py-16 text-center">
+              {entries.length === 0 ? (
+                <>
+                  {sortNav}
+                  {filterBar}
+                  <div className="mt-6 flex flex-col items-center rounded-2xl border border-dashed border-border px-6 py-16 text-center">
                     <div className="flex size-12 items-center justify-center rounded-2xl bg-secondary">
                       <CompassIcon className="size-6 text-muted-foreground" aria-hidden />
                     </div>
@@ -197,10 +200,15 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
                       </Button>
                     </div>
                   </div>
-                ) : (
-                  <FeedList entries={entries} firstSlot={firstSlot} />
-                )}
-              </div>
+                </>
+              ) : (
+                <FeedList
+                  entries={entries}
+                  firstSlot={firstSlot}
+                  sortNav={sortNav}
+                  filterBar={filterBar}
+                />
+              )}
 
               <div className="mt-8 flex items-center justify-between">
                 {page > 1 ? (

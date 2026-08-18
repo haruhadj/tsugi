@@ -10,7 +10,7 @@ import {
   Rows3Icon,
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { MediaCover } from "@/components/MediaCover";
 import { VoteButtons } from "@/components/VoteButtons";
 import type { FeedEntry } from "@/server/services/lists";
@@ -29,13 +29,28 @@ type Density = (typeof DENSITIES)[number]["id"];
  * param: it is a reading preference, not part of what the page is showing, so it must
  * not change what a shared /feed link resolves to. Sort, category and page do all live
  * in the URL, and are owned by the server component above this one.
+ *
+ * `sortNav` and `filterBar` are rendered by the server and handed down rather than
+ * placed above this component, so the density toggle can share the sort tabs' row
+ * instead of claiming an otherwise empty line of its own.
  */
-export function FeedList({ entries, firstSlot }: { entries: FeedEntry[]; firstSlot: number }) {
+export function FeedList({
+  entries,
+  firstSlot,
+  sortNav,
+  filterBar,
+}: {
+  entries: FeedEntry[];
+  firstSlot: number;
+  sortNav: ReactNode;
+  filterBar?: ReactNode;
+}) {
   const [density, setDensity] = useState<Density>("stream");
 
   return (
     <div>
-      <div className="mb-5 flex items-center justify-end">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+        {sortNav}
         <div
           role="group"
           aria-label="Feed layout"
@@ -63,14 +78,16 @@ export function FeedList({ entries, firstSlot }: { entries: FeedEntry[]; firstSl
         </div>
       </div>
 
+      {filterBar}
+
       {density === "grid" ? (
-        <ul className="grid gap-4 sm:grid-cols-2">
+        <ul className="mt-6 grid gap-4 sm:grid-cols-2">
           {entries.map((entry, index) => (
             <GridCard key={entry.slug} entry={entry} slot={firstSlot + index} />
           ))}
         </ul>
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="mt-6 flex flex-col gap-3">
           {entries.map((entry, index) =>
             density === "stream" ? (
               <StreamCard key={entry.slug} entry={entry} slot={firstSlot + index} />
