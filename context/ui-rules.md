@@ -126,8 +126,19 @@ yourself. If a rule here is satisfied by using the right component, use it.
 **One capability did not transfer, and Phase 5 has to deal with it.** HeroUI shipped an
 `Autocomplete`; Radix has no combobox primitive. shadcn's answer is a `Combobox` composed
 from `Popover` + `Command`, and `Command` is a wrapper around `cmdk`. `cmdk` was proposed per
-the dependency rule in `AGENTS.md` and approved (**D42**, 2026-08-15, `tech-stack.md`) —
-`MediaSearchInput` builds on `Popover` + `Command`.
+the dependency rule in `AGENTS.md` and approved (**D42**, 2026-08-15, `tech-stack.md`).
+
+**`MediaSearchInput` renders `Command` inline, without the `Popover`** (2026-08-18). The
+builder's search is a panel that stays open while several titles are added in a row, so an
+overlay that closes on select is the wrong shape — but the listbox role, the managed active
+option, and the polite result announcements all still come from `cmdk`. This is the general
+rule in miniature: the visual moved, the semantics did not. **Do not "restore" the Popover**
+— the multi-add behaviour is the point, and a floating panel of click handlers is what the
+prototype did and what this deliberately does not.
+
+A segmented control is a `RadioGroup` (`SegmentedRadioGroup`), never `Tabs`, whenever it
+selects a data source rather than a view — see the rule on the provider toggle below, which
+now also governs the media-type picker beside it.
 
 - Semantic elements first. A `div` with an onClick is never a button.
 - The typeahead is a listbox with a managed active option and results announced politely.

@@ -1,18 +1,25 @@
-import { CompassIcon, PlusIcon } from "lucide-react";
+import { CompassIcon, PlusIcon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { FeedList } from "@/components/FeedList";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { getServerSession } from "@/lib/auth";
+import { isListCategory } from "@/lib/categories";
 import { cn } from "@/lib/utils";
 import {
   FEED_SORTS,
   listFeedCategories,
+  listFeedGenres,
   listPublishedFeed,
   type FeedSort,
 } from "@/server/services/lists";
 
-type SearchParams = Promise<{ sort?: string; page?: string; category?: string }>;
+type SearchParams = Promise<{
+  sort?: string;
+  page?: string;
+  category?: string;
+  genre?: string;
+}>;
 
 const PAGE_SIZE = 20;
 
@@ -32,21 +39,38 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
   const sort: FeedSort = isFeedSort(params.sort) ? params.sort : "top";
   const pageParam = Number(params.page ?? "1");
   const page = Number.isInteger(pageParam) && pageParam > 0 ? pageParam : 1;
-  const category = params.category || undefined;
+  // An unrecognised category falls back to the whole rundown rather than an
+  // empty page — a bookmarked chip from before D48's vocabulary should still
+  // show something to read.
+  const category =
+    params.category && isListCategory(params.category) ? params.category : undefined;
+  const genre = params.genre || undefined;
 
-  const [session, entries, categories] = await Promise.all([
+  const [session, entries, categories, genres] = await Promise.all([
     getServerSession(),
-    listPublishedFeed({ page, pageSize: PAGE_SIZE, sort, category }),
+    listPublishedFeed({ page, pageSize: PAGE_SIZE, sort, category, genre }),
     listFeedCategories(),
+    listFeedGenres(),
   ]);
 
-  const hrefFor = (next: { sort?: FeedSort; category?: string; page?: number }) => {
+  const hrefFor = (next: {
+    sort?: FeedSort;
+    category?: string;
+    genre?: string;
+    page?: number;
+  }) => {
     const query = new URLSearchParams({ sort: next.sort ?? sort });
+    // `"category" in next` rather than `next.category ?? category`, so that an
+    // explicit `undefined` clears the filter while an absent key keeps it.
     const nextCategory = "category" in next ? next.category : category;
+    const nextGenre = "genre" in next ? next.genre : genre;
     if (nextCategory) query.set("category", nextCategory);
+    if (nextGenre) query.set("genre", nextGenre);
     if (next.page && next.page > 1) query.set("page", String(next.page));
     return `/feed?${query}`;
   };
+
+  const hasFilter = Boolean(category || genre);
 
   // Slot numbers continue across pages: page 2 opens at 21, not at 1. They are
   // the sort order made visible, so they have to keep counting to stay true.
@@ -107,6 +131,45 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
                 ))}
               </nav>
 
+              {/*
+                The active-filter bar. Only rendered when something is actually
+                filtering — an always-present empty bar would be chrome that
+                teaches nothing.
+              */}
+              {hasFilter && (
+                <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card/40 p-2.5">
+                  <span className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground uppercase">
+                    Filtered
+                  </span>
+                  {category && (
+                    <Link
+                      href={hrefFor({ category: undefined })}
+                      className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/15 px-2.5 py-1 font-mono text-[10px] font-semibold text-primary transition-colors hover:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    >
+                      {category}
+                      <XIcon className="size-3" aria-hidden />
+                      <span className="sr-only">Remove category filter</span>
+                    </Link>
+                  )}
+                  {genre && (
+                    <Link
+                      href={hrefFor({ genre: undefined })}
+                      className="inline-flex items-center gap-1 rounded-full border border-highlight/30 bg-highlight/15 px-2.5 py-1 font-mono text-[10px] font-semibold text-highlight transition-colors hover:border-highlight/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    >
+                      #{genre}
+                      <XIcon className="size-3" aria-hidden />
+                      <span className="sr-only">Remove genre filter</span>
+                    </Link>
+                  )}
+                  <Link
+                    href={hrefFor({ category: undefined, genre: undefined })}
+                    className="ml-auto text-xs text-primary underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  >
+                    Clear all
+                  </Link>
+                </div>
+              )}
+
               <div className="mt-6">
                 {entries.length === 0 ? (
                   <div className="flex flex-col items-center rounded-2xl border border-dashed border-border px-6 py-16 text-center">
@@ -114,17 +177,19 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
                       <CompassIcon className="size-6 text-muted-foreground" aria-hidden />
                     </div>
                     <h2 className="mt-4 font-display text-lg font-bold">
-                      {category ? `Nothing under ${category} yet` : "The rundown is empty"}
+                      {hasFilter ? "Nothing matches that yet" : "The rundown is empty"}
                     </h2>
                     <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
-                      {category
-                        ? "Publish a list with that category and it opens the rundown."
+                      {hasFilter
+                        ? "Publish a list that fits and it opens this corner of the rundown."
                         : "Publish a list and it takes slot 01."}
                     </p>
                     <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-                      {category && (
+                      {hasFilter && (
                         <Button asChild variant="outline" className="rounded-full">
-                          <Link href={hrefFor({ category: undefined })}>Clear filter</Link>
+                          <Link href={hrefFor({ category: undefined, genre: undefined })}>
+                            Clear filters
+                          </Link>
                         </Button>
                       )}
                       <Button asChild className="rounded-full">
@@ -197,6 +262,41 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
                           )}
                         >
                           <span className="truncate">{entry.name}</span>
+                          <span className="font-mono text-[11px] tabular-nums">{entry.count}</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </nav>
+              )}
+
+              {/*
+                Genres sit below categories and read differently on purpose:
+                a category is where the author filed the list, a genre is what
+                the titles on it actually are. Same directory shape, amber
+                rather than the category's neutral selection, matching the chips
+                on the rows themselves.
+              */}
+              {genres.length > 0 && (
+                <nav aria-label="Genres" className="rounded-2xl border border-border bg-card/60 p-4">
+                  <h2 className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
+                    Genres
+                  </h2>
+                  <ul className="mt-3 flex flex-col">
+                    {genres.map((entry) => (
+                      <li key={entry.name}>
+                        <Link
+                          href={hrefFor({ genre: genre === entry.name ? undefined : entry.name })}
+                          aria-current={genre === entry.name ? "true" : undefined}
+                          className={cn(
+                            "flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
+                            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                            genre === entry.name
+                              ? "bg-highlight/15 text-highlight"
+                              : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                          )}
+                        >
+                          <span className="truncate font-mono text-xs">#{entry.name}</span>
                           <span className="font-mono text-[11px] tabular-nums">{entry.count}</span>
                         </Link>
                       </li>

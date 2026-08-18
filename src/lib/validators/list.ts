@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LIST_CATEGORIES } from "@/lib/categories";
 
 /**
  * Per-format bounds — verified live against AniList's own GraphQL schema
@@ -33,6 +34,10 @@ const scoreFormatSchema = z.enum([
 
 const providerSchema = z.enum(["anilist", "mal"]);
 const mediaTypeSchema = z.enum(["anime", "manga"]);
+
+// Built from the same array `listCategoryEnum` is (src/lib/categories.ts), so
+// the Zod schema and the Postgres type cannot disagree about what a category is.
+export const listCategorySchema = z.enum(LIST_CATEGORIES);
 
 function hasAtMostNDecimals(value: number, n: number): boolean {
   return Number(value.toFixed(n)) === value;
@@ -79,8 +84,17 @@ function itemSaysSomething(item: z.infer<typeof itemSchema>): boolean {
 export const createListSchema = z
   .object({
     name: z.string().trim().min(1).max(80),
+    // The rundown's filing vocabulary, split from `name` by D48. Required —
+    // there is no "uncategorised" state, because a list nobody can find on the
+    // rundown is a link with no distribution. The builder defaults the picker
+    // to FALLBACK_LIST_CATEGORY so this never blocks publishing.
+    category: listCategorySchema,
     caption: z.string().max(120).optional(),
     comment: z.string().max(280).optional(),
+    // Publish in the same request that creates the list, rather than a second
+    // round-trip to /publish that can fail on its own and strand the list as a
+    // draft the author thinks is live. Defaults to false — "Save draft".
+    publish: z.boolean().optional(),
     // Phase A/D36 — the old 10-item product cap is gone (lists are now
     // unlimited); this is a DoS ceiling only, sized well above any
     // legitimate list, resolved 4-at-a-time under an 8s deadline downstream
@@ -94,9 +108,21 @@ export const createListSchema = z
     path: ["comment"],
   });
 
-export const renameListSchema = z.object({
-  name: z.string().trim().min(1).max(80),
-});
+/**
+ * Editing a list's metadata. Both fields optional, at least one required — this
+ * is one endpoint for "edit the list's filing", not a rename endpoint that grew
+ * a sibling. Renamed from `renameListSchema` when `category` arrived (D48).
+ */
+export const updateListSchema = z
+  .object({
+    name: z.string().trim().min(1).max(80).optional(),
+    category: listCategorySchema.optional(),
+  })
+  .refine((input) => input.name !== undefined || input.category !== undefined, {
+    message: "Provide a name, a category, or both",
+    path: ["name"],
+  });
 
 export type CreateListInput = z.infer<typeof createListSchema>;
 export type CreateListItem = z.infer<typeof itemSchema>;
+export type UpdateListInput = z.infer<typeof updateListSchema>;

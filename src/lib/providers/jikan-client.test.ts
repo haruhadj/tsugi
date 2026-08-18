@@ -91,3 +91,46 @@ describe("resolveJikan", () => {
     expect(result.reason).toBe("not_found");
   });
 });
+
+// D48 — Jikan nests genres as objects, so this maps `.name` out of them rather
+// than passing the array through the way the AniList adapter can.
+describe("searchJikan genres", () => {
+  test("maps genres[].name out of Jikan's object shape", async () => {
+    const result = await searchJikan(
+      "frieren",
+      "anime",
+      new AbortController().signal,
+      mockFetchJSON({
+        data: [
+          {
+            mal_id: 52991,
+            title: "Sousou no Frieren",
+            title_english: "Frieren",
+            title_japanese: null,
+            images: {},
+            year: 2023,
+            score: 9.3,
+            genres: [{ name: "Adventure" }, { name: "Drama" }, { name: "Fantasy" }],
+          },
+        ],
+      }),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data[0]!.genres).toEqual(["Adventure", "Drama", "Fantasy"]);
+  });
+
+  test("a response without a genres field yields [], never undefined", async () => {
+    const result = await searchJikan(
+      "frieren",
+      "anime",
+      new AbortController().signal,
+      mockFetchJSON(frierenFixture),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data[0]!.genres).toEqual([]);
+  });
+});

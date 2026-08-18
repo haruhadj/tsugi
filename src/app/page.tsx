@@ -3,8 +3,9 @@ import { Header } from "@/components/Header";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { Button } from "@/components/ui/button";
 import { ListBuilder } from "@/components/ListBuilder";
+import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth";
-import type { ScoreFormat } from "@/lib/score";
+import { HANDLE_ROUTE } from "@/lib/require-handle";
 
 // The create flow really is ordered — you cannot score a title you have not picked,
 // and the link does not exist until both are done. That is why these carry step
@@ -31,6 +32,13 @@ const STEPS = [
 export default async function Home() {
   const session = await getServerSession();
 
+  // Not `requireHandledSession()`: signed out, this page is the product's
+  // marketing front rather than a redirect to sign-in, so only the signed-in
+  // branch is gated (D49).
+  if (session && !session.user.username) {
+    redirect(HANDLE_ROUTE);
+  }
+
   if (session) {
     return (
       <div className="min-h-screen">
@@ -48,7 +56,7 @@ export default async function Home() {
             </h1>
 
             <div className="mt-10">
-              <ListBuilder scoreFormat={session.user.scoreFormat as ScoreFormat} />
+              <ListBuilder />
             </div>
           </div>
         </main>

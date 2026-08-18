@@ -54,7 +54,9 @@ export default async function Image({ params }: { params: Params }) {
   const [{ unbounded, jetbrainsMono }] = await Promise.all([loadOgFonts()]);
 
   const items = rec?.items ?? [];
-  const title = rec?.caption ?? items.map((item) => item.title).join(", ") ?? "Tsugi";
+  // D48 — `name` is the list's title now, so the card leads with it. It used to
+  // hold the category, which is why the caption was the headline here before.
+  const title = rec?.name ?? items.map((item) => item.title).join(", ") ?? "Tsugi";
   const visible = items.slice(0, 4);
   const overflowCount = items.length > 4 ? items.length - 4 : 0;
   const comment = rec?.comment

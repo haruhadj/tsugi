@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2Icon } from "lucide-react";
+import { Loader2Icon, ShieldCheckIcon } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
@@ -26,10 +26,15 @@ export function SignInButtons() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3">
+        {/*
+          Each provider carries its own glyph chip in its own brand token — the
+          sanctioned use of `anilist`/`mal` (ui-tokens.md): identifying a
+          service, not accenting the UI. Full class strings, never interpolated.
+        */}
         {(
           [
-            { id: "anilist", label: "AniList" },
-            { id: "mal", label: "MyAnimeList" },
+            { id: "anilist", label: "AniList", glyph: "AL", tone: "bg-anilist/20 text-anilist" },
+            { id: "mal", label: "MyAnimeList", glyph: "MAL", tone: "bg-mal/20 text-mal" },
           ] as const
         ).map((provider) => (
           <Button
@@ -39,7 +44,15 @@ export function SignInButtons() {
             disabled={isBusy}
             onClick={() => signInWithGenericOAuth(provider.id)}
           >
-            Continue with {provider.label}
+            <span className="flex items-center gap-2.5">
+              <span
+                className={`flex size-6 items-center justify-center rounded-md font-mono text-[10px] font-bold ${provider.tone}`}
+                aria-hidden
+              >
+                {provider.glyph}
+              </span>
+              Continue with {provider.label}
+            </span>
             {pendingProvider === provider.id ? (
               <Loader2Icon className="animate-spin" aria-hidden />
             ) : null}
@@ -52,12 +65,25 @@ export function SignInButtons() {
 
       <div className="flex flex-col gap-3">
         <Button variant="outline" size="lg" disabled>
-          Continue with Google
+          <span className="flex items-center gap-2.5">
+            <span
+              className="flex size-6 items-center justify-center rounded-md bg-secondary font-mono text-[10px] font-bold text-muted-foreground"
+              aria-hidden
+            >
+              G
+            </span>
+            Continue with Google
+          </span>
         </Button>
         <p className="text-sm text-muted-foreground">
           Sign-in only — link a tracker afterwards from Settings.
         </p>
       </div>
+
+      <p className="flex items-center justify-center gap-1.5 border-t border-border pt-4 font-mono text-[11px] text-muted-foreground">
+        <ShieldCheckIcon className="size-3.5 text-success" aria-hidden />
+        OAuth only — Tsugi never sees your password.
+      </p>
     </div>
   );
 }

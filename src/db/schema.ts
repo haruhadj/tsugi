@@ -15,17 +15,23 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth-schema";
-import { mediaTypeEnum, providerEnum, scoreFormatEnum } from "./enums";
+import { listCategoryEnum, mediaTypeEnum, providerEnum, scoreFormatEnum } from "./enums";
 
-export { mediaTypeEnum, providerEnum, scoreFormatEnum };
+export { listCategoryEnum, mediaTypeEnum, providerEnum, scoreFormatEnum };
 
 export const list = pgTable(
   "list",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     slug: varchar("slug", { length: 12 }).notNull().unique(),
-    // User-chosen category title, e.g. "Romance", "Action" — required (D42).
+    // The list's free-text title, e.g. "Ten romances that actually end" (D48).
+    // Until D48 this column doubled as the feed's category (D42); `category`
+    // below now carries that, and this is a title and nothing else.
     name: varchar("name", { length: 80 }).notNull(),
+    // What the rundown files this list under — a fixed vocabulary, not free
+    // text, so the feed's chips are a directory rather than whatever people
+    // typed (D48). Backfilled from `name` for pre-D48 rows.
+    category: listCategoryEnum("category").notNull(),
     caption: varchar("caption", { length: 120 }),
     comment: varchar("comment", { length: 280 }),
     views: integer("views").notNull().default(0),
@@ -69,6 +75,13 @@ export const listItem = pgTable(
     scoreRaw: numeric("score_raw", { precision: 4, scale: 1, mode: "number" }),
     scoreFormat: scoreFormatEnum("score_format"),
     comment: varchar("comment", { length: 280 }),
+    // The provider's own genre tags, resolved server-side with the rest of the
+    // item (D48). A native text[] rather than jsonb because the feed filters on
+    // it — `= any(genres)` against a GIN index, where jsonb would need unnesting.
+    // The `'{}'` default is a constant, so adding this column was a metadata-only
+    // change: no table rewrite, and pre-D48 rows simply carry an empty array
+    // until they are re-saved.
+    genres: text("genres").array().notNull().default(sql`'{}'::text[]`),
   },
   (table) => [
     // A number without its scale is meaningless (invariant 6) — both null or both set.
@@ -91,6 +104,9 @@ export const listItem = pgTable(
       table.mediaType,
       table.externalId,
     ),
+    // Backs the feed's genre filter, which asks "does this item carry X" across
+    // every published list. A btree cannot answer containment on an array.
+    index("list_item_genres_gin_idx").using("gin", table.genres),
   ],
 ).enableRLS();
 

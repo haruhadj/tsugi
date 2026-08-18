@@ -17,6 +17,13 @@ export type UnifiedMediaResult = {
   year: number | null;
   /** The provider's own aggregate score, normalised 0–100. Never the user's rating (D28). */
   averageScore: number | null;
+  /**
+   * The provider's own genre tags. **Always an array, never `undefined`** — both
+   * adapters coerce a missing list to `[]`, so every consumer can map over it
+   * without a guard. A list's genre cloud is aggregated from these at read time,
+   * never stored on the list itself.
+   */
+  genres: string[];
 };
 
 /**

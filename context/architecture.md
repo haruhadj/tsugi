@@ -39,19 +39,24 @@ tsugi/
 │   │   │                               see tech-stack.md's Jikan section for which is which
 │   │   ├── score.ts                    the ONE score formatter — 5 formats
 │   │   ├── types/media.ts              UnifiedMediaResult
-│   │   └── validators/rec.ts           Zod schemas, shared client+server
+│   │   ├── categories.ts               the list-category vocabulary, declared once (D48) —
+│   │   │                               consumed by db/enums.ts AND validators/list.ts, so it
+│   │   │                               lives in lib/ (db may import lib, never the reverse)
+│   │   ├── require-handle.ts           the D49 handle gate, for authenticated screens only
+│   │   └── validators/list.ts          Zod schemas, shared client+server
 │   └── server/
 │       ├── hono/
 │       │   ├── middleware.ts           rate limiting only — despite the name, it does not
-│       │   │                           guard sessions; recs.ts calls auth.api.getSession()
+│       │   │                           guard sessions; userLists.ts calls auth.api.getSession()
 │       │   │                           directly, session-before-limiter per PHASE-4.md
-│       │   └── recs.ts                 POST/GET /api/recs — thin: session, rate limit,
-│       │                               delegates everything else to services/recommendations.ts
+│       │   ├── userLists.ts            POST/GET/PATCH/DELETE /api/lists — thin: session,
+│       │   │                           rate limit, delegates to services/lists.ts
+│       │   └── feed.ts                 GET /api/feed, /feed/categories, /feed/genres, vote
 │       ├── services/
 │       │   ├── media.ts                server-side resolve, per provider (Phase 3)
 │       │   ├── media-cache.ts          wraps media.ts — Redis, provider:mediaType:externalId,
 │       │   │                           24h TTL, only caches ok:true (Phase 4)
-│       │   ├── recommendations.ts      createRecommendation + getRecommendationBySlug — the
+│       │   ├── lists.ts                createList + getListBySlug + the feed queries — the
 │       │   │                           create flow's core, independent of HTTP/session so it
 │       │   │                           is testable against a directly-inserted test user
 │       │   └── lists/                  Phase 7 — AniList + MAL v2, token-bearing

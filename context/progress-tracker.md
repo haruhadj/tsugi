@@ -12,7 +12,8 @@ happened last time.
 | **Current phase** | **Phase 8 — Dashboard** ([spec](./planning/PHASE-8.md)), implementation complete 2026-08-16. Phase 7 carries forward account-gated criteria 1–8 and the live criterion-12 stopwatch pass as an unclosed gap — see Phase 7 row below and [PHASE-7.md](./planning/PHASE-7.md). |
 | **Phase status** | **In progress, 2026-08-16.** Phase 6 closed 2026-08-15 — see Phase status table and session log. `tokens.ts`, `anilist.ts`, `mal.ts`, and the `GET /api/lists/:provider/:mediaType` route are all implemented and passing `tsc`/`eslint`; all four service/route files now have unit-tier test coverage (`tokens.test.ts`, `anilist.test.ts`, `mal.test.ts`, `lists.db.test.ts`). The My-list picker UI is implemented (`MyListPicker.tsx`, `RecBuilder.tsx` mode toggle, criterion-9 gating). **Update, 2026-08-16 evening:** production was 500ing on both providers — migration `0002_broken_triton.sql` (creates `list_cache`) had never been applied to the production Supabase DB. Fixed by running `bun x drizzle-kit migrate` against production. Separately, per-user caching was redesigned from a 5-minute TTL to cache-once-then-explicit-refresh: `lists.ts` now serves the cached row unconditionally unless the client passes `?refresh=1`, which forces a live re-fetch and falls back to the existing stale cache (`{ entries, stale: true }`) if that forced re-fetch fails, rather than erroring. `MyListPicker.tsx` gained a refresh button and a "showing your last synced list" notice. Full suite: 149 pass, 0 fail. Unscoped `bun x eslint .` and `tsc --noEmit`: clean — **criterion 13 satisfied.** Criterion 12 checked structurally (no regression to the timed search path); the live stopwatch re-run still needs a human in a browser. Committed as `5ae4181`, pushed to `main`. Remaining: exit criteria 1–8 (blocked on manual OAuth dashboard registration) and criterion 12's live timed pass — see [PHASE-7.md](./planning/PHASE-7.md). |
 | **Upstash** | Provisioned 2026-08-11 — `fit-hyena-107044.upstash.io`, credentials in `.env`. Backs both rate limiting (D9) and the media resolve cache (Phase 4). |
-| **Last updated** | 2026-08-16 |
+| **Prototype adaptation** | **2026-08-18.** The AI Studio prototype's builder page and UI system adapted into the app — see **D47**/**D48**/**D49** and `planning/TEMP-prototype-adaptation.md` (a temporary tracker, deleted once its Part 7 is signed off). Data layer: `list.category` (fixed enum), `list_item.genres` (`text[]` + GIN), genres fetched from both providers, the author's handle joined into the feed and the artifact, publish-on-create. UI: `ListBuilder` rewritten to the two-column workspace, `MediaSearchInput` rebuilt as an inline multi-add panel (`Command` without the `Popover`), `ItemTray` to the prototype's row card, plus the rundown, artifact, dashboard, settings, and sign-in. New: `SegmentedRadioGroup`, `SocialCardPreview`, `ChooseHandle`, `/handle`. Migration `0006` applied to production (hand-edited from drizzle-kit's unsafe `ADD COLUMN NOT NULL`). Gate green: `tsc`, `eslint`, 152 tests. |
+| **Last updated** | 2026-08-18 |
 | **UI library** | **shadcn/ui + Radix** — replaced HeroUI on 2026-08-11 (**D41**). Custom "Eyecatch" palette, authored by us. Anything referencing `@heroui/*`, `onPress`, `isPending`, or `data-theme="dark"` is a leftover. |
 | **Application code** | Phase 0 scaffold, Phase 1's full data layer, and Phase 2's auth wiring: Hono catch-all at `/api`, `genericOAuth` for AniList + MAL (Google not yet configured), `/sign-in` and `/settings`, session helper. Frontend redesigned on shadcn with a real landing page. |
 | **Repository** | `main` pushed to `github.com/haruhadj/tsugi` (private). CI green. |
@@ -1004,6 +1005,92 @@ on them harder than the badges do.
 criterion, or a future Radix release ships a native combobox and removes the need for a
 second listbox implementation.
 
+### D47 — Typed scores standardise on `POINT_10`; imported scores keep their source format
+
+The owner asked whether the whole product could just use a 10/10 scale, and asked for an
+honest assessment rather than a yes. The answer given, and accepted: **yes for what people
+type here, no for what gets imported.**
+
+**What changed.** The builder's `ScoreInput` is hard-set to `POINT_10` instead of reading
+`user.scoreFormat`. There is no per-list score-format picker — the prototype has one, and it
+was in the approved plan, but it stopped being meaningful once typed scores had a single
+scale. `TrayItem` gained its own `scoreFormat`, so a tray can hold a ten-point score the
+author typed next to an 87/100 pulled from AniList.
+
+**The bug this fixed on the way past.** `ListBuilder` imported a tracker score as
+`entry.scoreFormat === scoreFormat ? entry.scoreRaw : null` — so a `POINT_100` rater importing
+their own list silently got every score dropped, because the comparison was against the
+format the *builder* was drawing. Imports now keep `(raw, format)` verbatim.
+
+**What was rejected, and why.** Collapsing imports to ten-point as well would have let the
+five-format machinery be deleted outright. It is lossy in a way that cannot be undone: 87/100
+becomes 8.7 or 9, and `POINT_3` — three smileys — cannot become a number at all without
+inventing precision the rater never expressed. That is the exact class of "wrong score" bug
+invariant 6 exists to prevent, and it would make imported numbers disagree with the tracker
+they came from.
+
+**This amends D28 and D32 rather than reversing them.** `user.scoreFormat` still exists and
+still does its real job: interpreting what a tracker returns. It is simply no longer read to
+decide what the input control looks like. Invariant 6 is untouched — every score is still a
+`(raw, format)` pair, and a list may now legitimately hold mixed formats, which `scoreTier`
+and `tierBandFor` already normalise correctly because they always did.
+
+**Revisit if:** a tracker adds a scale users would want to type in directly, or the mixed
+formats on one list prove confusing to readers rather than merely honest.
+
+### D48 — `category` splits from `name`, and genres are stored per item
+
+Adapting the prototype's builder required both, and the owner confirmed the fixed-vocabulary
+option when asked.
+
+**Category.** `list.name` used to double as the feed's category (D42) — `listPublishedFeed`
+filtered `eq(list.name, category)`, so a list's title *was* its filing. `name` is now the
+free-text title and `list.category` is a Postgres enum over a fixed vocabulary, declared once
+in `src/lib/categories.ts` and consumed by `listCategoryEnum` and `listCategorySchema` alike
+(with a test asserting the two never drift). `name` was not renamed to `title`: that is churn
+across routes, services, UI, and tests for a label.
+
+**Genres.** Never fetched before. AniList's queries now request `genres`, Jikan's mapping
+pulls `genres[].name`, `UnifiedMediaResult` carries `genres: string[]` (always an array), and
+`list_item.genres` is a `text[]` with a GIN index. The list's cloud is aggregated at **read**
+time, not stored — a stored copy is a second source of truth that drifts the first time an
+item changes. The feed filters on it with a correlated `EXISTS`, never a join, for the same
+reason `itemCountExpr` is a subquery: joining `list_item` alongside `list_vote` multiplies
+their rows and corrupts every aggregate.
+
+**Migration 0006, hand-edited.** `drizzle-kit generate` emitted `ADD COLUMN ... NOT NULL` with
+no default, which fails outright against a populated table. Rewritten to the add-nullable →
+backfill → set-NOT-NULL shape that migration 0003 established. Production was inspected first:
+all 20 lists were named `Untitled`, `test`, or `Phase 5 verification run`, so every row
+backfilled to the `Eclectic / Multi-Genre` catch-all and nothing was mismapped. `list_item.genres`
+took a constant `'{}'` default, which is metadata-only — no table rewrite.
+
+**Cost accepted.** The feed's grouping visibly changed, and **every list created before this
+shows an empty genre cloud** until its items are re-saved; genres have never been fetched, so
+there is nothing to derive them from short of re-resolving every stored item against its
+provider. Adding a category later needs an `ALTER TYPE … ADD VALUE`.
+
+**Revisit if:** the vocabulary needs to change often enough that a migration per category
+becomes annoying — that is the signal it should have been `text` with a Zod-only constraint.
+
+### D49 — A handle is mandatory for authors; legacy nulls are gated, not backfilled
+
+The rundown now attributes every list as `u/{username}`, which needs a username to exist.
+`user.username` is nullable and 3 of the 5 production accounts had none.
+
+**Chosen:** a signed-in user without a handle is redirected to `/handle` and asked to pick one
+before any authenticated screen (`/`, `/dashboard`, `/settings`) will render, via
+`requireHandledSession()`. **Rejected:** generating a handle from the OAuth display name — that
+publishes a public identity the person never chose, on every list they have ever shared.
+
+**Public routes are never gated.** `/feed`, `/r/[slug]`, and the OG image do not call the
+helper; viewing has never required an account (invariant 9), and gating a shared link would
+break the one thing the product exists to do. A published list whose author has no handle
+renders **no author line at all** rather than a placeholder.
+
+**Revisit if:** the gate turns out to block a flow it should not — it is one redirect in one
+helper, and narrowing it to the publish action alone is a small change.
+
 ## External prerequisites
 
 | Needed by | Service | Status |
@@ -1041,6 +1128,69 @@ the one you forgot. `scripts/check-db-reachable.sh` warns if a second file appea
 ## Session log
 
 Newest first. One entry per session: what changed, what was decided, what to pick up next.
+
+### 2026-08-18 — The prototype's builder page and UI system adapted into the app
+
+The owner asked for `reference/ai-studio-prototype/`'s builder page to be adapted, for
+usernames on the rundown as `u/{username}`, and for the prototype's UI components to be taken
+on broadly rather than selectively — **D45** had already adopted its palette but none of its
+composition. Four conflicts were raised before any code was written and answered by the owner;
+two of the answers changed the plan's shape mid-flight, and both are recorded as decisions.
+
+**The scoring question is the one worth reading.** The owner asked whether the whole product
+could just use 10/10 and asked for an honest assessment. It could, for what people *type* —
+but collapsing *imported* scores too is unrecoverable (87/100 → 8.7, and `POINT_3`'s three
+smileys cannot become a number at all). The split shipped: typed scores are `POINT_10`,
+imported ones keep their source scale, `TrayItem` carries its own format (**D47**). That
+surfaced a real bug on the way past — `ListBuilder` was dropping every imported score whose
+format differed from the one it was drawing, so a `POINT_100` rater importing their own list
+silently lost all of them.
+
+**Data layer (D48).** `list.category` splits from `name`, as a Postgres enum over a vocabulary
+declared once in `src/lib/categories.ts` (in `lib/`, not beside the enum — `db/` may import
+`lib/`, never the reverse) and consumed by both `listCategoryEnum` and `listCategorySchema`,
+with a test asserting they never drift. Genres are fetched from both providers for the first
+time, stored as `list_item.genres` (`text[]` + GIN), aggregated at read time rather than
+stored, and filterable on the feed via a correlated `EXISTS` — never a join, which would
+multiply against `list_vote` and corrupt every aggregate in the select. `publish` folds into
+`POST /api/lists` so a publish cannot half-succeed across two requests. `renameListSchema`
+widened into `updateListSchema`.
+
+**Migration 0006 was hand-edited.** `drizzle-kit generate` emitted `ADD COLUMN ... NOT NULL`
+with no default, which fails outright against a populated table. Rewritten to migration 0003's
+add-nullable → backfill → set-NOT-NULL shape. Production was inspected first (20 lists, all
+named `Untitled`/`test`/`Phase 5 verification run`), so the backfill mapped every row to the
+`Eclectic / Multi-Genre` catch-all with nothing mismapped. Applied and verified.
+
+**UI.** `ListBuilder` rewritten to the prototype's two-column workspace with a toolbar
+(Social card / Save draft / Publish), a metadata panel, and a live genre cloud.
+`MediaSearchInput` rebuilt as the inline multi-add panel — **`Command` without the `Popover`**,
+which keeps every listbox semantic while letting the results stay open, and is now written
+into `ui-rules.md` so nobody "restores" the overlay. `ItemTray` to the prototype's row card
+with a real empty state. Then the rundown (author handles, genre chips, genre directory,
+active-filter bar), the artifact (author line, genre spectrum that filters the titles), the
+dashboard, settings, and sign-in. New components: `SegmentedRadioGroup` (a `RadioGroup`
+dressed as a segmented control — never `Tabs`, since it picks a data source), `SocialCardPreview`,
+`ChooseHandle`. `alert`, `select`, and `textarea` all gained real call sites; `badge` and
+`card` are still deliberately unused.
+
+**Handles are mandatory now (D49).** 3 of 5 production accounts had none. Rather than minting
+one from an OAuth display name, `requireHandledSession()` redirects them to `/handle` once.
+Public routes deliberately do not call it — invariant 9 is the product's distribution model.
+
+**Verified:** `tsc`, `eslint`, and 152 tests (was 121) all green; production build clean;
+dev server smoke-tested across `/`, `/feed`, `/r/[slug]`, the OG image, and the three feed
+API routes. A new `lists.db.test.ts` covers the live create path end-to-end — genres resolving
+from AniList, mixed score formats surviving a round trip, publish-on-create, the author join
+not duplicating rows, and the feed filtering by `category` rather than by title.
+
+**Known gaps, stated rather than hidden:** every list created before today shows an **empty
+genre cloud** until its items are re-saved (genres have never been fetched, so there is
+nothing to derive them from), and the pre-existing lists all read as `Eclectic / Multi-Genre`.
+
+**Next:** the plan's Part 7 is done except deleting `planning/TEMP-prototype-adaptation.md`,
+which should go once the owner has walked the builder in a browser — nothing here has been
+through a human's hands yet, only automated gates.
 
 ### 2026-08-15 — Phase 7 started: token lookup, AniList/MAL list fetchers, and the list route
 

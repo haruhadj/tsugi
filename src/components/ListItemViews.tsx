@@ -1,6 +1,12 @@
 "use client";
 
-import { LayoutGridIcon, ListOrderedIcon, TrophyIcon } from "lucide-react";
+import {
+  LayoutGridIcon,
+  ListOrderedIcon,
+  MessageSquareIcon,
+  TagIcon,
+  TrophyIcon,
+} from "lucide-react";
 import { useState } from "react";
 import { MediaCover } from "@/components/MediaCover";
 import { ScoreBadge } from "@/components/ScoreBadge";
@@ -45,14 +51,77 @@ function hasScore(item: Item): item is Item & { scoreRaw: number; scoreFormat: s
   return item.scoreRaw !== null && item.scoreFormat !== null;
 }
 
-export function ListItemViews({ items }: { items: Item[] }) {
+export function ListItemViews({
+  items,
+  genres = [],
+}: {
+  items: Item[];
+  /** The list's genre cloud, aggregated server-side. Empty for pre-D48 lists. */
+  genres?: { name: string; count: number }[];
+}) {
   const [mode, setMode] = useState<Mode>("ranked");
+  const [activeGenre, setActiveGenre] = useState<string | null>(null);
+
+  /*
+    Filtering happens here rather than through the URL: this narrows which of an
+    already-loaded list's titles are on screen, which is a reading control like
+    the ranked/tier/gallery switch beside it — not part of what the page *is*.
+    A shared /r/[slug] link has to open the whole list.
+  */
+  const visible = activeGenre
+    ? items.filter((item) => item.genres.includes(activeGenre))
+    : items;
 
   return (
     <section className="mt-10">
+      {genres.length > 0 && (
+        <div className="mb-6 flex flex-col gap-2 rounded-xl border border-border bg-background/60 p-3">
+          <span className="flex items-center gap-1.5 font-mono text-[10px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
+            <TagIcon className="size-3 text-primary" aria-hidden="true" />
+            Genre spectrum
+          </span>
+          <ul className="flex flex-wrap gap-1.5">
+            {genres.map((genre) => {
+              const active = activeGenre === genre.name;
+              return (
+                <li key={genre.name}>
+                  <button
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setActiveGenre(active ? null : genre.name)}
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-mono text-[11px] transition-colors",
+                      "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                      active
+                        ? "border-highlight/60 bg-highlight/20 text-highlight"
+                        : "border-border bg-secondary/60 text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    #{genre.name}
+                    <span className="tabular-nums opacity-70">{genre.count}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          {activeGenre && (
+            <p className="text-[11px] text-muted-foreground" role="status">
+              Showing {visible.length} of {items.length} titles.{" "}
+              <button
+                type="button"
+                onClick={() => setActiveGenre(null)}
+                className="text-primary underline underline-offset-4"
+              >
+                Show all
+              </button>
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="flex items-center justify-between gap-4">
         <h2 className="font-mono text-xs tracking-[0.24em] text-muted-foreground uppercase">
-          {items.length} {items.length === 1 ? "title" : "titles"}
+          {visible.length} {visible.length === 1 ? "title" : "titles"}
         </h2>
 
         <div
@@ -82,9 +151,9 @@ export function ListItemViews({ items }: { items: Item[] }) {
       </div>
 
       <div className="mt-6">
-        {mode === "ranked" && <RankedView items={items} />}
-        {mode === "tier" && <TierView items={items} />}
-        {mode === "gallery" && <GalleryView items={items} />}
+        {mode === "ranked" && <RankedView items={visible} />}
+        {mode === "tier" && <TierView items={visible} />}
+        {mode === "gallery" && <GalleryView items={visible} />}
       </div>
     </section>
   );
@@ -115,9 +184,16 @@ function RankedView({ items }: { items: Item[] }) {
 
           <div className="flex min-w-0 flex-1 flex-col gap-2">
             <div className="flex items-start justify-between gap-4">
-              <h3 className="font-display leading-tight font-bold tracking-[-0.01em] text-foreground">
-                {item.title}
-              </h3>
+              <div className="min-w-0">
+                <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                  <span className="rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
+                    {item.mediaType}
+                  </span>
+                </div>
+                <h3 className="font-display leading-tight font-bold tracking-[-0.01em] text-foreground">
+                  {item.title}
+                </h3>
+              </div>
               {hasScore(item) && (
                 <ScoreBadge
                   scoreRaw={item.scoreRaw}
@@ -126,10 +202,34 @@ function RankedView({ items }: { items: Item[] }) {
               )}
             </div>
 
+            {item.genres.length > 0 && (
+              <ul className="flex flex-wrap gap-1">
+                {item.genres.slice(0, 4).map((genre) => (
+                  <li
+                    key={genre}
+                    className="rounded border border-border bg-secondary/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground"
+                  >
+                    #{genre}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {/*
+              The curator's note gets its own tinted box rather than a bare
+              blockquote — on the artifact page this is the part that is actually
+              the recommendation, and it should not read as an aside.
+            */}
             {item.comment && (
-              <blockquote className="border-l-2 border-primary/40 pl-3 text-sm leading-relaxed text-muted-foreground">
-                {item.comment}
-              </blockquote>
+              <div className="rounded-xl border border-primary/20 bg-background/70 p-3">
+                <span className="flex items-center gap-1 font-mono text-[10px] tracking-[0.18em] text-primary uppercase">
+                  <MessageSquareIcon className="size-3" aria-hidden="true" />
+                  Note
+                </span>
+                <blockquote className="mt-1.5 text-sm leading-relaxed text-foreground/85">
+                  {item.comment}
+                </blockquote>
+              </div>
             )}
 
             <SourceLink

@@ -13,18 +13,30 @@ re-proposed each session. Changing anything here is a decision that belongs in
 - Explicit provider linking from `/settings` — automatic linking is impossible here, since
   neither tracker returns an email (**D25**). The screen ships minimal in Phase 2 and is
   expanded in Phase 8 (**D33**)
-- The scale a user rates in is captured at sign-in and follows them everywhere (**D32**)
+- The scale a user rates in is captured at sign-in and used to interpret imported scores
+  (**D32**, amended by **D47** — it no longer decides what the input control looks like)
+- **A username is mandatory for anyone who publishes** (**D49**): it is the `u/{username}`
+  attribution every list carries. Accounts without one are asked to pick at next sign-in
 - **Creating requires a session. Viewing never does.**
 
 ### Creation flow (the product)
 - A source toggle — AniList or MyAnimeList — defaulting to AniList and remembered
-- Live typeahead search against the selected source
+- A media-type toggle — anime or manga — beside it (**D48**); both providers support both
+- Live typeahead search against the selected source, in a panel that stays open so several
+  titles can be added in a row
 - A one-tap offer to re-run the query on the other source when the selected one is down
 - **1 to 10 titles per recommendation.** One is the common case; a group is the same model.
   The ceiling is 10 because the server resolves every item against the provider on a shared
   rate-limit budget (**D36**)
-- Optional score per item, **preserved in the rater's own scale** (five AniList formats plus
-  MAL's 10-point)
+- **Scores typed in Tsugi are out of ten** (**D47**). Scores *imported* from a tracker are
+  preserved in the rater's own scale (five AniList formats plus MAL's 10-point), so a list may
+  legitimately carry both
+- A **title** and a **category** from a fixed vocabulary, which is how the rundown files it
+  (**D48** — the two used to be one field)
+- A genre cloud, aggregated automatically from the titles on the list; readers can filter the
+  rundown and the list itself by any of them
+- A live preview of the share card while building
+- **Save as a draft or publish immediately**, in one request either way
 - Optional comment per item, ≤280 characters
 - Optional caption and comment for the group as a whole
 - A recommendation must carry at least one score *or* one comment
@@ -38,7 +50,8 @@ re-proposed each session. Changing anything here is a decision that belongs in
 - **Read-only.** Tsugi never writes to anyone's list
 
 ### Public recommendation page (Phase 6)
-- `/r/[slug]` renders every item: cover art, title, media type, score, comment
+- `/r/[slug]` renders every item: cover art, title, media type, score, comment, genres
+- The author's handle as `u/{username}`, and a genre spectrum that filters the titles below
 - The group caption and comment
 - Source attribution, linked out to that entry
 - View counter, incremented fire-and-forget

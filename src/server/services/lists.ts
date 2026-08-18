@@ -2,8 +2,10 @@ import "server-only";
 import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/db";
+import { user } from "@/db/auth-schema";
 import { list, listItem, listVote } from "@/db/schema";
-import type { CreateListInput } from "@/lib/validators/list";
+import type { ListCategory } from "@/lib/categories";
+import type { CreateListInput, UpdateListInput } from "@/lib/validators/list";
 import type { UnifiedMediaResult } from "@/lib/types/media";
 import { resolveMediaCached } from "@/server/services/media-cache";
 
@@ -146,9 +148,18 @@ export async function createList(
           .values({
             slug,
             name: input.name,
+            category: input.category,
             caption: input.caption,
             comment: input.comment,
             userId,
+            // Publishing happens in the same transaction as the insert (D48).
+            // The alternative — create, then a second POST to /publish — can
+            // fail between the two and leave a list the author believes is
+            // live sitting as a draft. No `coalesce` on publishedAt as in
+            // publishList: this row did not exist a moment ago, so this is
+            // always the first publish.
+            published: input.publish ?? false,
+            publishedAt: input.publish ? sql`now()` : null,
           })
           .returning({ id: list.id });
 
@@ -161,6 +172,9 @@ export async function createList(
             mediaType: item.mediaType,
             title: resolution.resolved[index]!.title,
             coverImage: resolution.resolved[index]!.coverImage,
+            // Resolved server-side with the title and cover (D13) — the
+            // client's genre list is never trusted, same as everything else here.
+            genres: resolution.resolved[index]!.genres,
             scoreRaw: item.scoreRaw ?? null,
             scoreFormat: item.scoreFormat ?? null,
             comment: item.comment,
@@ -182,12 +196,25 @@ export async function createList(
 export type ListView = {
   slug: string;
   name: string;
+  category: string;
   caption: string | null;
   comment: string | null;
   views: number;
   published: boolean;
   publishedAt: Date | null;
   createdAt: Date;
+  /**
+   * The author's chosen handle, rendered as `u/{username}` (D49). Null only for
+   * lists published before handles became mandatory, whose owner has not signed
+   * in since — those render no author line rather than an invented one.
+   */
+  authorUsername: string | null;
+  /**
+   * The list's genre cloud, aggregated from its items at read time rather than
+   * stored on the list — a stored copy is a second source of truth that drifts
+   * the first time an item is added. Frequency-ranked, most common first.
+   */
+  genres: GenreCount[];
   items: {
     position: number;
     provider: string;
@@ -198,8 +225,11 @@ export type ListView = {
     scoreRaw: number | null;
     scoreFormat: string | null;
     comment: string | null;
+    genres: string[];
   }[];
 };
+
+export type GenreCount = { name: string; count: number };
 
 const itemColumns = {
   position: listItem.position,
@@ -211,7 +241,31 @@ const itemColumns = {
   scoreRaw: listItem.scoreRaw,
   scoreFormat: listItem.scoreFormat,
   comment: listItem.comment,
+  genres: listItem.genres,
 };
+
+/**
+ * The genre cloud for a set of items, ranked by how many items carry each genre
+ * and then alphabetically so the order is stable between renders. Mirrors the
+ * prototype's `getListAggregatedGenres`.
+ *
+ * Computed in TypeScript rather than SQL because both callers have already
+ * fetched the items — a second round-trip to `unnest` server-side would be a
+ * query to re-derive data sitting in memory.
+ */
+export function aggregateGenres(items: { genres: string[] }[]): GenreCount[] {
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    for (const genre of item.genres) {
+      const trimmed = genre.trim();
+      if (trimmed) counts.set(trimmed, (counts.get(trimmed) ?? 0) + 1);
+    }
+  }
+
+  return [...counts.entries()]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+}
 
 /**
  * Invariant 1, criterion 18a — every column selected explicitly. A
@@ -232,6 +286,7 @@ export async function getListBySlug(
     .select({
       slug: list.slug,
       name: list.name,
+      category: list.category,
       caption: list.caption,
       comment: list.comment,
       views: list.views,
@@ -239,8 +294,13 @@ export async function getListBySlug(
       publishedAt: list.publishedAt,
       createdAt: list.createdAt,
       userId: list.userId,
+      authorUsername: user.username,
     })
     .from(list)
+    // Inner rather than left: `list.userId` is NOT NULL and references
+    // `user.id`, so every list has exactly one author row — the join cannot
+    // drop a list or duplicate one. `user.username` itself may still be null.
+    .innerJoin(user, eq(list.userId, user.id))
     .where(eq(list.slug, slug))
     .limit(1);
 
@@ -255,7 +315,7 @@ export async function getListBySlug(
     .orderBy(listItem.position);
 
   const { userId: _userId, ...rest } = row;
-  return { ...rest, items };
+  return { ...rest, items, genres: aggregateGenres(items) };
 }
 
 /**
@@ -287,12 +347,17 @@ export async function listListsForUser(userId: string): Promise<ListView[]> {
     .select({
       slug: list.slug,
       name: list.name,
+      category: list.category,
       caption: list.caption,
       comment: list.comment,
       views: list.views,
       published: list.published,
       publishedAt: list.publishedAt,
       createdAt: list.createdAt,
+      // Deliberately not joined to `user` here: every row belongs to the
+      // caller, so the author is already known and a join would be a
+      // per-row lookup of a value the page has in its own session.
+      authorUsername: sql<string | null>`null`,
     })
     .from(list)
     .where(eq(list.userId, userId))
@@ -317,28 +382,38 @@ export async function listListsForUser(userId: string): Promise<ListView[]> {
     }
   }
 
-  return rows.map((row) => ({ ...row, items: itemsBySlug.get(row.slug) ?? [] }));
+  return rows.map((row) => {
+    const listItems = itemsBySlug.get(row.slug) ?? [];
+    return { ...row, items: listItems, genres: aggregateGenres(listItems) };
+  });
 }
 
 /**
- * Owner-checked rename (Phase C) — the WHERE clause folds `userId` in
- * directly since a rename has no need to distinguish 403 from 404 the way
- * delete does (PHASE-8.md criterion 6 is specific to delete).
+ * Owner-checked metadata edit (Phase C; widened from rename-only by D48) — the
+ * WHERE clause folds `userId` in directly since this has no need to distinguish
+ * 403 from 404 the way delete does (PHASE-8.md criterion 6 is specific to
+ * delete).
+ *
+ * Zod has already guaranteed at least one field is present, so the `set` object
+ * can never be empty — an empty `set` is a Drizzle runtime error, not a no-op.
  */
-export type RenameListResult = "renamed" | "not_found";
+export type UpdateListResult = "updated" | "not_found";
 
-export async function renameList(
+export async function updateList(
   slug: string,
   userId: string,
-  name: string,
-): Promise<RenameListResult> {
+  input: UpdateListInput,
+): Promise<UpdateListResult> {
   const result = await db
     .update(list)
-    .set({ name })
+    .set({
+      ...(input.name !== undefined ? { name: input.name } : {}),
+      ...(input.category !== undefined ? { category: input.category } : {}),
+    })
     .where(and(eq(list.slug, slug), eq(list.userId, userId)))
     .returning({ id: list.id });
 
-  return result.length > 0 ? "renamed" : "not_found";
+  return result.length > 0 ? "updated" : "not_found";
 }
 
 export type PublishListResult = "updated" | "not_found";
@@ -450,7 +525,14 @@ export async function duplicateList(
   userId: string,
 ): Promise<DuplicateListResult> {
   const [existing] = await db
-    .select({ id: list.id, userId: list.userId, name: list.name, caption: list.caption, comment: list.comment })
+    .select({
+      id: list.id,
+      userId: list.userId,
+      name: list.name,
+      category: list.category,
+      caption: list.caption,
+      comment: list.comment,
+    })
     .from(list)
     .where(eq(list.slug, slug))
     .limit(1);
@@ -473,6 +555,7 @@ export async function duplicateList(
           .values({
             slug: newSlug,
             name: existing.name,
+            category: existing.category,
             caption: existing.caption,
             comment: existing.comment,
             userId,
@@ -503,16 +586,26 @@ export type FeedSort = (typeof FEED_SORTS)[number];
 export type FeedEntry = {
   slug: string;
   name: string;
+  category: string;
   caption: string | null;
   views: number;
   publishedAt: Date | null;
   createdAt: Date;
   score: number;
   itemCount: number;
+  /** Rendered as `u/{username}` (D49). Null for lists whose author predates
+   *  mandatory handles and has not signed in since — those show no author line. */
+  authorUsername: string | null;
   /** Cover art for the first few titles, for the feed's filmstrip. Nulls are kept
    *  so a list whose lead title has no art still shows its placeholder in order. */
   covers: (string | null)[];
+  /** The row's genre chips, aggregated from its items. Capped — a feed row has
+   *  no room for the full cloud, and the artifact page shows all of them. */
+  genres: string[];
 };
+
+/** Genre chips per feed row. The rest are on /r/[slug], which has the room. */
+const FEED_GENRE_COUNT = 3;
 
 /** How many covers each feed row carries. Enough to fill the filmstrip, no more. */
 const FEED_COVER_COUNT = 5;
@@ -527,9 +620,12 @@ export async function listPublishedFeed(params: {
   page: number;
   pageSize: number;
   sort: FeedSort;
-  category?: string;
+  // The fixed vocabulary, not a free string — the route narrows an unknown
+  // `?category=` to undefined before it reaches here (D48).
+  category?: ListCategory;
+  genre?: string;
 }): Promise<FeedEntry[]> {
-  const { page, pageSize, sort, category } = params;
+  const { page, pageSize, sort, category, genre } = params;
   /*
     Every aggregate here is cast to int. Postgres returns count() as bigint and sum()
     as numeric, both of which postgres.js hands back as *strings* to avoid precision
@@ -546,9 +642,26 @@ export async function listPublishedFeed(params: {
   const itemCountExpr = sql<number>`(
     select count(*)::int from ${listItem} where ${listItem.listId} = ${list.id}
   )`;
-  const whereExpr = category
-    ? and(eq(list.published, true), eq(list.name, category))
-    : eq(list.published, true);
+  /*
+    Genre lives on list_item, so this is an EXISTS against that table rather
+    than a join — for the same reason itemCountExpr above is a subquery. Joining
+    list_item here would multiply against the list_vote leftJoin and corrupt
+    every aggregate in the select. `= any(genres)` is what the GIN index on
+    list_item.genres answers.
+
+    D48 — the category filter compares the `category` column, not `name`. Before
+    the split, `name` was the category, so this matched a chip against a title.
+  */
+  const whereExpr = and(
+    eq(list.published, true),
+    category ? eq(list.category, category) : undefined,
+    genre
+      ? sql`exists (
+          select 1 from ${listItem}
+          where ${listItem.listId} = ${list.id} and ${genre} = any(${listItem.genres})
+        )`
+      : undefined,
+  );
 
   const orderBy = {
     top: desc(scoreExpr),
@@ -561,17 +674,24 @@ export async function listPublishedFeed(params: {
     .select({
       slug: list.slug,
       name: list.name,
+      category: list.category,
       caption: list.caption,
       views: list.views,
       publishedAt: list.publishedAt,
       createdAt: list.createdAt,
       score: scoreExpr,
       itemCount: itemCountExpr,
+      authorUsername: user.username,
     })
     .from(list)
     .leftJoin(listVote, eq(listVote.listId, list.id))
+    // Inner join on a NOT NULL FK — one author row per list, so this cannot
+    // drop or duplicate a row the way the list_vote/list_item pairing would.
+    // Grouped by user.id as well as list.id: `username` is not functionally
+    // dependent on list.id as far as Postgres is concerned.
+    .innerJoin(user, eq(list.userId, user.id))
     .where(whereExpr)
-    .groupBy(list.id)
+    .groupBy(list.id, user.id)
     .orderBy(orderBy)
     .limit(pageSize)
     .offset((page - 1) * pageSize);
@@ -598,27 +718,84 @@ export async function listPublishedFeed(params: {
     }
   }
 
-  return rows.map((row) => ({ ...row, covers: coversBySlug.get(row.slug) ?? [] }));
+  /*
+    Genres are read over *every* item of the listed lists, not just the first
+    FEED_COVER_COUNT — a row's chips should describe the whole list, and the
+    lead titles are not a representative sample of it. Separate from the cover
+    query for that reason, rather than widening that one's WHERE.
+  */
+  const genreRows = await db
+    .select({ slug: list.slug, genres: listItem.genres })
+    .from(listItem)
+    .innerJoin(list, eq(listItem.listId, list.id))
+    .where(inArray(list.slug, slugs));
+
+  const genreItemsBySlug = new Map<string, { genres: string[] }[]>();
+  for (const row of genreRows) {
+    const bucket = genreItemsBySlug.get(row.slug);
+    if (bucket) {
+      bucket.push({ genres: row.genres });
+    } else {
+      genreItemsBySlug.set(row.slug, [{ genres: row.genres }]);
+    }
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    covers: coversBySlug.get(row.slug) ?? [],
+    genres: aggregateGenres(genreItemsBySlug.get(row.slug) ?? [])
+      .slice(0, FEED_GENRE_COUNT)
+      .map((genre) => genre.name),
+  }));
 }
 
 /**
- * Distinct `list.name` values across published lists, most-used first, for
- * the feed's category chip list. `name` is free-text (D42) — this is not a
- * fixed taxonomy, just what's actually in use right now. Capped at 20 chips
- * so a long tail of one-off names can't blow out the header UI.
+ * The categories actually in use across published lists, most-used first, for
+ * the rundown's directory.
+ *
+ * Since D48 this groups `list.category` — a fixed vocabulary — rather than the
+ * free-text `name` it used to. Only categories with at least one published list
+ * are returned: the directory is "where there is something to read", not a
+ * table of contents with nineteen empty rows. The 20 cap is now larger than the
+ * vocabulary itself and kept only so this can never blow out the sidebar.
  */
 export type FeedCategory = { name: string; count: number };
 
 export async function listFeedCategories(): Promise<FeedCategory[]> {
   const rows = await db
-    .select({ name: list.name, count: sql<number>`count(*)::int` })
+    .select({ name: list.category, count: sql<number>`count(*)::int` })
     .from(list)
     .where(eq(list.published, true))
-    .groupBy(list.name)
+    .groupBy(list.category)
     .orderBy(desc(sql`count(*)`))
     .limit(20);
 
   return rows;
+}
+
+/**
+ * The genre directory beside the category one — how many published lists carry
+ * each genre on at least one of their items.
+ *
+ * `count(distinct list.id)`, not `count(*)`: a list with four Fantasy titles is
+ * one Fantasy list, and counting rows would rank a single long list above ten
+ * short ones. Unnesting in a lateral join keeps this to one query over the GIN
+ * index rather than a read-all-then-aggregate in TypeScript, which is what the
+ * per-row aggregation above does — this one spans the whole table.
+ */
+export async function listFeedGenres(): Promise<FeedCategory[]> {
+  const rows = await db.execute<{ name: string; count: number }>(sql`
+    select genre as name, count(distinct ${list.id})::int as count
+    from ${list}
+    join ${listItem} on ${listItem.listId} = ${list.id}
+    cross join lateral unnest(${listItem.genres}) as genre
+    where ${list.published} = true
+    group by genre
+    order by count desc, genre asc
+    limit 20
+  `);
+
+  return [...rows];
 }
 
 export type ToggleVoteResult = { direction: 1 | -1 | 0 };

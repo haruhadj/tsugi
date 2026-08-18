@@ -172,6 +172,9 @@ export function DashboardRecList({ initialRecs }: { initialRecs: ListView[] }) {
                       >
                         {rec.published ? "Live" : "Draft"}
                       </span>
+                      <span className="rounded-full border border-primary/30 bg-primary/15 px-2 py-0.5 font-mono text-[10px] font-semibold text-primary">
+                        {rec.category}
+                      </span>
                       <span className="font-mono text-[11px] text-muted-foreground">
                         /r/{rec.slug}
                       </span>
@@ -182,12 +185,18 @@ export function DashboardRecList({ initialRecs }: { initialRecs: ListView[] }) {
                       className="mt-1.5 block rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                     >
                       <h2 className="font-display leading-tight font-bold tracking-[-0.01em] text-foreground">
-                        {rec.caption ?? rec.name}
+                        {rec.name}
                       </h2>
                     </Link>
 
+                    {rec.caption && (
+                      <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">
+                        {rec.caption}
+                      </p>
+                    )}
+
                     <p className="mt-1.5 font-mono text-[11px] text-muted-foreground">
-                      {rec.name} · {rec.items.length} title
+                      {rec.items.length} title
                       {rec.items.length === 1 ? "" : "s"} · {rec.views} view
                       {rec.views === 1 ? "" : "s"}
                     </p>

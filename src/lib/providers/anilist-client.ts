@@ -17,6 +17,7 @@ const SEARCH_QUERY = `
         coverImage { extraLarge large }
         startDate { year }
         averageScore
+        genres
       }
     }
   }
@@ -31,6 +32,7 @@ const RESOLVE_QUERY = `
       coverImage { extraLarge large }
       startDate { year }
       averageScore
+      genres
     }
   }
 `;
@@ -42,6 +44,10 @@ type AniListMedia = {
   coverImage: { extraLarge: string | null; large: string | null } | null;
   startDate: { year: number | null } | null;
   averageScore: number | null;
+  // A scalar list on AniList's Media type — no sub-selection. Optional here
+  // because the recorded fixtures predate this field, and a search response
+  // that omits it must still map rather than crash.
+  genres?: string[] | null;
 };
 
 function toMediaType(type: "ANIME" | "MANGA"): MediaType {
@@ -66,6 +72,9 @@ function toUnifiedMediaResult(media: AniListMedia): UnifiedMediaResult {
     year: media.startDate?.year ?? null,
     // AniList's averageScore is already 0–100 — no conversion (unlike Jikan's 0–10).
     averageScore: media.averageScore,
+    // Always an array. A null or absent `genres` becomes `[]` here so no
+    // surface downstream has to guard before mapping over it.
+    genres: media.genres ?? [],
   };
 }
 

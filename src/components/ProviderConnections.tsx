@@ -7,9 +7,24 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { authClient } from "@/lib/auth-client";
 
+/*
+  `glyph` and `tone` carry each provider's own brand colour, which is the one
+  sanctioned use of the `anilist`/`mal` tokens — identifying a provider, never
+  as a UI accent (ui-tokens.md). Written out in full rather than interpolated.
+*/
 const TRACKER_PROVIDERS = [
-  { id: "anilist", label: "AniList" },
-  { id: "mal", label: "MyAnimeList" },
+  {
+    id: "anilist",
+    label: "AniList",
+    glyph: "AL",
+    tone: "border-anilist/30 bg-anilist/15 text-anilist",
+  },
+  {
+    id: "mal",
+    label: "MyAnimeList",
+    glyph: "MAL",
+    tone: "border-mal/30 bg-mal/15 text-mal",
+  },
 ] as const;
 
 type TrackerProviderId = (typeof TRACKER_PROVIDERS)[number]["id"];
@@ -72,9 +87,17 @@ export function ProviderConnections() {
           return (
             <li key={provider.id}>
               {index > 0 ? <Separator /> : null}
-              <div className="flex items-center justify-between gap-4 py-4">
-                <span className="font-display text-sm font-semibold tracking-[0.06em]">
-                  {provider.label}
+              <div className="flex flex-wrap items-center justify-between gap-4 py-4">
+                <span className="flex items-center gap-2.5">
+                  <span
+                    className={`flex size-8 shrink-0 items-center justify-center rounded-lg border font-mono text-[10px] font-bold ${provider.tone}`}
+                    aria-hidden
+                  >
+                    {provider.glyph}
+                  </span>
+                  <span className="font-display text-sm font-semibold tracking-[0.06em]">
+                    {provider.label}
+                  </span>
                 </span>
                 {account ? (
                   <div className="flex items-center gap-3">

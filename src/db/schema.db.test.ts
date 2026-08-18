@@ -78,7 +78,7 @@ if (hasDb) {
 
     test("a three-item list round-trips by slug, in position order", async () => {
       const slug = trackSlug(randomSlug());
-      await db.insert(list).values({ name: "Untitled", slug, userId: testUserId, comment: "great picks" });
+      await db.insert(list).values({ name: "Untitled", category: "Eclectic / Multi-Genre", slug, userId: testUserId, comment: "great picks" });
       const [rec] = await db.select().from(list).where(eq(list.slug, slug));
       expect(rec).toBeDefined();
       expect(rec!.views).toBe(0);
@@ -124,7 +124,7 @@ if (hasDb) {
 
     test("a one-item list round-trips identically to a group", async () => {
       const slug = trackSlug(randomSlug());
-      await db.insert(list).values({ name: "Untitled", slug, userId: testUserId });
+      await db.insert(list).values({ name: "Untitled", category: "Eclectic / Multi-Genre", slug, userId: testUserId });
       const [rec] = await db.select().from(list).where(eq(list.slug, slug));
       await db.insert(listItem).values({
         listId: rec!.id,
@@ -144,7 +144,7 @@ if (hasDb) {
 
     test("deleting a list cascades to its items", async () => {
       const slug = randomSlug();
-      await db.insert(list).values({ name: "Untitled", slug, userId: testUserId });
+      await db.insert(list).values({ name: "Untitled", category: "Eclectic / Multi-Genre", slug, userId: testUserId });
       const [rec] = await db.select().from(list).where(eq(list.slug, slug));
       await db.insert(listItem).values({
         listId: rec!.id,
@@ -169,14 +169,14 @@ if (hasDb) {
     test("a 281-character group comment fails at the database", async () => {
       const slug = randomSlug();
       await expectPgErrorCode(
-        db.insert(list).values({ name: "Untitled", slug, userId: testUserId, comment: "a".repeat(281) }),
+        db.insert(list).values({ name: "Untitled", category: "Eclectic / Multi-Genre", slug, userId: testUserId, comment: "a".repeat(281) }),
         "22001",
       );
     });
 
     test("a 281-character item comment fails at the database", async () => {
       const slug = trackSlug(randomSlug());
-      await db.insert(list).values({ name: "Untitled", slug, userId: testUserId });
+      await db.insert(list).values({ name: "Untitled", category: "Eclectic / Multi-Genre", slug, userId: testUserId });
       const [rec] = await db.select().from(list).where(eq(list.slug, slug));
       await expectPgErrorCode(
         db.insert(listItem).values({
@@ -194,9 +194,9 @@ if (hasDb) {
 
     test("a duplicate slug fails with 23505 (unique_violation)", async () => {
       const slug = trackSlug(randomSlug());
-      await db.insert(list).values({ name: "Untitled", slug, userId: testUserId });
+      await db.insert(list).values({ name: "Untitled", category: "Eclectic / Multi-Genre", slug, userId: testUserId });
       await expectPgErrorCode(
-        db.insert(list).values({ name: "Untitled", slug, userId: testUserId }),
+        db.insert(list).values({ name: "Untitled", category: "Eclectic / Multi-Genre", slug, userId: testUserId }),
         "23505",
       );
     });
@@ -211,7 +211,7 @@ if (hasDb) {
 
     test("scoreRaw set with scoreFormat null fails, and vice versa", async () => {
       const slug = trackSlug(randomSlug());
-      await db.insert(list).values({ name: "Untitled", slug, userId: testUserId });
+      await db.insert(list).values({ name: "Untitled", category: "Eclectic / Multi-Genre", slug, userId: testUserId });
       const [rec] = await db.select().from(list).where(eq(list.slug, slug));
 
       await expectPgErrorCode(
@@ -239,7 +239,7 @@ if (hasDb) {
 
     test("an item with both score fields null inserts fine", async () => {
       const slug = trackSlug(randomSlug());
-      await db.insert(list).values({ name: "Untitled", slug, userId: testUserId });
+      await db.insert(list).values({ name: "Untitled", category: "Eclectic / Multi-Genre", slug, userId: testUserId });
       const [rec] = await db.select().from(list).where(eq(list.slug, slug));
       await db.insert(listItem).values({
         listId: rec!.id,
@@ -259,7 +259,7 @@ if (hasDb) {
 
     test("scores store exactly with no rounding, as numbers not strings", async () => {
       const slug = trackSlug(randomSlug());
-      await db.insert(list).values({ name: "Untitled", slug, userId: testUserId });
+      await db.insert(list).values({ name: "Untitled", category: "Eclectic / Multi-Genre", slug, userId: testUserId });
       const [rec] = await db.select().from(list).where(eq(list.slug, slug));
       await db.insert(listItem).values([
         {
@@ -299,8 +299,8 @@ if (hasDb) {
       const slugA = trackSlug(randomSlug());
       const slugB = trackSlug(randomSlug());
       await db.insert(list).values([
-        { name: "Untitled", slug: slugA, userId: testUserId },
-        { name: "Untitled", slug: slugB, userId: testUserId },
+        { name: "Untitled", category: "Eclectic / Multi-Genre", slug: slugA, userId: testUserId },
+        { name: "Untitled", category: "Eclectic / Multi-Genre", slug: slugB, userId: testUserId },
       ]);
       const [recA] = await db.select().from(list).where(eq(list.slug, slugA));
       const [recB] = await db.select().from(list).where(eq(list.slug, slugB));
@@ -344,7 +344,7 @@ if (hasDb) {
 
     test("two items with the same mediaType/externalId but different provider both insert", async () => {
       const slug = trackSlug(randomSlug());
-      await db.insert(list).values({ name: "Untitled", slug, userId: testUserId });
+      await db.insert(list).values({ name: "Untitled", category: "Eclectic / Multi-Genre", slug, userId: testUserId });
       const [rec] = await db.select().from(list).where(eq(list.slug, slug));
 
       // AniList's Frieren (154587) and MAL's Frieren (52991) are different ids in
@@ -378,7 +378,7 @@ if (hasDb) {
 
     test("an out-of-range provider or scoreFormat fails at the database", async () => {
       const slug = trackSlug(randomSlug());
-      await db.insert(list).values({ name: "Untitled", slug, userId: testUserId });
+      await db.insert(list).values({ name: "Untitled", category: "Eclectic / Multi-Genre", slug, userId: testUserId });
       const [rec] = await db.select().from(list).where(eq(list.slug, slug));
 
       await expectPgErrorCode(
@@ -402,7 +402,7 @@ if (hasDb) {
 
     test("duplicate position within a list fails", async () => {
       const slug = trackSlug(randomSlug());
-      await db.insert(list).values({ name: "Untitled", slug, userId: testUserId });
+      await db.insert(list).values({ name: "Untitled", category: "Eclectic / Multi-Genre", slug, userId: testUserId });
       const [rec] = await db.select().from(list).where(eq(list.slug, slug));
       await db.insert(listItem).values({
         listId: rec!.id,
@@ -427,7 +427,7 @@ if (hasDb) {
 
     test("scoreRaw: 0 fails — 0 means unrated, not rated zero (D35)", async () => {
       const slug = trackSlug(randomSlug());
-      await db.insert(list).values({ name: "Untitled", slug, userId: testUserId });
+      await db.insert(list).values({ name: "Untitled", category: "Eclectic / Multi-Genre", slug, userId: testUserId });
       const [rec] = await db.select().from(list).where(eq(list.slug, slug));
       await expectPgErrorCode(
         db.insert(listItem).values({

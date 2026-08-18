@@ -122,6 +122,36 @@ function CategoryChip({ name }: { name: string }) {
   );
 }
 
+/**
+ * The author's handle (D49). Renders nothing at all when there isn't one —
+ * accounts that predate mandatory handles are gated at next sign-in rather than
+ * backfilled, so until then their published lists simply go unattributed rather
+ * than being signed with a name the person never chose.
+ */
+function AuthorTag({ username }: { username: string | null }) {
+  if (!username) return null;
+  return <span className="font-mono text-[11px] text-muted-foreground">u/{username}</span>;
+}
+
+/** Genre chips link back into the feed, so the rundown filters itself. */
+function GenreChips({ genres }: { genres: string[] }) {
+  if (genres.length === 0) return null;
+  return (
+    <ul className="flex flex-wrap items-center gap-1">
+      {genres.map((genre) => (
+        <li key={genre}>
+          <Link
+            href={`/feed?genre=${encodeURIComponent(genre)}`}
+            className="inline-block rounded border border-border bg-secondary/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground transition-colors hover:border-highlight/50 hover:text-highlight focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          >
+            #{genre}
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function Meta({ entry }: { entry: FeedEntry }) {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] text-muted-foreground">
@@ -150,7 +180,8 @@ function StreamCard({ entry, slot }: { entry: FeedEntry; slot: number }) {
 
       <div className="flex min-w-0 flex-1 flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <CategoryChip name={entry.name} />
+          <CategoryChip name={entry.category} />
+          <AuthorTag username={entry.authorUsername} />
         </div>
 
         <Link
@@ -158,9 +189,14 @@ function StreamCard({ entry, slot }: { entry: FeedEntry; slot: number }) {
           className="min-w-0 rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           <h2 className="font-display leading-tight font-bold tracking-[-0.01em] text-foreground">
-            {entry.caption ?? entry.name}
+            {entry.name}
           </h2>
+          {entry.caption && (
+            <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{entry.caption}</p>
+          )}
         </Link>
+
+        <GenreChips genres={entry.genres} />
 
         {/*
           Decorative: the covers repeat a list this row already names and links, and
@@ -200,7 +236,7 @@ function CompactRow({ entry, slot }: { entry: FeedEntry; slot: number }) {
 
       <MediaCover
         src={entry.covers[0] ?? null}
-        title={entry.caption ?? entry.name}
+        title={entry.name}
         width={36}
         height={54}
         className="shrink-0 rounded-md"
@@ -211,12 +247,13 @@ function CompactRow({ entry, slot }: { entry: FeedEntry; slot: number }) {
         className="min-w-0 flex-1 rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         <h2 className="truncate text-sm leading-tight font-semibold text-foreground">
-          {entry.caption ?? entry.name}
+          {entry.name}
         </h2>
         <div className="mt-1 flex items-center gap-3 font-mono text-[11px] text-muted-foreground">
-          <span>{entry.name}</span>
-          <span>{entry.itemCount} titles</span>
-          <span>{entry.views} views</span>
+          <span className="truncate">{entry.category}</span>
+          {entry.authorUsername && <span className="truncate">u/{entry.authorUsername}</span>}
+          <span className="hidden sm:inline">{entry.itemCount} titles</span>
+          <span className="hidden sm:inline">{entry.views} views</span>
         </div>
       </Link>
 
@@ -229,7 +266,7 @@ function GridCard({ entry, slot }: { entry: FeedEntry; slot: number }) {
   return (
     <li className="flex flex-col gap-3 rounded-2xl border border-border bg-card/60 p-4 transition-colors hover:border-input">
       <div className="flex items-center justify-between gap-2">
-        <CategoryChip name={entry.name} />
+        <CategoryChip name={entry.category} />
         <span aria-hidden className="font-mono text-[11px] tabular-nums text-muted-foreground/50">
           {String(slot).padStart(2, "0")}
         </span>
@@ -240,9 +277,11 @@ function GridCard({ entry, slot }: { entry: FeedEntry; slot: number }) {
         className="rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         <h2 className="line-clamp-2 font-display leading-tight font-bold tracking-[-0.01em] text-foreground">
-          {entry.caption ?? entry.name}
+          {entry.name}
         </h2>
       </Link>
+
+      <AuthorTag username={entry.authorUsername} />
 
       {/*
         The covers overlap into a fanned stack. Negative margin on every cover but the

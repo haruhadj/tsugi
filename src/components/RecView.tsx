@@ -26,8 +26,11 @@ export function RecView({ rec }: { rec: ListView }) {
     items: rec.items,
   });
   const card: SocialCardInput = {
-    title: rec.caption ?? rec.name,
-    subtitle: rec.caption ? rec.name : null,
+    // Since D48 `name` is the list's title and `caption` is the line under it,
+    // so the card leads with the name. Before the split, `name` was the category
+    // and the caption had to stand in as the headline.
+    title: rec.name,
+    subtitle: rec.caption,
     comment: rec.comment,
     itemCount: rec.items.length,
     items: rec.items.map((item) => ({ title: item.title, coverImage: item.coverImage })),
@@ -42,8 +45,18 @@ export function RecView({ rec }: { rec: ListView }) {
           <header className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-3">
               <span className="rounded-full border border-primary/30 bg-primary/15 px-2.5 py-1 font-mono text-[11px] font-semibold tracking-wide text-primary">
-                {rec.name}
+                {rec.category}
               </span>
+              {/*
+                The author's handle (D49). Absent only for lists published before
+                handles were mandatory, whose owner has not signed in since — no
+                line at all rather than a name they never chose as a handle.
+              */}
+              {rec.authorUsername && (
+                <span className="font-mono text-[11px] text-muted-foreground">
+                  u/{rec.authorUsername}
+                </span>
+              )}
               <span className="font-mono text-[11px] text-muted-foreground">/r/{rec.slug}</span>
               {!rec.published && (
                 <span className="rounded-full border border-border bg-secondary px-2.5 py-1 font-mono text-[11px] font-semibold text-muted-foreground">
@@ -53,8 +66,14 @@ export function RecView({ rec }: { rec: ListView }) {
             </div>
 
             <h1 className="font-display text-[clamp(1.75rem,5vw,2.5rem)] leading-[1.05] font-extrabold tracking-[-0.03em] text-foreground">
-              {rec.caption ?? rec.name}
+              {rec.name}
             </h1>
+
+            {rec.caption && (
+              <p className="max-w-2xl text-base leading-relaxed text-muted-foreground">
+                {rec.caption}
+              </p>
+            )}
 
             {rec.comment && (
               <p className="max-w-2xl text-sm leading-relaxed text-foreground/85">
@@ -88,7 +107,7 @@ export function RecView({ rec }: { rec: ListView }) {
             </div>
           </header>
 
-          <ListItemViews items={rec.items} />
+          <ListItemViews items={rec.items} genres={rec.genres} />
         </div>
       </article>
     </main>

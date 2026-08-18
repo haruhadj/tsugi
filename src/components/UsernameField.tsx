@@ -1,11 +1,20 @@
 "use client";
 
-import { CheckIcon, Loader2Icon } from "lucide-react";
+import { AtSignIcon, CheckIcon, Loader2Icon } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { updateUsernameSchema } from "@/lib/validators/username";
 
-type Props = { initialUsername: string };
+type Props = {
+  initialUsername: string;
+  /**
+   * Called after a successful save. The handle gate uses this to leave the
+   * blocking screen; settings passes nothing and simply stays put.
+   */
+  onSaved?: (username: string) => void;
+  saveLabel?: string;
+  autoFocus?: boolean;
+};
 
 type Status = { kind: "idle" } | { kind: "error"; message: string } | { kind: "saved" };
 
@@ -13,7 +22,10 @@ type Status = { kind: "idle" } | { kind: "error"; message: string } | { kind: "s
 // defaulted once at signup, freely editable here. Client-side format check
 // mirrors the DB CHECK constraint (src/lib/validators/username.ts) so most
 // rejections never round-trip to the server.
-export function UsernameField({ initialUsername }: Props) {
+//
+// Since D49 a handle is mandatory, so this component is also what `/handle`
+// renders — hence `onSaved`, which is the only difference between the two uses.
+export function UsernameField({ initialUsername, onSaved, saveLabel = "Save", autoFocus }: Props) {
   const [username, setUsername] = useState(initialUsername);
   const [saved, setSaved] = useState(initialUsername);
   const [isSaving, setIsSaving] = useState(false);
@@ -49,6 +61,7 @@ export function UsernameField({ initialUsername }: Props) {
     } else {
       setSaved(username);
       setStatus({ kind: "saved" });
+      onSaved?.(username);
     }
 
     setIsSaving(false);
@@ -56,25 +69,31 @@ export function UsernameField({ initialUsername }: Props) {
 
   return (
     <div className="flex flex-col gap-3">
-      <label
-        htmlFor="username"
-        className="font-display text-sm font-semibold tracking-[0.06em]"
-      >
+      <label htmlFor="username" className="font-display text-sm font-semibold tracking-[0.06em]">
         Username
       </label>
-      <div className="flex items-center gap-3">
-        <input
-          id="username"
-          value={username}
-          onChange={(e) => {
-            setUsername(e.target.value);
-            setStatus({ kind: "idle" });
-          }}
-          maxLength={20}
-          className="w-full max-w-xs rounded-md border border-border bg-background px-3 py-2 font-mono text-sm outline-none focus:border-primary"
-        />
+      <div className="flex flex-wrap items-center gap-3">
+        {/*
+          The `@` is a static glyph inside the frame rather than part of the
+          value — it is never submitted, and the DB's format constraint would
+          reject it if it were.
+        */}
+        <div className="flex min-h-11 w-full max-w-xs items-center gap-1.5 rounded-xl border border-input bg-background px-3 focus-within:border-primary/60 focus-within:ring-[3px] focus-within:ring-ring/50">
+          <AtSignIcon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <input
+            id="username"
+            value={username}
+            autoFocus={autoFocus}
+            onChange={(e) => {
+              setUsername(e.target.value);
+              setStatus({ kind: "idle" });
+            }}
+            maxLength={20}
+            className="w-full bg-transparent py-2 font-mono text-sm outline-none"
+          />
+        </div>
         <Button variant="outline" size="sm" disabled={!isDirty || isSaving} onClick={save}>
-          Save
+          {saveLabel}
           {isSaving ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
         </Button>
       </div>
@@ -87,7 +106,8 @@ export function UsernameField({ initialUsername }: Props) {
         </p>
       ) : (
         <p className="font-mono text-xs tracking-[0.06em] text-muted-foreground">
-          3-20 characters: letters, numbers, underscore only. Shown on your public feed entries.
+          3-20 characters: letters, numbers, underscore only. Shown as u/{username || "yourname"}{" "}
+          on everything you publish.
         </p>
       )}
     </div>

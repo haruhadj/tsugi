@@ -2,7 +2,7 @@ import "server-only";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { auth } from "@/lib/auth";
-import { createListSchema, renameListSchema } from "@/lib/validators/list";
+import { createListSchema, updateListSchema } from "@/lib/validators/list";
 import { checkListCreateLimit } from "@/server/hono/middleware";
 import {
   createList,
@@ -11,8 +11,8 @@ import {
   getListBySlug,
   listListsForUser,
   publishList,
-  renameList,
   unpublishList,
+  updateList,
 } from "@/server/services/lists";
 
 export const userListsRouter = new Hono()
@@ -55,14 +55,17 @@ export const userListsRouter = new Hono()
     }
     return c.json(list);
   })
-  .patch("/lists/:slug", zValidator("json", renameListSchema), async (c) => {
+  .patch("/lists/:slug", zValidator("json", updateListSchema), async (c) => {
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
     if (!session) {
-      return c.json({ error: "Sign in to rename a list." }, 401);
+      return c.json({ error: "Sign in to edit a list." }, 401);
     }
 
-    const { name } = c.req.valid("json");
-    const result = await renameList(c.req.param("slug"), session.user.id, name);
+    const result = await updateList(
+      c.req.param("slug"),
+      session.user.id,
+      c.req.valid("json"),
+    );
     if (result === "not_found") {
       return c.json({ error: "Not found" }, 404);
     }

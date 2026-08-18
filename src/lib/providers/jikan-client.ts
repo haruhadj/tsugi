@@ -16,6 +16,11 @@ type JikanEntry = {
   };
   year: number | null;
   score: number | null;
+  // Jikan also returns `themes` and `demographics` as separate arrays. Only
+  // `genres` is mapped, so both adapters expose a comparably scoped list —
+  // folding the other two in here would make MAL results carry tags AniList
+  // never returns. Optional because the schema-built fixtures predate it.
+  genres?: { name: string }[] | null;
 };
 
 function toUnifiedMediaResult(entry: JikanEntry, mediaType: MediaType): UnifiedMediaResult {
@@ -35,6 +40,8 @@ function toUnifiedMediaResult(entry: JikanEntry, mediaType: MediaType): UnifiedM
     // is about the user's own rating, this is the same principle applied to
     // the provider's aggregate score).
     averageScore: entry.score === null ? null : Math.round(entry.score * 10),
+    // Always an array, matching the AniList adapter — see UnifiedMediaResult.
+    genres: entry.genres?.map((genre) => genre.name) ?? [],
   };
 }
 

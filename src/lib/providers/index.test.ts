@@ -5,7 +5,7 @@ import frierenJikanFixture from "./__fixtures__/jikan-search-frieren-anime.json"
 import { mockFetchJSON, mockFetchReject } from "./__fixtures__/mock-fetch";
 import { searchMedia } from "./index";
 
-const ANILIST_KEYS = ["provider", "externalId", "mediaType", "title", "titleNative", "coverImage", "year", "averageScore"].sort();
+const ANILIST_KEYS = ["provider", "externalId", "mediaType", "title", "titleNative", "coverImage", "year", "averageScore", "genres"].sort();
 
 describe("searchMedia (dispatch)", () => {
   // Criterion 4, across both providers — a bare Object.keys() comparison, no

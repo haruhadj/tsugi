@@ -5,9 +5,11 @@ import { db } from "@/db";
 import { list } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { checkVoteLimit } from "@/server/hono/middleware";
+import { isListCategory } from "@/lib/categories";
 import {
   FEED_SORTS,
   listFeedCategories,
+  listFeedGenres,
   listPublishedFeed,
   toggleVote,
   type FeedSort,
@@ -27,14 +29,26 @@ export const feedRouter = new Hono()
     const sort = isFeedSort(sortParam) ? sortParam : "top";
     const pageParam = Number(c.req.query("page") ?? "1");
     const page = Number.isInteger(pageParam) && pageParam > 0 ? pageParam : 1;
-    const category = c.req.query("category") || undefined;
+    // An unknown category is dropped rather than 400'd, the same way an
+    // unknown sort falls back to "top" above: a stale chip in someone's
+    // bookmark should show the whole rundown, not an error page. Since D48 the
+    // vocabulary is fixed, so this can be checked rather than passed through.
+    const categoryParam = c.req.query("category");
+    const category = categoryParam && isListCategory(categoryParam) ? categoryParam : undefined;
+    // Genres come from the providers, not from us, so there is no list to
+    // validate against — an unmatched genre simply returns nothing.
+    const genre = c.req.query("genre") || undefined;
 
-    const entries = await listPublishedFeed({ page, pageSize: 20, sort, category });
+    const entries = await listPublishedFeed({ page, pageSize: 20, sort, category, genre });
     return c.json({ entries });
   })
   .get("/feed/categories", async (c) => {
     const categories = await listFeedCategories();
     return c.json({ categories });
+  })
+  .get("/feed/genres", async (c) => {
+    const genres = await listFeedGenres();
+    return c.json({ genres });
   })
   .post("/feed/:slug/vote", async (c) => {
     const session = await auth.api.getSession({ headers: c.req.raw.headers });

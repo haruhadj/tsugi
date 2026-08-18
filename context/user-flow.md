@@ -34,6 +34,24 @@ Every screen, and every path between them. If a screen is not here, it does not 
    Phase 8:   /dashboard  — your recs · connections · delete
 ```
 
+## `/handle` — the one-time handle step
+
+Added by **D49**. A signed-in user with no `username` is redirected here before `/`,
+`/dashboard`, or `/settings` will render — `requireHandledSession()` in
+`src/lib/require-handle.ts` is the single place that decides.
+
+It exists because the rundown attributes every list as `u/{username}`, and the alternative —
+generating a handle from the OAuth display name — publishes a public identity the person never
+chose. The field starts **empty** for the same reason: pre-filling a tracker name makes
+accepting it the path of least resistance.
+
+Anyone who already has a handle is redirected out, so this never becomes a second place to
+edit one. That stays in [`/settings`](#settings--connections).
+
+**Public routes are never gated.** `/feed`, `/r/[slug]`, and the OG image skip this entirely —
+viewing has never required an account (invariant 9), and a gate on a shared link would break
+the product's whole distribution model. A list whose author has no handle shows no author line.
+
 ## `/sign-in`
 
 Three buttons, no form, no copy beyond a line explaining why. Reached from the create screen,

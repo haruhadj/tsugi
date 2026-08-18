@@ -19,6 +19,11 @@ function optionLabel(scoreFormat: ScoreFormat, value: number) {
   return String(value);
 }
 
+/**
+ * Scores are optional per item (D27), so this has to be *un*-settable — a radio
+ * group has no native "none" state, and without a clear control a mis-tap can
+ * never be taken back. `null` means unrated, which is not the same as zero (D35).
+ */
 export function ScoreInput({
   scoreFormat,
   value,
@@ -27,14 +32,14 @@ export function ScoreInput({
 }: {
   scoreFormat: ScoreFormat;
   value: number | null;
-  onChange: (value: number) => void;
+  onChange: (value: number | null) => void;
   id: string;
 }) {
   const bounds = SCORE_FORMAT_BOUNDS[scoreFormat];
 
   if (scoreFormat === "POINT_100" || scoreFormat === "POINT_10_DECIMAL") {
     return (
-      <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-2">
         <Label htmlFor={id} className="sr-only">
           Score
         </Label>
@@ -48,11 +53,16 @@ export function ScoreInput({
           value={value ?? ""}
           onChange={(e) => {
             const next = e.target.valueAsNumber;
-            if (!Number.isNaN(next)) onChange(next);
+            // An emptied field is "unrated", not a rejected keystroke — without
+            // this the only way out of a typo is to type over it.
+            onChange(Number.isNaN(next) ? null : next);
           }}
           className="h-11 w-24"
           aria-label={`Score out of ${bounds.max}`}
         />
+        <span className="font-mono text-xs font-semibold text-muted-foreground tabular-nums">
+          {value != null ? formatScore(value, scoreFormat) : `/ ${bounds.max}`}
+        </span>
       </div>
     );
   }
@@ -60,7 +70,8 @@ export function ScoreInput({
   const options = scoreOptions(scoreFormat);
 
   return (
-    <RadioGroup
+    <div className="flex flex-wrap items-center gap-2">
+      <RadioGroup
       value={value != null ? String(value) : undefined}
       onValueChange={(next) => onChange(Number(next))}
       className="flex flex-row flex-wrap gap-2"
@@ -101,6 +112,16 @@ export function ScoreInput({
           </div>
         );
       })}
-    </RadioGroup>
+      </RadioGroup>
+      {value != null && (
+        <button
+          type="button"
+          onClick={() => onChange(null)}
+          className="min-h-11 text-xs font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
+        >
+          Clear
+        </button>
+      )}
+    </div>
   );
 }

@@ -14,6 +14,7 @@ const ALL_KEYS = [
   "coverImage",
   "year",
   "averageScore",
+  "genres",
 ].sort();
 
 describe("searchAniList", () => {
@@ -145,5 +146,53 @@ describe("resolveAniList", () => {
   test("a 429 returns ok:false, reason: rate_limited", async () => {
     const result = await resolveAniList(154587, "anime", mockFetchJSON({}, 429));
     expect(result).toEqual({ ok: false, reason: "rate_limited" });
+  });
+});
+
+// D48 — genres arrive with the rest of the media, and every consumer maps over
+// them without a guard, so the one thing that must never happen is `undefined`.
+describe("searchAniList genres", () => {
+  test("maps the provider's genre list through unchanged", async () => {
+    const result = await searchAniList(
+      "frieren",
+      "anime",
+      new AbortController().signal,
+      mockFetchJSON({
+        data: {
+          Page: {
+            media: [
+              {
+                id: 154587,
+                type: "ANIME",
+                title: { english: "Frieren", romaji: "Sousou no Frieren", native: null },
+                coverImage: null,
+                startDate: { year: 2023 },
+                averageScore: 89,
+                genres: ["Adventure", "Drama", "Fantasy"],
+              },
+            ],
+          },
+        },
+      }),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data[0]!.genres).toEqual(["Adventure", "Drama", "Fantasy"]);
+  });
+
+  // The recorded fixtures predate the field, which makes them the exact case
+  // this has to survive: a response with no `genres` key at all.
+  test("a response without a genres field yields [], never undefined", async () => {
+    const result = await searchAniList(
+      "frieren",
+      "anime",
+      new AbortController().signal,
+      mockFetchJSON(frierenSearchFixture),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data[0]!.genres).toEqual([]);
   });
 });
