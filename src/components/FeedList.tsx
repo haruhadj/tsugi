@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowRightIcon,
   CheckIcon,
   CopyIcon,
   EyeIcon,
@@ -8,12 +9,16 @@ import {
   LayoutListIcon,
   ListOrderedIcon,
   Rows3Icon,
+  Share2Icon,
+  SparklesIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { type ReactNode, useState } from "react";
 import { MediaCover } from "@/components/MediaCover";
+import { ScoreBadge } from "@/components/ScoreBadge";
+import { ShareModal } from "@/components/ShareModal";
 import { VoteButtons } from "@/components/VoteButtons";
-import type { FeedEntry } from "@/server/services/lists";
+import type { FeedCover, FeedEntry } from "@/server/services/lists";
 import { cn } from "@/lib/utils";
 
 const DENSITIES = [
@@ -36,12 +41,10 @@ type Density = (typeof DENSITIES)[number]["id"];
  */
 export function FeedList({
   entries,
-  firstSlot,
   sortNav,
   filterBar,
 }: {
   entries: FeedEntry[];
-  firstSlot: number;
   sortNav: ReactNode;
   filterBar?: ReactNode;
 }) {
@@ -49,7 +52,9 @@ export function FeedList({
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+      {/* One bar: sort tabs, any page-level filter control, and density read as a
+          single toolbar rather than three controls stacked down the page. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 rounded-2xl border border-border bg-card/60 p-2">
         {sortNav}
         <div
           role="group"
@@ -82,17 +87,17 @@ export function FeedList({
 
       {density === "grid" ? (
         <ul className="mt-6 grid gap-4 sm:grid-cols-2">
-          {entries.map((entry, index) => (
-            <GridCard key={entry.slug} entry={entry} slot={firstSlot + index} />
+          {entries.map((entry) => (
+            <GridCard key={entry.slug} entry={entry} />
           ))}
         </ul>
       ) : (
         <ul className="mt-6 flex flex-col gap-3">
-          {entries.map((entry, index) =>
+          {entries.map((entry) =>
             density === "stream" ? (
-              <StreamCard key={entry.slug} entry={entry} slot={firstSlot + index} />
+              <StreamCard key={entry.slug} entry={entry} />
             ) : (
-              <CompactRow key={entry.slug} entry={entry} slot={firstSlot + index} />
+              <CompactRow key={entry.slug} entry={entry} />
             ),
           )}
         </ul>
@@ -130,6 +135,109 @@ function CopyLinkButton({ slug }: { slug: string }) {
     </button>
   );
 }
+
+/**
+ * The same modal the artifact page's `ShareListButton` opens, minus the card
+ * tab — a feed row has the URL but not the resolved titles `SocialCardInput`
+ * needs, and `ShareModal` already treats `card` as optional for exactly that
+ * case (the builder opens it in the same half-known state).
+ */
+function ShareRowButton({ slug, name }: { slug: string; name: string }) {
+  const [open, setOpen] = useState(false);
+  const url =
+    typeof window === "undefined" ? `/r/${slug}` : `${window.location.origin}/r/${slug}`;
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      >
+        <Share2Icon className="size-3.5" aria-hidden />
+        Share
+      </button>
+      <ShareModal open={open} onOpenChange={setOpen} url={url} text={name} />
+    </>
+  );
+}
+
+/**
+ * The lead titles, badged with their rank and score.
+ *
+ * This used to be `aria-hidden` decoration because `FeedEntry` carried nothing
+ * but image URLs — captioning it would have meant inventing alt text. Now that
+ * each cover arrives with its title and `(raw, format)` score pair, the strip
+ * says something the row does not, so it is exposed.
+ */
+function Filmstrip({ covers }: { covers: FeedCover[] }) {
+  if (covers.length === 0) return null;
+
+  return (
+    <ul aria-label="Leading titles" className="flex gap-2 overflow-x-auto pb-1">
+      {covers.map((cover, index) => (
+        <li
+          key={`${cover.title}-${index}`}
+          className="flex w-14 shrink-0 flex-col items-center gap-1"
+        >
+          <div className="relative">
+            <MediaCover
+              src={cover.coverImage}
+              title={cover.title}
+              width={56}
+              height={84}
+              className="rounded-md"
+            />
+            {/* The rank restates the cover's position in a list that is already
+                ordered, so it is decoration for anyone reading the markup. */}
+            <span
+              aria-hidden
+              className="absolute top-0 left-0 rounded-tl-md rounded-br-md bg-background/85 px-1 font-mono text-[9px] font-bold tabular-nums text-foreground"
+            >
+              {index + 1}
+            </span>
+          </div>
+          {cover.scoreRaw !== null && cover.scoreFormat !== null && (
+            // Below the cover rather than over it: at 56px wide a POINT_100
+            // score would cover the art it is annotating.
+            <ScoreBadge
+              scoreRaw={cover.scoreRaw}
+              scoreFormat={cover.scoreFormat}
+              size="sm"
+              className="px-1 text-[9px]"
+            />
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Fewer than three genres describes a theme; three or more describes a range. */
+const MULTI_GENRE_THRESHOLD = 3;
+
+function MultiGenreBadge({ genres }: { genres: string[] }) {
+  if (genres.length < MULTI_GENRE_THRESHOLD) return null;
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-highlight/30 bg-highlight/15 px-2 py-0.5 font-mono text-[10px] font-semibold text-highlight">
+      <SparklesIcon className="size-3" aria-hidden />
+      Multi-genre
+    </span>
+  );
+}
+
+/**
+ * The link-overlay pattern: the title's `<Link>` grows a full-card pseudo-element
+ * so the whole row is a click target, while staying a real anchor — keyboard
+ * focus, middle-click and open-in-new-tab all keep working. A `div` with an
+ * `onClick` would look identical and silently lose all three (ui-rules.md:
+ * never strip a primitive's behaviour to match a mockup).
+ *
+ * Everything interactive that sits *over* the overlay needs `relative z-10`, or
+ * the overlay swallows it — that is what `OVER_LINK_OVERLAY` marks.
+ */
+const LINK_OVERLAY = "after:absolute after:inset-0 after:content-['']";
+const OVER_LINK_OVERLAY = "relative z-10";
 
 function CategoryChip({ name }: { name: string }) {
   return (
@@ -185,19 +293,23 @@ function Meta({ entry }: { entry: FeedEntry }) {
   );
 }
 
-function StreamCard({ entry, slot }: { entry: FeedEntry; slot: number }) {
+/**
+ * Stream stays *partially* clickable — title, filmstrip and the footer link —
+ * rather than taking the link overlay the other two densities use. It is the
+ * density with the most of its own affordances inside it (per-cover art, genre
+ * chips, a caption worth selecting), and a card-wide target would swallow them.
+ */
+function StreamCard({ entry }: { entry: FeedEntry }) {
   return (
     <li className="flex gap-4 rounded-2xl border border-border bg-card/60 p-4 transition-colors hover:border-input sm:p-5">
       <div className="flex shrink-0 flex-col items-center gap-2">
         <VoteButtons slug={entry.slug} initialScore={entry.score} orientation="vertical" />
-        <span aria-hidden className="font-mono text-[11px] tabular-nums text-muted-foreground/50">
-          {String(slot).padStart(2, "0")}
-        </span>
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <CategoryChip name={entry.category} />
+          <MultiGenreBadge genres={entry.genres} />
           <AuthorTag username={entry.authorUsername} />
         </div>
 
@@ -215,25 +327,20 @@ function StreamCard({ entry, slot }: { entry: FeedEntry; slot: number }) {
 
         <GenreChips genres={entry.genres} />
 
-        {/*
-          Decorative: the covers repeat a list this row already names and links, and
-          FeedEntry carries no per-title text to caption them with. Hidden rather than
-          given invented alt like "Title 3", which would be noise to a screen reader.
-        */}
-        {entry.covers.length > 0 && (
-          <ul aria-hidden className="flex gap-2 overflow-x-auto pb-1">
-            {entry.covers.map((cover, index) => (
-              <li key={index} className="relative shrink-0">
-                <MediaCover src={cover} title="" width={56} height={84} className="rounded-md" />
-              </li>
-            ))}
-          </ul>
-        )}
+        <Filmstrip covers={entry.covers} />
 
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Meta entry={entry} />
           <div className="flex items-center gap-1 text-[11px]">
+            <Link
+              href={`/r/${entry.slug}`}
+              className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 font-medium text-primary transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            >
+              View list
+              <ArrowRightIcon className="size-3.5" aria-hidden />
+            </Link>
             <CopyLinkButton slug={entry.slug} />
+            <ShareRowButton slug={entry.slug} name={entry.name} />
           </div>
         </div>
       </div>
@@ -241,57 +348,63 @@ function StreamCard({ entry, slot }: { entry: FeedEntry; slot: number }) {
   );
 }
 
-function CompactRow({ entry, slot }: { entry: FeedEntry; slot: number }) {
+function CompactRow({ entry }: { entry: FeedEntry }) {
   return (
-    <li className="flex items-center gap-4 rounded-xl border border-border bg-card/40 px-4 py-3 transition-colors hover:border-input">
-      <span
-        aria-hidden
-        className="w-6 shrink-0 font-mono text-sm font-bold tabular-nums text-muted-foreground/50"
-      >
-        {String(slot).padStart(2, "0")}
-      </span>
-
+    <li className="relative flex items-center gap-4 rounded-xl border border-border bg-card/40 px-4 py-3 transition-colors hover:border-input">
       <MediaCover
-        src={entry.covers[0] ?? null}
+        src={entry.covers[0]?.coverImage ?? null}
         title={entry.name}
         width={36}
         height={54}
         className="shrink-0 rounded-md"
       />
 
-      <Link
-        href={`/r/${entry.slug}`}
-        className="min-w-0 flex-1 rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-      >
-        <h2 className="truncate text-sm leading-tight font-semibold text-foreground">
-          {entry.name}
-        </h2>
+      <div className="min-w-0 flex-1">
+        <Link
+          href={`/r/${entry.slug}`}
+          className={cn(
+            "rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+            LINK_OVERLAY,
+          )}
+        >
+          <h2 className="truncate text-sm leading-tight font-semibold text-foreground">
+            {entry.name}
+          </h2>
+        </Link>
         <div className="mt-1 flex items-center gap-3 font-mono text-[11px] text-muted-foreground">
           <span className="truncate">{entry.category}</span>
           {entry.authorUsername && <span className="truncate">u/{entry.authorUsername}</span>}
           <span className="hidden sm:inline">{entry.itemCount} titles</span>
           <span className="hidden sm:inline">{entry.views} views</span>
         </div>
-      </Link>
+        <div className={cn("mt-2", OVER_LINK_OVERLAY)}>
+          <GenreChips genres={entry.genres} />
+        </div>
+      </div>
 
-      <VoteButtons slug={entry.slug} initialScore={entry.score} className="shrink-0" />
+      <VoteButtons
+        slug={entry.slug}
+        initialScore={entry.score}
+        className={cn("shrink-0", OVER_LINK_OVERLAY)}
+      />
     </li>
   );
 }
 
-function GridCard({ entry, slot }: { entry: FeedEntry; slot: number }) {
+function GridCard({ entry }: { entry: FeedEntry }) {
   return (
-    <li className="flex flex-col gap-3 rounded-2xl border border-border bg-card/60 p-4 transition-colors hover:border-input">
-      <div className="flex items-center justify-between gap-2">
+    <li className="relative flex flex-col gap-3 rounded-2xl border border-border bg-card/60 p-4 transition-colors hover:border-input">
+      <div className="flex flex-wrap items-center gap-2">
         <CategoryChip name={entry.category} />
-        <span aria-hidden className="font-mono text-[11px] tabular-nums text-muted-foreground/50">
-          {String(slot).padStart(2, "0")}
-        </span>
+        <MultiGenreBadge genres={entry.genres} />
       </div>
 
       <Link
         href={`/r/${entry.slug}`}
-        className="rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className={cn(
+          "rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+          LINK_OVERLAY,
+        )}
       >
         <h2 className="line-clamp-2 font-display leading-tight font-bold tracking-[-0.01em] text-foreground">
           {entry.name}
@@ -301,15 +414,21 @@ function GridCard({ entry, slot }: { entry: FeedEntry; slot: number }) {
       <AuthorTag username={entry.authorUsername} />
 
       {/*
-        The covers overlap into a fanned stack. Negative margin on every cover but the
-        first, so the leftmost stays flush with the card's padding.
+        The covers overlap into a fanned stack — a deliberately decorative
+        treatment, unlike the stream's filmstrip, so it keeps its aria-hidden:
+        overlapping art cannot be read in order and the titles are one click away.
+        Negative margin on every cover but the first, so the leftmost stays flush
+        with the card's padding.
       */}
       {entry.covers.length > 0 && (
         <ul aria-hidden className="flex">
           {entry.covers.map((cover, index) => (
-            <li key={index} className={cn("shrink-0", index > 0 && "-ml-6")}>
+            <li
+              key={`${cover.title}-${index}`}
+              className={cn("shrink-0", index > 0 && "-ml-6")}
+            >
               <MediaCover
-                src={cover}
+                src={cover.coverImage}
                 title=""
                 width={56}
                 height={84}
@@ -320,9 +439,17 @@ function GridCard({ entry, slot }: { entry: FeedEntry; slot: number }) {
         </ul>
       )}
 
+      <div className={OVER_LINK_OVERLAY}>
+        <GenreChips genres={entry.genres} />
+      </div>
+
       <div className="mt-auto flex items-center justify-between gap-2">
         <Meta entry={entry} />
-        <VoteButtons slug={entry.slug} initialScore={entry.score} />
+        <VoteButtons
+          slug={entry.slug}
+          initialScore={entry.score}
+          className={OVER_LINK_OVERLAY}
+        />
       </div>
     </li>
   );

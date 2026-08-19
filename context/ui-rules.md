@@ -136,6 +136,16 @@ rule in miniature: the visual moved, the semantics did not. **Do not "restore" t
 — the multi-add behaviour is the point, and a floating panel of click handlers is what the
 prototype did and what this deliberately does not.
 
+**A card is made fully clickable with a link overlay, never a click handler** (2026-08-19).
+`FeedList`'s compact and grid densities put `relative` on the `<li>` and
+`after:absolute after:inset-0 after:content-['']` on the title's existing `<Link>`, so the
+whole card is a target while remaining one real anchor — keyboard focus, middle-click, and
+open-in-new-tab all keep working, and the accessible name is still the title rather than the
+card's entire text. Anything interactive that sits over the overlay (vote pills, genre chips,
+copy and share) needs `relative z-10`, which `OVER_LINK_OVERLAY` marks. **Do not "simplify"
+this into a `div` with an `onClick`** — it would look identical and silently lose all three
+behaviours, which is precisely what the rule at the end of this section forbids.
+
 A segmented control is a `RadioGroup` (`SegmentedRadioGroup`), never `Tabs`, whenever it
 selects a data source rather than a view — see the rule on the provider toggle below, which
 now also governs the media-type picker beside it.

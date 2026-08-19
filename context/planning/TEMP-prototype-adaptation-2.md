@@ -40,7 +40,7 @@ public id, validation at the Hono boundary, registry updated in the same change.
 
 | Phase | Status |
 |---|---|
-| A — The rundown (`/feed`) and the nav | Not started |
+| A — The rundown (`/feed`) and the nav | **Code complete** — gate green (tsc/eslint/164 tests) and curl-smoked; awaiting the owner's browser walkthrough. The Import nav item stays open, blocked on B2 |
 | B — The create page's "My list" mode | Not started |
 | C — Sweep the remaining prototype gaps | Not started |
 | D — Documentation | Not started |
@@ -56,84 +56,84 @@ Both go into the existing `whereExpr` and must follow the pattern already docume
 file: **correlated `EXISTS` against `list_item`, never a join** (a join multiplies against the
 `list_vote` leftJoin and corrupts every aggregate — the comment at the `genre` filter explains it).
 
-- [ ] Extract the shared predicate into one `feedWhere(params)` helper — it is about to be needed
+- [x] Extract the shared predicate into one `feedWhere(params)` helper — it is about to be needed
       in three places, and three copies would drift
-- [ ] `mediaType` → `exists (select 1 from list_item where list_id = list.id and media_type = $1)`
-- [ ] `q` → `ILIKE` over `list.name`, `list.caption`, `list.category`, `user.username`, plus an
+- [x] `mediaType` → `exists (select 1 from list_item where list_id = list.id and media_type = $1)`
+- [x] `q` → `ILIKE` over `list.name`, `list.caption`, `list.category`, `user.username`, plus an
       `EXISTS` over `list_item.title`. Case-insensitive; trim and floor at 2 characters in the
       page, the way `MediaSearchInput` already does
-- [ ] `listFeedCategories()` / `listFeedGenres()` take the same filters — otherwise the sidebar
+- [x] `listFeedCategories()` / `listFeedGenres()` take the same filters — otherwise the sidebar
       counts contradict the list the user is looking at
-- [ ] New `listFeedMediaTypeCounts()` → `{ anime: number; manga: number; all: number }` for the
+- [x] New `listFeedMediaTypeCounts()` → `{ anime: number; manga: number; all: number }` for the
       format panel's count badges
-- [ ] `FeedEntry.covers` widened from `(string | null)[]` to
+- [x] `FeedEntry.covers` widened from `(string | null)[]` to
       `{ coverImage: string | null; title: string; scoreRaw: number | null; scoreFormat: ScoreFormat | null }[]`
       — same query, more columns; needed by A4's filmstrip badges
-- [ ] Validators: `q` and `mediaType` narrowed in the page the way `category` already is (an
+- [x] Validators: `q` and `mediaType` narrowed in the page the way `category` already is (an
       unknown value falls back to unfiltered, never an empty page)
 
 **Tests** (`lists.db.test.ts`, explicit per-test timeouts):
 
-- [ ] Search matches an item title but not an unrelated list
-- [ ] `mediaType` filter excludes a manga-only list
-- [ ] Sidebar counts respect the active filters
-- [ ] **No duplicated rows** with both filters active
+- [x] Search matches an item title but not an unrelated list
+- [x] `mediaType` filter excludes a manga-only list
+- [x] Sidebar counts respect the active filters
+- [x] **No duplicated rows** with both filters active
 
 ### A2. `/feed` page composition (`src/app/feed/page.tsx`)
 
-- [ ] Read `?q=` and `?mediaType=`; extend `hrefFor` (keep its "explicit `undefined` clears,
+- [x] Read `?q=` and `?mediaType=`; extend `hrefFor` (keep its "explicit `undefined` clears,
       absent key keeps" semantics — do not rewrite it)
-- [ ] Hero: eyebrow `CompassIcon` + **"Public Discovery Feed"** in `text-primary` mono uppercase,
+- [x] Hero: eyebrow `CompassIcon` + **"Public Discovery Feed"** in `text-primary` mono uppercase,
       headline, description, "Create & share a list" primary button right-aligned at `md`. Keep
       the existing decorative glow
-- [ ] Sidebar panel 1 — **Search curations**: a client `FeedSearch` leaf pushing `?q=`
+- [x] Sidebar panel 1 — **Search curations**: a client `FeedSearch` leaf pushing `?q=`
       (debounced, `router.replace`), `Input` + `SearchIcon` + clear button, panel header in the
       established mono-uppercase idiom
-- [ ] Sidebar panel 2 — **Media format**: `SegmentedRadioGroup` (already built; this is exactly
+- [x] Sidebar panel 2 — **Media format**: `SegmentedRadioGroup` (already built; this is exactly
       the "selects a data source" case its notes describe) — All `SparklesIcon` / Anime `TvIcon` /
       Manga `BookOpenIcon`, with counts from A1, in a small client wrapper that `router.push`es
-- [ ] Sidebar panels 3–5 — Categories, Genres, "Your rundown" CTA stay; the CTA gains the
+- [x] Sidebar panels 3–5 — Categories, Genres, "Your rundown" CTA stay; the CTA gains the
       prototype's two-stat row (`totalPublished` curations · "AniList + MAL live sync")
-- [ ] Filter bar gains a chip for the search query and for media format, reusing the existing
+- [x] Filter bar gains a chip for the search query and for media format, reusing the existing
       chip markup
-- [ ] Mobile: `FilterIcon` toggle in the toolbar with a count badge, revealing the sidebar under
+- [x] Mobile: `FilterIcon` toggle in the toolbar with a count badge, revealing the sidebar under
       `lg` (it is `hidden lg:block` today)
 
 ### A3. Sort tabs + density, with icons
 
-- [ ] Sort tabs take the prototype's icons: `top`→`FlameIcon`, `new`→`ClockIcon`,
+- [x] Sort tabs take the prototype's icons: `top`→`FlameIcon`, `new`→`ClockIcon`,
       `views`→`EyeIcon`, `items`→`ListOrderedIcon`. Icon always renders; label hides under `sm`,
       as the density toggle already does
-- [ ] Wrap the toolbar in the prototype's panel (`rounded-2xl bg-card/60 border-border p-2`) so
+- [x] Wrap the toolbar in the prototype's panel (`rounded-2xl bg-card/60 border-border p-2`) so
       sort tabs, filter toggle and density pills read as one bar
 
 ### A4. Cards (`src/components/FeedList.tsx`)
 
-- [ ] **Remove the `01` slot number** from `StreamCard`, `CompactRow`, `GridCard`. It is
+- [x] **Remove the `01` slot number** from `StreamCard`, `CompactRow`, `GridCard`. It is
       `aria-hidden` decoration in all three, so nothing accessible is lost
-- [ ] Drop the now-unused `firstSlot` prop from `FeedList` **and** its call site — no dangling prop
-- [ ] Compact + grid become fully clickable via the **link-overlay** pattern: `relative` on the
+- [x] Drop the now-unused `firstSlot` prop from `FeedList` **and** its call site — no dangling prop
+- [x] Compact + grid become fully clickable via the **link-overlay** pattern: `relative` on the
       `<li>`, `after:absolute after:inset-0 after:content-['']` on the existing title `<Link>`,
       and `relative z-10` on `VoteButtons`, genre chips, copy/share. **Not** a `div onClick` —
       that silently breaks keyboard focus, middle-click and open-in-new-tab
-- [ ] Stream keeps its partial clickability and gains a **"View list"** link in the footer
+- [x] Stream keeps its partial clickability and gains a **"View list"** link in the footer
       (`ArrowRightIcon`), as the prototype has
-- [ ] Stream filmstrip: per-cover rank badge + `ScoreBadge`; the strip stops being `aria-hidden`
+- [x] Stream filmstrip: per-cover rank badge + `ScoreBadge`; the strip stops being `aria-hidden`
       once its covers are labelled (depends on A1's widened `covers`)
-- [ ] **"Multi-genre"** `SparklesIcon` badge when `genres.length >= 3`
-- [ ] Share button beside Copy link, reusing `ShareModal` the way `ShareListButton` does
-- [ ] Grid and compact gain the genre chips they are missing
+- [x] **"Multi-genre"** `SparklesIcon` badge when `genres.length >= 3`
+- [x] Share button beside Copy link, reusing `ShareModal` the way `ShareListButton` does
+- [x] Grid and compact gain the genre chips they are missing
 
 ### A5. Header (`src/components/Header.tsx`)
 
-- [ ] Render the `NAV` icons on desktop too (`size-3.5`, `text-primary` when active), keeping the
+- [x] Render the `NAV` icons on desktop too (`size-3.5`, `text-primary` when active), keeping the
       existing `.brand-gradient` active underline
 - [ ] Add the prototype's **Import** item (`DownloadCloudIcon`) → `/?from=mylist`. **Blocked on
       B2** — land it with Phase B, not before, or it points at a mode that does not exist yet
 
 ### Phase A gate
 
-- [ ] `bun x tsc --noEmit` · `bun x eslint .` · `bun test --conditions=react-server`
+- [x] `bun x tsc --noEmit` · `bun x eslint .` · `bun test --conditions=react-server`
 - [ ] `bun dev` walkthrough: search the feed and confirm the sidebar counts move with it; toggle
       Anime/Manga; click a compact row anywhere except the vote pill and land on `/r/{slug}`;
       middle-click a card and confirm it opens a tab; vote without navigating; confirm no `01`

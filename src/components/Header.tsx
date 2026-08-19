@@ -67,13 +67,21 @@ export function Header({ username }: { username: string | null }) {
                   href={item.href}
                   aria-current={isActive(item.href) ? "page" : undefined}
                   className={cn(
-                    "relative rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    "relative inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                     "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
                     isActive(item.href)
                       ? "text-foreground"
                       : "text-muted-foreground hover:text-foreground",
                   )}
                 >
+                  {/* The same glyphs the bottom bar uses, so a reader moving
+                      between phone and desktop is looking at one nav. Tinted
+                      when active, alongside the gradient underline rather than
+                      instead of it — colour is never the only signal. */}
+                  <item.icon
+                    className={cn("size-3.5", isActive(item.href) && "text-primary")}
+                    aria-hidden
+                  />
                   {item.label}
                   {isActive(item.href) && (
                     <span

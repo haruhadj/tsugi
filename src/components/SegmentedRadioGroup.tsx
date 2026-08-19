@@ -1,5 +1,6 @@
 "use client";
 
+import type { LucideIcon } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 
@@ -27,7 +28,10 @@ export function SegmentedRadioGroup<T extends string>({
 }: {
   label: string;
   value: T;
-  options: { value: T; label: string }[];
+  // `icon` and `hint` are optional so the original two-word segments stay as
+  // they were; the feed's format panel is the case that needs a glyph and a
+  // count, and a second near-identical component would be the worse trade.
+  options: { value: T; label: string; icon?: LucideIcon; hint?: string }[];
   onChange: (value: T) => void;
   className?: string;
 }) {
@@ -40,7 +44,7 @@ export function SegmentedRadioGroup<T extends string>({
         className="flex flex-row items-center gap-0.5 rounded-lg border border-border bg-background p-1"
       >
         {options.map((option) => (
-          <div key={option.value} className="flex">
+          <div key={option.value} className="flex min-w-0 flex-1">
             <RadioGroupItem
               value={option.value}
               id={`${label}-${option.value}`}
@@ -49,13 +53,21 @@ export function SegmentedRadioGroup<T extends string>({
             <label
               htmlFor={`${label}-${option.value}`}
               className={cn(
-                "flex min-h-11 cursor-pointer items-center rounded-md px-2.5 text-xs font-semibold transition-colors",
+                "flex min-h-11 w-full cursor-pointer items-center justify-center gap-1.5 rounded-md px-2.5 text-xs font-semibold transition-colors",
                 "text-muted-foreground hover:text-foreground",
                 "peer-focus-visible:ring-[3px] peer-focus-visible:ring-ring/50",
                 "peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground",
               )}
             >
-              {option.label}
+              {option.icon && <option.icon className="size-3.5 shrink-0" aria-hidden />}
+              <span className="truncate">{option.label}</span>
+              {option.hint && (
+                // Left readable rather than aria-hidden: "Anime, 9" is how many
+                // lists the option leads to, which is the thing being chosen.
+                <span className="font-mono text-[10px] tabular-nums opacity-70">
+                  {option.hint}
+                </span>
+              )}
             </label>
           </div>
         ))}

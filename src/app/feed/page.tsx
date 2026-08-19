@@ -1,15 +1,38 @@
-import { CompassIcon, PlusIcon, XIcon } from "lucide-react";
+import {
+  ClockIcon,
+  CompassIcon,
+  EyeIcon,
+  FlameIcon,
+  ListOrderedIcon,
+  PlusIcon,
+  XIcon,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
+import {
+  FeedMediaTypeFilter,
+  FeedPanel,
+  FeedSearch,
+  FeedSidebar,
+} from "@/components/FeedControls";
 import { FeedList } from "@/components/FeedList";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { getServerSession } from "@/lib/auth";
 import { isListCategory } from "@/lib/categories";
+import {
+  buildFeedHref,
+  normalizeFeedQuery,
+  normalizeMediaType,
+  type FeedUrlState,
+} from "@/lib/feed-params";
 import { cn } from "@/lib/utils";
 import {
   FEED_SORTS,
+  countPublishedLists,
   listFeedCategories,
   listFeedGenres,
+  listFeedMediaTypeCounts,
   listPublishedFeed,
   type FeedSort,
 } from "@/server/services/lists";
@@ -19,15 +42,17 @@ type SearchParams = Promise<{
   page?: string;
   category?: string;
   genre?: string;
+  mediaType?: string;
+  q?: string;
 }>;
 
 const PAGE_SIZE = 20;
 
-const SORT_LABELS: Record<FeedSort, string> = {
-  top: "Top",
-  new: "New",
-  views: "Most viewed",
-  items: "Longest",
+const SORTS: Record<FeedSort, { label: string; icon: LucideIcon }> = {
+  top: { label: "Top", icon: FlameIcon },
+  new: { label: "New", icon: ClockIcon },
+  views: { label: "Most viewed", icon: EyeIcon },
+  items: { label: "Longest", icon: ListOrderedIcon },
 };
 
 function isFeedSort(value: string | undefined): value is FeedSort {
@@ -45,59 +70,66 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
   const category =
     params.category && isListCategory(params.category) ? params.category : undefined;
   const genre = params.genre || undefined;
+  const mediaType = normalizeMediaType(params.mediaType);
+  const q = normalizeFeedQuery(params.q);
 
-  const [session, entries, categories, genres] = await Promise.all([
-    getServerSession(),
-    listPublishedFeed({ page, pageSize: PAGE_SIZE, sort, category, genre }),
-    listFeedCategories(),
-    listFeedGenres(),
-  ]);
+  const filters = { category, genre, mediaType, q };
 
-  const hrefFor = (next: {
-    sort?: FeedSort;
-    category?: string;
-    genre?: string;
-    page?: number;
-  }) => {
-    const query = new URLSearchParams({ sort: next.sort ?? sort });
-    // `"category" in next` rather than `next.category ?? category`, so that an
-    // explicit `undefined` clears the filter while an absent key keeps it.
-    const nextCategory = "category" in next ? next.category : category;
-    const nextGenre = "genre" in next ? next.genre : genre;
-    if (nextCategory) query.set("category", nextCategory);
-    if (nextGenre) query.set("genre", nextGenre);
-    if (next.page && next.page > 1) query.set("page", String(next.page));
-    return `/feed?${query}`;
-  };
+  const [session, entries, categories, genres, mediaTypeCounts, totalPublished] =
+    await Promise.all([
+      getServerSession(),
+      listPublishedFeed({ page, pageSize: PAGE_SIZE, sort, ...filters }),
+      listFeedCategories(filters),
+      listFeedGenres(filters),
+      listFeedMediaTypeCounts(filters),
+      // Unfiltered on purpose — the CTA's "N published so far" is a fact about
+      // the product, not about the reader's current filter.
+      countPublishedLists(),
+    ]);
 
-  const hasFilter = Boolean(category || genre);
+  // Handed to the client controls, which build their own hrefs from it.
+  const urlState: FeedUrlState = { sort, page, ...filters };
+  const hrefFor = (next: Parameters<typeof buildFeedHref>[1] = {}) =>
+    buildFeedHref(urlState, next);
+
+  const activeFilters = [category, genre, mediaType, q].filter(Boolean).length;
+  const hasFilter = activeFilters > 0;
 
   // Slot numbers continue across pages: page 2 opens at 21, not at 1. They are
   // the sort order made visible, so they have to keep counting to stay true.
   const firstSlot = (page - 1) * PAGE_SIZE + 1;
 
-  const totalPublished = categories.reduce((sum, entry) => sum + entry.count, 0);
+  const matchingLists = categories.reduce((sum, entry) => sum + entry.count, 0);
 
   // Built here rather than inline below because FeedList lays them out around its own
   // density toggle: the sort tabs share the toggle's row, the filter bar sits under it.
   const sortNav = (
     <nav aria-label="Sort" className="flex flex-wrap items-center gap-1">
-      {FEED_SORTS.map((option) => (
-        <Link
-          key={option}
-          href={hrefFor({ sort: option })}
-          aria-current={sort === option ? "true" : undefined}
-          className={cn(
-            "rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
-            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-            sort === option
-              ? "bg-secondary text-foreground"
-              : "text-muted-foreground hover:bg-accent hover:text-foreground",
-          )}
-        >
-          {SORT_LABELS[option]}
-        </Link>
-      ))}
+      {FEED_SORTS.map((option) => {
+        const { label, icon: Icon } = SORTS[option];
+        return (
+          <Link
+            key={option}
+            href={hrefFor({ sort: option })}
+            aria-current={sort === option ? "true" : undefined}
+            title={label}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+              sort === option
+                ? "bg-secondary text-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground",
+            )}
+          >
+            {/* Icon always renders, label hides under `sm` — the same rule the
+                density toggle beside this already follows, so the two halves of
+                the toolbar collapse together rather than one at a time. */}
+            <Icon className="size-3.5" aria-hidden />
+            <span className="hidden sm:inline">{label}</span>
+            <span className="sr-only sm:hidden">{label}</span>
+          </Link>
+        );
+      })}
     </nav>
   );
 
@@ -128,8 +160,33 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
           <span className="sr-only">Remove genre filter</span>
         </Link>
       )}
+      {mediaType && (
+        <Link
+          href={hrefFor({ mediaType: undefined })}
+          className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary/60 px-2.5 py-1 font-mono text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        >
+          {mediaType}
+          <XIcon className="size-3" aria-hidden />
+          <span className="sr-only">Remove media format filter</span>
+        </Link>
+      )}
+      {q && (
+        <Link
+          href={hrefFor({ q: undefined })}
+          className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary/60 px-2.5 py-1 font-mono text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        >
+          &ldquo;{q}&rdquo;
+          <XIcon className="size-3" aria-hidden />
+          <span className="sr-only">Remove search</span>
+        </Link>
+      )}
       <Link
-        href={hrefFor({ category: undefined, genre: undefined })}
+        href={hrefFor({
+          category: undefined,
+          genre: undefined,
+          mediaType: undefined,
+          q: undefined,
+        })}
         className="ml-auto text-xs text-primary underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         Clear all
@@ -149,21 +206,26 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
               aria-hidden
               className="pointer-events-none absolute -top-24 -right-16 size-72 rounded-full bg-primary/20 blur-3xl"
             />
-            <div className="relative">
-              <p className="font-mono text-xs tracking-[0.28em] text-muted-foreground uppercase">
-                {category ?? "Everything"}
-              </p>
-              <h1 className="mt-3 font-display text-[clamp(1.9rem,5vw,2.75rem)] leading-[1.02] font-extrabold tracking-[-0.03em]">
-                The rundown
-              </h1>
-              <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground">
-                Every list people have published, ranked by what the room thinks of them.
-                Vote on the ones you have opinions about.
-              </p>
-              <Button asChild className="mt-6 rounded-full">
+            <div className="relative flex flex-wrap items-end justify-between gap-6">
+              <div>
+                <p className="inline-flex items-center gap-2 font-mono text-xs tracking-[0.28em] text-primary uppercase">
+                  <CompassIcon className="size-3.5" aria-hidden />
+                  Public discovery feed
+                </p>
+                <h1 className="mt-3 font-display text-[clamp(1.9rem,5vw,2.75rem)] leading-[1.02] font-extrabold tracking-[-0.03em]">
+                  The rundown
+                </h1>
+                <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground">
+                  Every list people have published, ranked by what the room thinks of them.
+                  Vote on the ones you have opinions about.
+                </p>
+              </div>
+              {/* Right-aligned from `md` up, under the copy below it — the eyebrow
+                  already says where you are, so the action gets the corner. */}
+              <Button asChild className="rounded-full md:ml-auto">
                 <Link href="/">
                   <PlusIcon aria-hidden />
-                  Make a list
+                  Create &amp; share a list
                 </Link>
               </Button>
             </div>
@@ -190,7 +252,14 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
                     <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
                       {hasFilter && (
                         <Button asChild variant="outline" className="rounded-full">
-                          <Link href={hrefFor({ category: undefined, genre: undefined })}>
+                          <Link
+                            href={hrefFor({
+                              category: undefined,
+                              genre: undefined,
+                              mediaType: undefined,
+                              q: undefined,
+                            })}
+                          >
                             Clear filters
                           </Link>
                         </Button>
@@ -202,12 +271,7 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
                   </div>
                 </>
               ) : (
-                <FeedList
-                  entries={entries}
-                  firstSlot={firstSlot}
-                  sortNav={sortNav}
-                  filterBar={filterBar}
-                />
+                <FeedList entries={entries} sortNav={sortNav} filterBar={filterBar} />
               )}
 
               <div className="mt-8 flex items-center justify-between">
@@ -229,110 +293,141 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
             </div>
 
             <aside className="flex flex-col gap-4">
-              {categories.length > 0 && (
-                <nav
-                  aria-label="Categories"
-                  className="rounded-2xl border border-border bg-card/60 p-4"
-                >
-                  <h2 className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
-                    Categories
-                  </h2>
-                  <ul className="mt-3 flex flex-col">
-                    <li>
-                      <Link
-                        href={hrefFor({ category: undefined })}
-                        aria-current={category === undefined ? "true" : undefined}
-                        className={cn(
-                          "flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
-                          "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                          category === undefined
-                            ? "bg-secondary text-foreground"
-                            : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                        )}
-                      >
-                        <span className="truncate">All</span>
-                        <span className="font-mono text-[11px] tabular-nums">
-                          {totalPublished}
-                        </span>
-                      </Link>
-                    </li>
-                    {categories.map((entry) => (
-                      <li key={entry.name}>
+              <FeedSidebar activeFilterCount={activeFilters}>
+                <FeedSearch urlState={urlState} />
+
+                <FeedMediaTypeFilter urlState={urlState} counts={mediaTypeCounts} />
+
+                {categories.length > 0 && (
+                  <nav
+                    aria-label="Categories"
+                    className="rounded-2xl border border-border bg-card/60 p-4"
+                  >
+                    <h2 className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
+                      Categories
+                    </h2>
+                    <ul className="mt-3 flex flex-col">
+                      <li>
                         <Link
-                          href={hrefFor({ category: entry.name })}
-                          aria-current={category === entry.name ? "true" : undefined}
+                          href={hrefFor({ category: undefined })}
+                          aria-current={category === undefined ? "true" : undefined}
                           className={cn(
                             "flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
                             "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                            category === entry.name
+                            category === undefined
                               ? "bg-secondary text-foreground"
                               : "text-muted-foreground hover:bg-accent hover:text-foreground",
                           )}
                         >
-                          <span className="truncate">{entry.name}</span>
-                          <span className="font-mono text-[11px] tabular-nums">{entry.count}</span>
+                          <span className="truncate">All</span>
+                          {/* The other filters still apply, so this is how many
+                            the reader would see with the category cleared —
+                            not the global total the CTA below quotes. */}
+                          <span className="font-mono text-[11px] tabular-nums">
+                            {matchingLists}
+                          </span>
                         </Link>
                       </li>
-                    ))}
-                  </ul>
-                </nav>
-              )}
+                      {categories.map((entry) => (
+                        <li key={entry.name}>
+                          <Link
+                            href={hrefFor({ category: entry.name })}
+                            aria-current={category === entry.name ? "true" : undefined}
+                            className={cn(
+                              "flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
+                              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                              category === entry.name
+                                ? "bg-secondary text-foreground"
+                                : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                            )}
+                          >
+                            <span className="truncate">{entry.name}</span>
+                            <span className="font-mono text-[11px] tabular-nums">
+                              {entry.count}
+                            </span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </nav>
+                )}
 
-              {/*
+                {/*
                 Genres sit below categories and read differently on purpose:
                 a category is where the author filed the list, a genre is what
                 the titles on it actually are. Same directory shape, amber
                 rather than the category's neutral selection, matching the chips
                 on the rows themselves.
               */}
-              {genres.length > 0 && (
-                <nav aria-label="Genres" className="rounded-2xl border border-border bg-card/60 p-4">
-                  <h2 className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
-                    Genres
-                  </h2>
-                  <ul className="mt-3 flex flex-col">
-                    {genres.map((entry) => (
-                      <li key={entry.name}>
-                        <Link
-                          href={hrefFor({ genre: genre === entry.name ? undefined : entry.name })}
-                          aria-current={genre === entry.name ? "true" : undefined}
-                          className={cn(
-                            "flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
-                            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                            genre === entry.name
-                              ? "bg-highlight/15 text-highlight"
-                              : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                          )}
-                        >
-                          <span className="truncate font-mono text-xs">#{entry.name}</span>
-                          <span className="font-mono text-[11px] tabular-nums">{entry.count}</span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </nav>
-              )}
+                {genres.length > 0 && (
+                  <nav
+                    aria-label="Genres"
+                    className="rounded-2xl border border-border bg-card/60 p-4"
+                  >
+                    <h2 className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
+                      Genres
+                    </h2>
+                    <ul className="mt-3 flex flex-col">
+                      {genres.map((entry) => (
+                        <li key={entry.name}>
+                          <Link
+                            href={hrefFor({
+                              genre: genre === entry.name ? undefined : entry.name,
+                            })}
+                            aria-current={genre === entry.name ? "true" : undefined}
+                            className={cn(
+                              "flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
+                              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                              genre === entry.name
+                                ? "bg-highlight/15 text-highlight"
+                                : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                            )}
+                          >
+                            <span className="truncate font-mono text-xs">#{entry.name}</span>
+                            <span className="font-mono text-[11px] tabular-nums">
+                              {entry.count}
+                            </span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </nav>
+                )}
 
-              {/*
+                {/*
                 The sidebar's last slot is an invitation rather than a
                 description: a reader this far down the page already knows what
                 the rundown is, so the space is worth more as the next step.
               */}
-              <section className="rounded-2xl border border-border bg-card/60 p-4">
-                <h2 className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
-                  Your rundown
-                </h2>
-                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                  {totalPublished} published so far. Score the anime and manga you would hand
-                  to someone and yours joins them as a link worth sending.
-                </p>
-                <Button asChild size="sm" className="mt-4 w-full rounded-full">
-                  <Link href={session === null ? "/sign-in" : "/"}>
-                    <PlusIcon className="size-4" aria-hidden />
-                    {session === null ? "Sign in to build one" : "Build one"}
-                  </Link>
-                </Button>
-              </section>
+                <FeedPanel title="Your rundown">
+                  <dl className="mt-3 grid grid-cols-2 gap-2">
+                    <div className="rounded-xl border border-border bg-secondary/40 px-3 py-2">
+                      <dt className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground uppercase">
+                        Curations
+                      </dt>
+                      <dd className="mt-0.5 font-display text-lg font-bold tabular-nums">
+                        {totalPublished}
+                      </dd>
+                    </div>
+                    <div className="rounded-xl border border-border bg-secondary/40 px-3 py-2">
+                      <dt className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground uppercase">
+                        Sources
+                      </dt>
+                      <dd className="mt-0.5 text-sm font-semibold">AniList + MAL</dd>
+                    </div>
+                  </dl>
+                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                    Score the anime and manga you would hand to someone and yours joins them as
+                    a link worth sending.
+                  </p>
+                  <Button asChild size="sm" className="mt-4 w-full rounded-full">
+                    <Link href={session === null ? "/sign-in" : "/"}>
+                      <PlusIcon className="size-4" aria-hidden />
+                      {session === null ? "Sign in to build one" : "Build one"}
+                    </Link>
+                  </Button>
+                </FeedPanel>
+              </FeedSidebar>
             </aside>
           </div>
         </div>

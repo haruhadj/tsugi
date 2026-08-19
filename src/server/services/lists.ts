@@ -6,7 +6,7 @@ import { user } from "@/db/auth-schema";
 import { list, listItem, listVote } from "@/db/schema";
 import type { ListCategory } from "@/lib/categories";
 import type { CreateListInput, UpdateListInput } from "@/lib/validators/list";
-import type { UnifiedMediaResult } from "@/lib/types/media";
+import type { MediaType, ScoreFormat, UnifiedMediaResult } from "@/lib/types/media";
 import { resolveMediaCached } from "@/server/services/media-cache";
 
 // D36 — three bounds, each doing a different job (PHASE-4.md): the item cap
@@ -115,8 +115,7 @@ function isSlugCollision(error: unknown): boolean {
 }
 
 export type CreateListResult =
-  | { ok: true; slug: string }
-  | { ok: false; reason: "resolve_failed" };
+  { ok: true; slug: string } | { ok: false; reason: "resolve_failed" };
 
 /**
  * The create flow's core, independent of HTTP, session, and rate limiting —
@@ -426,7 +425,10 @@ export type PublishListResult = "updated" | "not_found";
 export async function publishList(slug: string, userId: string): Promise<PublishListResult> {
   const result = await db
     .update(list)
-    .set({ published: true, publishedAt: sql`coalesce(${list.publishedAt}, now())` })
+    .set({
+      published: true,
+      publishedAt: sql`coalesce(${list.publishedAt}, now())`,
+    })
     .where(and(eq(list.slug, slug), eq(list.userId, userId)))
     .returning({ id: list.id });
 
@@ -501,14 +503,18 @@ export async function getDashboardStats(userId: string): Promise<DashboardStats>
     .where(eq(list.userId, userId));
 
   return (
-    row ?? { listCount: 0, publishedCount: 0, totalViews: 0, totalItems: 0, totalScore: 0 }
+    row ?? {
+      listCount: 0,
+      publishedCount: 0,
+      totalViews: 0,
+      totalItems: 0,
+      totalScore: 0,
+    }
   );
 }
 
 export type DuplicateListResult =
-  | { status: "duplicated"; slug: string }
-  | { status: "not_found" }
-  | { status: "forbidden" };
+  { status: "duplicated"; slug: string } | { status: "not_found" } | { status: "forbidden" };
 
 /**
  * Clones a list and its items as a fresh draft owned by the same user.
@@ -563,9 +569,9 @@ export async function duplicateList(
           .returning({ id: list.id });
 
         if (sourceItems.length > 0) {
-          await tx.insert(listItem).values(
-            sourceItems.map((item) => ({ ...item, listId: created!.id })),
-          );
+          await tx
+            .insert(listItem)
+            .values(sourceItems.map((item) => ({ ...item, listId: created!.id })));
         }
       });
 
@@ -583,6 +589,15 @@ export async function duplicateList(
 export const FEED_SORTS = ["top", "new", "views", "items"] as const;
 export type FeedSort = (typeof FEED_SORTS)[number];
 
+export type FeedCover = {
+  coverImage: string | null;
+  title: string;
+  // Kept as the `(raw, format)` pair the rest of the product passes around, so
+  // an imported 87/100 still badges as 87/100 (D47) rather than being coerced.
+  scoreRaw: number | null;
+  scoreFormat: ScoreFormat | null;
+};
+
 export type FeedEntry = {
   slug: string;
   name: string;
@@ -596,9 +611,11 @@ export type FeedEntry = {
   /** Rendered as `u/{username}` (D49). Null for lists whose author predates
    *  mandatory handles and has not signed in since — those show no author line. */
   authorUsername: string | null;
-  /** Cover art for the first few titles, for the feed's filmstrip. Nulls are kept
-   *  so a list whose lead title has no art still shows its placeholder in order. */
-  covers: (string | null)[];
+  /** The first few titles, for the feed's filmstrip. Carries the title and score
+   *  as well as the art so each cover can be labelled and badged rather than
+   *  rendered as decoration; `coverImage` stays nullable so a list whose lead
+   *  title has no art still shows its placeholder in order. */
+  covers: FeedCover[];
   /** The row's genre chips, aggregated from its items. Capped — a feed row has
    *  no room for the full cloud, and the artifact page shows all of them. */
   genres: string[];
@@ -611,21 +628,89 @@ const FEED_GENRE_COUNT = 3;
 const FEED_COVER_COUNT = 5;
 
 /**
+ * Everything the rundown can be narrowed by. One type, because the row query and
+ * all three sidebar count queries have to agree on it — a sidebar that counts a
+ * different population than the list beneath it is worse than no counts at all.
+ */
+export type FeedFilters = {
+  // The fixed vocabulary, not a free string — the route narrows an unknown
+  // `?category=` to undefined before it reaches here (D48).
+  category?: ListCategory;
+  genre?: string;
+  mediaType?: MediaType;
+  /** Already trimmed and floored at 2 characters by the caller. */
+  q?: string;
+};
+
+/**
+ * `%` and `_` are wildcards inside ILIKE, so a user searching for "100%" would
+ * otherwise match everything after "100". `\` escapes them, and itself first.
+ */
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
+/**
+ * The one place the feed's WHERE is built. Four callers need it — the row query
+ * and the three facet counts — and each of the facet queries drops its *own*
+ * dimension (see `omit`), which is only safe to express once.
+ *
+ * Both item-level filters are correlated `EXISTS` subqueries rather than joins,
+ * for the reason `itemCountExpr` documents: joining `list_item` multiplies
+ * against the `list_vote` leftJoin and corrupts every aggregate in the select.
+ */
+function feedWhere(filters: FeedFilters) {
+  const { category, genre, mediaType, q } = filters;
+  const pattern = q ? `%${escapeLike(q)}%` : null;
+
+  return and(
+    eq(list.published, true),
+    category ? eq(list.category, category) : undefined,
+    genre
+      ? sql`exists (
+          select 1 from ${listItem}
+          where ${listItem.listId} = ${list.id} and ${genre} = any(${listItem.genres})
+        )`
+      : undefined,
+    mediaType
+      ? sql`exists (
+          select 1 from ${listItem}
+          where ${listItem.listId} = ${list.id} and ${listItem.mediaType} = ${mediaType}
+        )`
+      : undefined,
+    // Everything a reader can see on a feed row is searchable, plus the item
+    // titles behind it — "the list with Frieren in it" is how people look for a
+    // list they have read before, and the row itself never names its items.
+    pattern
+      ? sql`(
+          ${list.name} ilike ${pattern} escape '\\'
+          or ${list.caption} ilike ${pattern} escape '\\'
+          or ${list.category}::text ilike ${pattern} escape '\\'
+          or ${user.username} ilike ${pattern} escape '\\'
+          or exists (
+            select 1 from ${listItem}
+            where ${listItem.listId} = ${list.id}
+              and ${listItem.title} ilike ${pattern} escape '\\'
+          )
+        )`
+      : undefined,
+  );
+}
+
+/**
  * Public, published-only (D42) — no `userId` in the selected columns
  * (invariant 1). Score is a live `SUM(direction)` aggregate, not a
  * denormalized counter (Phase C decision: correctness over an extra write
  * on every vote, revisit only if this proves too slow at scale).
  */
-export async function listPublishedFeed(params: {
-  page: number;
-  pageSize: number;
-  sort: FeedSort;
-  // The fixed vocabulary, not a free string — the route narrows an unknown
-  // `?category=` to undefined before it reaches here (D48).
-  category?: ListCategory;
-  genre?: string;
-}): Promise<FeedEntry[]> {
-  const { page, pageSize, sort, category, genre } = params;
+export async function listPublishedFeed(
+  params: FeedFilters & {
+    page: number;
+    pageSize: number;
+    sort: FeedSort;
+  },
+): Promise<FeedEntry[]> {
+  const { page, pageSize, sort, ...filters } = params;
   /*
     Every aggregate here is cast to int. Postgres returns count() as bigint and sum()
     as numeric, both of which postgres.js hands back as *strings* to avoid precision
@@ -642,26 +727,7 @@ export async function listPublishedFeed(params: {
   const itemCountExpr = sql<number>`(
     select count(*)::int from ${listItem} where ${listItem.listId} = ${list.id}
   )`;
-  /*
-    Genre lives on list_item, so this is an EXISTS against that table rather
-    than a join — for the same reason itemCountExpr above is a subquery. Joining
-    list_item here would multiply against the list_vote leftJoin and corrupt
-    every aggregate in the select. `= any(genres)` is what the GIN index on
-    list_item.genres answers.
-
-    D48 — the category filter compares the `category` column, not `name`. Before
-    the split, `name` was the category, so this matched a chip against a title.
-  */
-  const whereExpr = and(
-    eq(list.published, true),
-    category ? eq(list.category, category) : undefined,
-    genre
-      ? sql`exists (
-          select 1 from ${listItem}
-          where ${listItem.listId} = ${list.id} and ${genre} = any(${listItem.genres})
-        )`
-      : undefined,
-  );
+  const whereExpr = feedWhere(filters);
 
   const orderBy = {
     top: desc(scoreExpr),
@@ -700,7 +766,14 @@ export async function listPublishedFeed(params: {
 
   const slugs = rows.map((row) => row.slug);
   const coverRows = await db
-    .select({ slug: list.slug, position: listItem.position, coverImage: listItem.coverImage })
+    .select({
+      slug: list.slug,
+      position: listItem.position,
+      coverImage: listItem.coverImage,
+      title: listItem.title,
+      scoreRaw: listItem.scoreRaw,
+      scoreFormat: listItem.scoreFormat,
+    })
     .from(listItem)
     .innerJoin(list, eq(listItem.listId, list.id))
     // `position` is the 0-based array index assigned in createList, so the first
@@ -708,13 +781,13 @@ export async function listPublishedFeed(params: {
     .where(and(inArray(list.slug, slugs), lt(listItem.position, FEED_COVER_COUNT)))
     .orderBy(listItem.position);
 
-  const coversBySlug = new Map<string, (string | null)[]>();
-  for (const row of coverRows) {
-    const bucket = coversBySlug.get(row.slug);
+  const coversBySlug = new Map<string, FeedCover[]>();
+  for (const { slug, position: _position, ...cover } of coverRows) {
+    const bucket = coversBySlug.get(slug);
     if (bucket) {
-      bucket.push(row.coverImage);
+      bucket.push(cover);
     } else {
-      coversBySlug.set(row.slug, [row.coverImage]);
+      coversBySlug.set(slug, [cover]);
     }
   }
 
@@ -761,16 +834,69 @@ export async function listPublishedFeed(params: {
  */
 export type FeedCategory = { name: string; count: number };
 
-export async function listFeedCategories(): Promise<FeedCategory[]> {
+/**
+ * Every facet query below drops its *own* dimension from the filters before
+ * counting. Counting categories under an active category filter would collapse
+ * the directory to the one row already selected, and the panel would stop being
+ * a way to move sideways — which is the only thing it is for.
+ */
+export async function listFeedCategories(filters: FeedFilters = {}): Promise<FeedCategory[]> {
   const rows = await db
     .select({ name: list.category, count: sql<number>`count(*)::int` })
     .from(list)
-    .where(eq(list.published, true))
+    // Joined even when nothing searches on it: `feedWhere` reaches for
+    // `user.username`, so the column has to be in scope for every caller.
+    .innerJoin(user, eq(list.userId, user.id))
+    .where(feedWhere({ ...filters, category: undefined }))
     .groupBy(list.category)
     .orderBy(desc(sql`count(*)`))
     .limit(20);
 
   return rows;
+}
+
+/**
+ * Counts for the format panel. `all` is counted separately rather than summed
+ * from the other two — a list holding both anime and manga belongs to both, so
+ * adding them would over-count it.
+ */
+export type FeedMediaTypeCounts = { all: number; anime: number; manga: number };
+
+export async function listFeedMediaTypeCounts(
+  filters: FeedFilters = {},
+): Promise<FeedMediaTypeCounts> {
+  const base = { ...filters, mediaType: undefined };
+
+  const countFor = async (mediaType: MediaType | undefined) => {
+    const [row] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(list)
+      .innerJoin(user, eq(list.userId, user.id))
+      .where(feedWhere({ ...base, mediaType }));
+    return row?.count ?? 0;
+  };
+
+  const [all, anime, manga] = await Promise.all([
+    countFor(undefined),
+    countFor("anime"),
+    countFor("manga"),
+  ]);
+
+  return { all, anime, manga };
+}
+
+/**
+ * Every published list, unfiltered. Deliberately not derived from the category
+ * facet's counts: those respect the reader's active filters, and the one place
+ * this is used — the sidebar's call to action — is quoting a fact about the
+ * product rather than about the current view.
+ */
+export async function countPublishedLists(): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(list)
+    .where(eq(list.published, true));
+  return row?.count ?? 0;
 }
 
 /**
@@ -783,13 +909,14 @@ export async function listFeedCategories(): Promise<FeedCategory[]> {
  * index rather than a read-all-then-aggregate in TypeScript, which is what the
  * per-row aggregation above does — this one spans the whole table.
  */
-export async function listFeedGenres(): Promise<FeedCategory[]> {
+export async function listFeedGenres(filters: FeedFilters = {}): Promise<FeedCategory[]> {
   const rows = await db.execute<{ name: string; count: number }>(sql`
     select genre as name, count(distinct ${list.id})::int as count
     from ${list}
+    join ${user} on ${list.userId} = ${user.id}
     join ${listItem} on ${listItem.listId} = ${list.id}
     cross join lateral unnest(${listItem.genres}) as genre
-    where ${list.published} = true
+    where ${feedWhere({ ...filters, genre: undefined })}
     group by genre
     order by count desc, genre asc
     limit 20

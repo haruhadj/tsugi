@@ -225,5 +225,153 @@ if (hasDb) {
       },
       TIMEOUT,
     );
+
+    test(
+      "search matches an item's title, not just the list's own fields",
+      async () => {
+        // The list is named something the query cannot match, so a hit can only
+        // have come from the EXISTS over list_item.title.
+        const slug = await makeList({
+          publish: true,
+          name: "Zzz unrelated title",
+        });
+        const { listPublishedFeed } = await service();
+
+        const byItem = await listPublishedFeed({
+          page: 1,
+          pageSize: 50,
+          sort: "new",
+          q: "Frieren",
+        });
+        expect(byItem.map((entry) => entry.slug)).toContain(slug);
+
+        const miss = await listPublishedFeed({
+          page: 1,
+          pageSize: 50,
+          sort: "new",
+          q: "qqzzxnothing",
+        });
+        expect(miss.map((entry) => entry.slug)).not.toContain(slug);
+      },
+      TIMEOUT,
+    );
+
+    test(
+      "the mediaType filter excludes a list with no item of that type",
+      async () => {
+        const animeOnly = await makeList({
+          publish: true,
+          items: [
+            {
+              provider: "anilist",
+              externalId: FRIEREN,
+              mediaType: "anime",
+              scoreRaw: 9,
+              scoreFormat: "POINT_10",
+            },
+          ],
+        });
+        const { listPublishedFeed } = await service();
+
+        const asAnime = await listPublishedFeed({
+          page: 1,
+          pageSize: 50,
+          sort: "new",
+          mediaType: "anime",
+        });
+        expect(asAnime.map((entry) => entry.slug)).toContain(animeOnly);
+
+        const asManga = await listPublishedFeed({
+          page: 1,
+          pageSize: 50,
+          sort: "new",
+          mediaType: "manga",
+        });
+        expect(asManga.map((entry) => entry.slug)).not.toContain(animeOnly);
+      },
+      TIMEOUT,
+    );
+
+    test(
+      "both filters together still return one row per list, and covers carry their scores",
+      async () => {
+        const slug = await makeList({ publish: true });
+        const { listPublishedFeed } = await service();
+
+        const entries = await listPublishedFeed({
+          page: 1,
+          pageSize: 50,
+          sort: "new",
+          mediaType: "anime",
+          genre: "Fantasy",
+        });
+
+        // The two EXISTS subqueries must not become joins: either one would
+        // multiply this list's row by its matching items.
+        const matches = entries.filter((entry) => entry.slug === slug);
+        expect(matches).toHaveLength(1);
+
+        // A1 widened `covers` from bare URLs to (title, raw, format) triples.
+        const covers = matches[0]!.covers;
+        expect(covers.length).toBeGreaterThan(0);
+        expect(covers[0]!.title.length).toBeGreaterThan(0);
+        expect(covers.some((cover) => cover.scoreFormat === "POINT_100")).toBe(true);
+      },
+      TIMEOUT,
+    );
+
+    test(
+      "the sidebar facets are narrowed by the other active filters",
+      async () => {
+        await makeList({ publish: true, category: "Fantasy" });
+        const { listFeedCategories, listFeedGenres, listFeedMediaTypeCounts } =
+          await service();
+
+        // Every facet drops its *own* dimension, so filtering by category must
+        // still return the whole category directory — otherwise the panel could
+        // only ever confirm the choice already made.
+        const categories = await listFeedCategories({ category: "Fantasy" });
+        expect(categories.length).toBeGreaterThan(0);
+
+        // ...but a nonsense search narrows all three to nothing.
+        const empty = await listFeedCategories({ q: "qqzzxnothing" });
+        expect(empty).toHaveLength(0);
+        expect(await listFeedGenres({ q: "qqzzxnothing" })).toHaveLength(0);
+
+        const counts = await listFeedMediaTypeCounts({ q: "qqzzxnothing" });
+        expect(counts).toEqual({ all: 0, anime: 0, manga: 0 });
+      },
+      TIMEOUT,
+    );
+
+    test(
+      "a search containing a wildcard is matched literally",
+      async () => {
+        const slug = await makeList({
+          publish: true,
+          name: "Ninety_nine percent",
+        });
+        const { listPublishedFeed } = await service();
+
+        // Unescaped, `_` is ILIKE's any-single-character wildcard, so this would
+        // also match "Ninety nine" and anything else of that shape.
+        const literal = await listPublishedFeed({
+          page: 1,
+          pageSize: 50,
+          sort: "new",
+          q: "Ninety_nine",
+        });
+        expect(literal.map((entry) => entry.slug)).toContain(slug);
+
+        const wildcarded = await listPublishedFeed({
+          page: 1,
+          pageSize: 50,
+          sort: "new",
+          q: "Ninety%nine",
+        });
+        expect(wildcarded.map((entry) => entry.slug)).not.toContain(slug);
+      },
+      TIMEOUT,
+    );
   });
 }
