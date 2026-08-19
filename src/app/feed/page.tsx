@@ -313,19 +313,25 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
                 </nav>
               )}
 
+              {/*
+                The sidebar's last slot is an invitation rather than a
+                description: a reader this far down the page already knows what
+                the rundown is, so the space is worth more as the next step.
+              */}
               <section className="rounded-2xl border border-border bg-card/60 p-4">
                 <h2 className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
-                  About Tsugi
+                  Your rundown
                 </h2>
                 <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                  Score the anime and manga you would hand to someone, and Tsugi turns them
-                  into a link worth sending. Reading takes no account at all.
+                  {totalPublished} published so far. Score the anime and manga you would hand
+                  to someone and yours joins them as a link worth sending.
                 </p>
-                {session === null && (
-                  <Button asChild variant="outline" size="sm" className="mt-4 w-full rounded-full">
-                    <Link href="/sign-in">Sign in to vote</Link>
-                  </Button>
-                )}
+                <Button asChild size="sm" className="mt-4 w-full rounded-full">
+                  <Link href={session === null ? "/sign-in" : "/"}>
+                    <PlusIcon className="size-4" aria-hidden />
+                    {session === null ? "Sign in to build one" : "Build one"}
+                  </Link>
+                </Button>
               </section>
             </aside>
           </div>
