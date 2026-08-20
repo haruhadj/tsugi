@@ -227,21 +227,41 @@ what is still missing. Anything found gets a checkbox added here, not silently a
       chip twice — once on a search result, once on the tray row it becomes — and it reuses the
       same `TvIcon`/`BookOpenIcon` pair as the feed's media-format panel, so "anime" reads the
       same on both screens
-- [ ] **`SettingsView`** — three deltas, all deliberately **not** taken:
-      - **Editable "Default Rating Scale" picker.** Ours is read-only on purpose and must stay so:
-        under **D47** a typed score is always `POINT_10` and an imported one keeps its tracker's
-        scale, so a user-chosen default has nothing to apply to. Adapting this would contradict
-        D47, not extend it
-      - **Bio field.** A real feature (column + validator + API), not a design gap
-      - **"Export local backup (JSON)" / "Reset demo seed data".** Artefacts of the prototype being
-        `localStorage`-backed. "Reset seed" is meaningless against a real database; a
-        genuine export-my-data feature is worth its own decision, not a silent adaptation
-      `Revisit if:` the owner wants a bio or a data export — both are product asks, not adaptation
-- [ ] Cosmetic, not taken: the prototype tints each settings/panel section header with its own
-      icon colour. Ours uses one mono-uppercase idiom for every panel header. Left alone — one
-      idiom is the point, and per-panel colour would spend the accent four times on a screen
+
+#### `SettingsView` and panel-header colour — four deltas, none taken
+
+**Closed by decision, not by work**, so they deliberately carry no checkbox: they were unticked
+boxes for two sessions and read as outstanding work in every count of this file. Nothing below
+will ever be ticked.
+
+- **Editable "Default Rating Scale" picker.** Ours is read-only on purpose and must stay so:
+  under **D47** a typed score is always `POINT_10` and an imported one keeps its tracker's scale,
+  so a user-chosen default has nothing to apply to. Adapting this would contradict D47, not
+  extend it
+- **Bio field.** A real feature (column + validator + API), not a design gap
+- **"Export local backup (JSON)" / "Reset demo seed data".** Artefacts of the prototype being
+  `localStorage`-backed. "Reset seed" is meaningless against a real database; a genuine
+  export-my-data feature is worth its own decision, not a silent adaptation
+- **Per-panel header tinting.** The prototype tints each settings/panel section header with its
+  own icon colour. Ours uses one mono-uppercase idiom for every panel header. Left alone — one
+  idiom is the point, and per-panel colour would spend the accent four times on a screen
+
+`Revisit if:` the owner wants a bio or a data export — both are product asks, not adaptation.
 
 ### Found while sweeping (each of these is a defect, not a prototype delta)
+
+- [x] **The feed's "Media format" panel could not fit its own labels** — found by the owner in the
+      browser, so this one came from the walkthrough rather than the sweep. A2 put three
+      icon+word+count segments in a horizontal `SegmentedRadioGroup`, and the sidebar is `18rem`:
+      254px inside `FeedPanel`'s `p-4`, 244px inside the group's own `p-1`, so **80px per segment**
+      — of which `px-2.5` (20) + a 14px glyph + two `gap-1.5` (12) + the count (~12) spend 58px.
+      That leaves ~22px for a label needing ~38px, so `truncate` rendered "Anime"/"Manga" as about
+      "An…"/"Ma…". Fixed with an opt-in `orientation="vertical"` on `SegmentedRadioGroup`
+      (label left, count right, passed to Radix too so arrow keys go up/down), used only by
+      `FeedMediaTypeFilter`. The panel now reads as a list beside Categories and Genres, which were
+      already label-left/count-right columns — so the fix removes an inconsistency as well as the
+      overflow. The two-option groups in `MediaSearchInput`, `ListBuilder` and `MyListPicker` sit in
+      wide containers and stay rows; their rendered classes are unchanged
 
 - [x] **C1 had turned `RecView` into a client component**, which breaks `/r/[slug]` in the
       browser: the file calls `getEnv()`, and `getEnv()` validates the *whole* server env

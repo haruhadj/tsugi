@@ -5,8 +5,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 
 /**
- * The prototype's segmented control — a row of joined buttons where exactly one
- * is lit — built on Radix's `RadioGroup` rather than on click handlers.
+ * The prototype's segmented control — a strip of joined buttons where exactly
+ * one is lit — built on Radix's `RadioGroup` rather than on click handlers. A
+ * row by default; see `orientation` for the column the feed's sidebar needs.
  *
  * It looks like a tab strip and is deliberately **not** `Tabs`: every use here
  * picks a *data source* (which provider to search, which media type to fetch),
@@ -25,6 +26,7 @@ export function SegmentedRadioGroup<T extends string>({
   options,
   onChange,
   className,
+  orientation = "horizontal",
 }: {
   label: string;
   value: T;
@@ -34,17 +36,38 @@ export function SegmentedRadioGroup<T extends string>({
   options: { value: T; label: string; icon?: LucideIcon; hint?: string }[];
   onChange: (value: T) => void;
   className?: string;
+  /**
+   * `vertical` stacks the segments into a column, label left and hint right.
+   *
+   * It exists for one arithmetic reason: three segments carrying an icon, a
+   * word and a count do not fit the feed's `18rem` sidebar. Each gets 80px
+   * there, and `px-2.5` + a 14px glyph + two `gap-1.5` + the count spend 58px
+   * of it, so `truncate` cut "Anime" down to about "An…". Stacking removes the
+   * division entirely — a row only has to fit one label — and matches the
+   * Categories and Genres panels it sits between, which are already
+   * label-left/count-right lists.
+   *
+   * Passed through to Radix as well as to the layout, so the arrow keys follow
+   * what the eye sees: up/down here, left/right in a row.
+   */
+  orientation?: "horizontal" | "vertical";
 }) {
+  const isVertical = orientation === "vertical";
+
   return (
     <fieldset className={cn("min-w-0", className)}>
       <legend className="sr-only">{label}</legend>
       <RadioGroup
         value={value}
         onValueChange={(next) => onChange(next as T)}
-        className="flex flex-row items-center gap-0.5 rounded-lg border border-border bg-background p-1"
+        orientation={orientation}
+        className={cn(
+          "flex gap-0.5 rounded-lg border border-border bg-background p-1",
+          isVertical ? "flex-col" : "flex-row items-center",
+        )}
       >
         {options.map((option) => (
-          <div key={option.value} className="flex min-w-0 flex-1">
+          <div key={option.value} className={cn("flex min-w-0", !isVertical && "flex-1")}>
             <RadioGroupItem
               value={option.value}
               id={`${label}-${option.value}`}
@@ -53,14 +76,20 @@ export function SegmentedRadioGroup<T extends string>({
             <label
               htmlFor={`${label}-${option.value}`}
               className={cn(
-                "flex min-h-11 w-full cursor-pointer items-center justify-center gap-1.5 rounded-md px-2.5 text-xs font-semibold transition-colors",
+                "flex min-h-11 w-full cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-xs font-semibold transition-colors",
+                isVertical ? "justify-between" : "justify-center",
                 "text-muted-foreground hover:text-foreground",
                 "peer-focus-visible:ring-[3px] peer-focus-visible:ring-ring/50",
                 "peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground",
               )}
             >
-              {option.icon && <option.icon className="size-3.5 shrink-0" aria-hidden />}
-              <span className="truncate">{option.label}</span>
+              {/* Icon and label travel together so `justify-between` splits the
+                  row between the pair and the count, rather than between the
+                  glyph and its own word. */}
+              <span className="flex min-w-0 items-center gap-1.5">
+                {option.icon && <option.icon className="size-3.5 shrink-0" aria-hidden />}
+                <span className="truncate">{option.label}</span>
+              </span>
               {option.hint && (
                 // Left readable rather than aria-hidden: "Anime, 9" is how many
                 // lists the option leads to, which is the thing being chosen.

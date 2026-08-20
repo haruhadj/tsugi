@@ -116,6 +116,9 @@ export function FeedMediaTypeFilter({
       <SegmentedRadioGroup
         label="Media format"
         value={urlState.mediaType ?? "all"}
+        // A column, not a row: three icon+word+count segments do not fit the
+        // 18rem sidebar, and this reads as a list beside Categories and Genres.
+        orientation="vertical"
         className="mt-3"
         onChange={(next) =>
           router.push(
