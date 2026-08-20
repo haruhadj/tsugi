@@ -1,7 +1,24 @@
 import type { NextConfig } from "next";
-import { getEnv } from "./src/lib/env";
+import { DEFAULT_APP_URL } from "./src/lib/env";
 
-const env = getEnv();
+// Read the one variable directly rather than through `getEnv()` (D53).
+// `allowedDevOrigins` below is development-only — Next ignores it in a production
+// build — but `getEnv()` validates the *whole* server env, so deriving a single
+// hostname through it made every build in every environment require all seven
+// secrets. A preview deploy without them died here, at config load, before one
+// page was compiled. `env.ts` still owns shape validation for every surface that
+// actually runs server code; this file only needs a hostname.
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || DEFAULT_APP_URL;
+
+// A malformed URL must not fail a build over a dev-only setting: env.ts reports
+// it properly, with the variable's name, the moment any server module runs.
+function hostnameOf(value: string): string {
+  try {
+    return new URL(value).hostname;
+  } catch {
+    return new URL(DEFAULT_APP_URL).hostname;
+  }
+}
 
 // Next 16 blocks cross-origin requests to dev-only assets (HMR, chunks) from any
 // host other than the one the server was started on — which is localhost, even
@@ -14,7 +31,7 @@ const env = getEnv();
 // in step with the OAuth redirect URI registered with AniList and MAL — those
 // two have to agree, and this is the file that would otherwise drift.
 // Ignored outside development.
-const devOrigin = new URL(env.NEXT_PUBLIC_APP_URL).hostname;
+const devOrigin = hostnameOf(appUrl);
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: [devOrigin],

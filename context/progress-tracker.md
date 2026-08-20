@@ -1178,6 +1178,44 @@ for the owner rather than absorbed, since it is schema work, not adaptation.
 **Revisit if:** a third provider arrives whose status vocabulary does not map cleanly onto
 AniList's six — that is the moment to introduce a neutral vocabulary instead of borrowing one.
 
+### D53 — `next.config.ts` reads `NEXT_PUBLIC_APP_URL` directly, not through `getEnv()`
+
+`allowedDevOrigins` is a **development-only** setting — Next ignores it in a production build. It
+was derived from `getEnv().NEXT_PUBLIC_APP_URL`, and `getEnv()` validates the *whole* server env,
+so a dev-only convenience made **every build in every environment** require all seven secrets at
+config load. A preview deploy of `prototype-adaptation-2` died there, before a single page was
+compiled:
+
+```
+⨯ Failed to load next.config.ts
+Error: Invalid environment configuration. Check: DATABASE_URL, DIRECT_URL,
+BETTER_AUTH_SECRET, ANILIST_CLIENT_ID, ANILIST_CLIENT_SECRET, MAL_CLIENT_ID, MAL_CLIENT_SECRET
+```
+
+The config now reads `process.env.NEXT_PUBLIC_APP_URL || DEFAULT_APP_URL` and takes the hostname
+through a `try`/`catch` helper. **`DEFAULT_APP_URL` is exported from `src/lib/env.ts`** and
+consumed by both the schema's transform and the config — two copies of one default is how a config
+and its schema drift apart.
+
+**The malformed-URL `catch` is not defensive noise.** Without it, a typo'd `NEXT_PUBLIC_APP_URL`
+fails the build over a setting production does not use. `env.ts` still reports a malformed value
+properly, naming the variable, the moment any server module runs.
+
+**Cost accepted, and it is a real one:** a deploy with missing or malformed env vars no longer
+fails at config load. It fails on the first request that touches a server module instead —
+`src/lib/auth.ts`, `src/db/index.ts`, `src/server/hono/middleware.ts` and three others all call
+`getEnv()` at module scope, so the failure is still *immediate and loud*, just not at build time.
+The fail-fast was never worth what it charged: seven production secrets to compile a static page.
+
+**This did not fix the preview deploy on its own.** The seven variables were scoped to Production
+only in Vercel, and `/` imports `getServerSession`, so the build still needed them at
+prerender — a dashboard change, not a code one. The config narrowing removes the *wrong* failure,
+not the missing configuration.
+
+**Revisit if:** `next.config.ts` needs a second env-derived value, or a value that genuinely must
+be validated before a build starts. Both are the moment to import a narrow, purpose-built
+validator rather than to reach for `getEnv()` again.
+
 ## External prerequisites
 
 | Needed by | Service | Status |
@@ -1189,7 +1227,7 @@ AniList's six — that is the moment to introduce a neutral vocabulary instead o
 | Phase 2 | **MyAnimeList OAuth app** | ❌ `myanimelist.net/apiconfig` — also supplies `X-MAL-CLIENT-ID` for Phase 7 |
 | Phase 2 | **Google OAuth app** | ❌ — the fallback tier |
 | Phase 4 | Upstash Redis | ✅ `fit-hyena-107044.upstash.io`, provisioned and verified live — 2026-08-11 |
-| Phase 6 | Vercel project | ❌ create before Phase 6 |
+| Phase 6 | Vercel project | ⚠️ **created and building**, but its seven env vars are scoped **Production only**, so every *preview* build fails at prerender. Tick Preview (or All Environments) per variable — and give `NEXT_PUBLIC_APP_URL` the *preview* URL, never the production one (**D53**). |
 
 Phases 1, 3, 5, 7, and 8 need nothing external, and Phase 0 needs only a GitHub remote — a
 five-minute job, not a blocker. **Phase 1 can run start to finish today; Phase 2 is the first
@@ -1284,6 +1322,19 @@ hand-copied hex palettes (`opengraph-image.tsx`, `canvasExport.ts`) re-checked a
 refused every `bun` invocation for that whole stretch, so a full phase sat code-complete and
 **unverified** until this one. It passed on the first run, but that was luck, not evidence; the
 five defects above are what reading-instead-of-running catches and what it does not.
+
+**Then the push broke the preview deploy, and the cause predated the branch.** Vercel failed at
+`Failed to load next.config.ts` with all seven required env vars listed as missing —
+`next.config.ts` had called `getEnv()` since Phase 2 to derive one dev-only hostname, and
+`getEnv()` validates the entire server env. Two separate faults wearing one error message: the
+config asked for seven production secrets to compile a static page (**D53** narrows it to
+`process.env.NEXT_PUBLIC_APP_URL` and a shared `DEFAULT_APP_URL`), and the seven variables are
+scoped **Production-only** in Vercel, so this branch's first *preview* build had none of them.
+Only the second is why the deploy failed; `/` imports `getServerSession`, so prerender needs them
+regardless of what the config does. Fixing the code does not fix the deploy — that is a dashboard
+change, and **`NEXT_PUBLIC_APP_URL` must not be set to the production URL in Preview scope**: it
+has no `VERCEL_URL` fallback by design, preview URLs churn, and OAuth matches `redirect_uri`
+exactly, so a wrong value there fails sign-in as what looks like a provider fault.
 
 **Open, and all of it needs a human:** neither tracker's `bun dev` walkthrough has happened — the
 `RecView` bug above is precisely the class that only appears on hydration, so `/r/[slug]` must be

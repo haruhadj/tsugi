@@ -1,5 +1,16 @@
 import { z } from "zod";
 
+// The dev fallback for NEXT_PUBLIC_APP_URL, exported because `next.config.ts`
+// needs the same default without validating the whole server env (D53) — two
+// copies of a default is how the config and the schema drift apart.
+//
+// There is deliberately **no `VERCEL_URL` fallback**: a deploy that does not set
+// NEXT_PUBLIC_APP_URL explicitly takes localhost as Better-Auth's `baseURL` and
+// fails OAuth in a way that reads as a provider fault. `.env` once documented
+// such a fallback that this file never implemented; the comment was corrected
+// rather than the behaviour invented (2026-08-09 audit).
+export const DEFAULT_APP_URL = "http://localhost:3000";
+
 const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   DIRECT_URL: z.string().url(),
@@ -8,7 +19,7 @@ const envSchema = z.object({
     .url()
     .optional()
     .or(z.literal(""))
-    .transform((value) => (value ? value : "http://localhost:3000")),
+    .transform((value) => (value ? value : DEFAULT_APP_URL)),
   BETTER_AUTH_SECRET: z.string().min(1),
   ANILIST_CLIENT_ID: z.string().min(1),
   ANILIST_CLIENT_SECRET: z.string().min(1),
