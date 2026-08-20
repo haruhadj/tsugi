@@ -2,7 +2,7 @@ import "server-only";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { user } from "@/db/auth-schema";
-import type { ListEntry, MediaType, ProviderResult } from "@/lib/types/media";
+import type { ListEntry, ListStatus, MediaType, ProviderResult } from "@/lib/types/media";
 import type { ScoreFormat } from "@/lib/score";
 
 const ENDPOINT = "https://graphql.anilist.co";
@@ -21,12 +21,15 @@ const LIST_QUERY = `
     MediaListCollection(userId: $userId, type: $type) {
       lists {
         entries {
+          status
           score
           media {
             id
             type
             title { english romaji native }
             coverImage { extraLarge large }
+            genres
+            startDate { year }
           }
         }
       }
@@ -35,12 +38,15 @@ const LIST_QUERY = `
 `;
 
 type AniListListEntry = {
+  status?: string | null;
   score: number;
   media: {
     id: number;
     type: "ANIME" | "MANGA";
     title: { english: string | null; romaji: string | null; native: string | null };
     coverImage: { extraLarge: string | null; large: string | null } | null;
+    genres?: string[] | null;
+    startDate?: { year?: number | null } | null;
   };
 };
 
@@ -54,6 +60,29 @@ type AniListListResponse = {
 
 function toMediaType(type: "ANIME" | "MANGA"): MediaType {
   return type === "ANIME" ? "anime" : "manga";
+}
+
+// Maps AniList status strings to unified ListStatus (D52).
+// AniList uses: CURRENT, PLANNING, COMPLETED, DROPPED, PAUSED, REPEATING.
+function toListStatus(status: string | null | undefined): ListStatus | null {
+  if (!status) return null;
+  const normalized = status.toUpperCase();
+  switch (normalized) {
+    case "CURRENT":
+      return "current";
+    case "PLANNING":
+      return "planning";
+    case "COMPLETED":
+      return "completed";
+    case "DROPPED":
+      return "dropped";
+    case "PAUSED":
+      return "paused";
+    case "REPEATING":
+      return "repeating";
+    default:
+      return null;
+  }
 }
 
 // Mirrors anilist-client.ts's pickTitle — kept as a separate copy rather than
@@ -77,6 +106,9 @@ function toListEntry(entry: AniListListEntry, scoreFormat: ScoreFormat): ListEnt
     coverImage: media.coverImage?.extraLarge ?? media.coverImage?.large ?? null,
     scoreRaw: isRated ? entry.score : null,
     scoreFormat: isRated ? scoreFormat : null,
+    status: toListStatus(entry.status),
+    genres: media.genres ?? [],
+    year: media.startDate?.year ?? null,
   };
 }
 

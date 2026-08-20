@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { fetchAniListList } from "./anilist";
+import type { ListStatus } from "@/lib/types/media";
 
 function viewerBody(overrides: Partial<{ id: number; scoreFormat: string }> = {}) {
   return {
@@ -16,14 +17,24 @@ function listBody(entries: unknown[]) {
   return { data: { MediaListCollection: { lists: [{ entries }] } } };
 }
 
-function aniListEntry(overrides: Partial<{ id: number; type: "ANIME" | "MANGA"; score: number }> = {}) {
+function aniListEntry(overrides: Partial<{
+  id: number;
+  type: "ANIME" | "MANGA";
+  score: number;
+  status: string | null;
+  genres: string[] | null;
+  year: number | null;
+}> = {}) {
   return {
+    status: overrides.status ?? "COMPLETED",
     score: overrides.score ?? 8,
     media: {
       id: overrides.id ?? 154587,
       type: overrides.type ?? "ANIME",
       title: { english: "Frieren: Beyond Journey's End", romaji: "Sousou no Frieren", native: "葬送のフリーレン" },
       coverImage: { extraLarge: "https://example.invalid/xl.jpg", large: "https://example.invalid/large.jpg" },
+      genres: overrides.genres ?? ["Fantasy", "Adventure"],
+      startDate: { year: overrides.year ?? 2023 },
     },
   };
 }
@@ -121,5 +132,73 @@ describe("fetchAniListList", () => {
 
     const result = await fetchAniListList("user-1", "token", "anime", fetchImpl);
     expect(result).toEqual({ ok: false, reason: "unavailable" });
+  });
+
+  // D52: status, genres, year mapping tests
+  test("maps status, genres, and year from AniList response", async () => {
+    const result = await fetchAniListList(
+      "user-1",
+      "token",
+      "anime",
+      mockSequence([
+        { body: viewerBody() },
+        { body: listBody([aniListEntry({ status: "CURRENT", genres: ["Action", "Drama"], year: 2024 })]) },
+      ]),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const entry = result.data[0]!;
+    expect(entry.status).toBe("current");
+    expect(entry.genres).toEqual(["Action", "Drama"]);
+    expect(entry.year).toBe(2024);
+  });
+
+  test("maps all AniList status values to unified ListStatus", async () => {
+    const statusTests: { anilist: string; expected: string }[] = [
+      { anilist: "CURRENT", expected: "current" },
+      { anilist: "PLANNING", expected: "planning" },
+      { anilist: "COMPLETED", expected: "completed" },
+      { anilist: "DROPPED", expected: "dropped" },
+      { anilist: "PAUSED", expected: "paused" },
+      { anilist: "REPEATING", expected: "repeating" },
+    ];
+
+    for (const { anilist, expected } of statusTests) {
+      const result = await fetchAniListList(
+        "user-1",
+        "token",
+        "anime",
+        mockSequence([
+          { body: viewerBody() },
+          { body: listBody([aniListEntry({ status: anilist })]) },
+        ]),
+      );
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.data[0]!.status).toBe(expected as ListStatus);
+    }
+  });
+
+  test("a missing status returns null, missing genres returns empty array", async () => {
+    const entry = aniListEntry();
+    delete (entry as { status?: string }).status;
+    delete (entry.media as { genres?: string[] }).genres;
+
+    const result = await fetchAniListList(
+      "user-1",
+      "token",
+      "anime",
+      mockSequence([
+        { body: viewerBody() },
+        { body: listBody([entry]) },
+      ]),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data[0]!.status).toBeNull();
+    expect(result.data[0]!.genres).toEqual([]);
   });
 });

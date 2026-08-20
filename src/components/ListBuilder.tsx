@@ -12,6 +12,7 @@ import {
   SaveIcon,
   TagIcon,
 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,9 +78,12 @@ function previewGenres(items: TrayItem[]): { name: string; count: number }[] {
 }
 
 export function ListBuilder() {
+  const searchParams = useSearchParams();
+  const initialMode: Mode = searchParams.get("from") === "mylist" ? "mylist" : "search";
+
   const [provider, setProvider] = useState<Provider>("anilist");
   const [mediaType, setMediaType] = useState<MediaType>("anime");
-  const [mode, setMode] = useState<Mode>("search");
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [items, setItems] = useState<TrayItem[]>([]);
   const [name, setName] = useState("");
   const [category, setCategory] = useState<ListCategory>(FALLBACK_LIST_CATEGORY);
@@ -125,11 +129,10 @@ export function ListBuilder() {
         title: entry.title,
         titleNative: entry.titleNative,
         coverImage: entry.coverImage,
-        year: null,
+        year: entry.year,
         averageScore: null,
-        // A tracker list entry carries no genres. The server resolves the real
-        // ones for every item at save time (D48).
-        genres: [],
+        // D52: entries now carry genres from the tracker; also used for preview
+        genres: entry.genres,
         // Kept exactly as the tracker returned it, format and all (D47). This
         // used to drop any score whose format differed from the user's own,
         // silently losing the rating it had just imported.
@@ -466,23 +469,14 @@ export function ListBuilder() {
           ) : (
             <section className="flex flex-col gap-3 rounded-2xl border border-border bg-card/60 p-4 sm:p-5">
               <h2 className="font-mono text-[0.65rem] font-semibold tracking-[0.24em] text-foreground uppercase">
-                From your {provider === "anilist" ? "AniList" : "MyAnimeList"} list
+                Import from your tracker
               </h2>
-              <SegmentedRadioGroup
-                label="Search source"
-                value={provider}
-                options={[
-                  { value: "anilist", label: "AniList" },
-                  { value: "mal", label: "MAL" },
-                ]}
-                onChange={setProvider}
-                className="self-start"
-              />
               <MyListPicker
                 provider={provider}
                 mediaType={mediaType}
                 onImport={handleImport}
                 isSelected={isSelected}
+                handle={null}
               />
             </section>
           )}

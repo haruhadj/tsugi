@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CheckIcon, Loader2Icon, PlusIcon, SearchIcon, SparklesIcon } from "lucide-react";
+import { CheckIcon, Loader2Icon, PlusIcon, SearchIcon, SparklesIcon, StarIcon } from "lucide-react";
 import {
   Command,
   CommandEmpty,
@@ -10,6 +10,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { MediaCover } from "@/components/MediaCover";
+import { MediaTypeChip } from "@/components/MediaTypeChip";
 import { SegmentedRadioGroup } from "@/components/SegmentedRadioGroup";
 import { cn } from "@/lib/utils";
 import { searchMedia } from "@/lib/providers";
@@ -269,16 +270,24 @@ export function MediaSearchInput({
                         />
                         <div className="flex min-w-0 flex-1 flex-col gap-1">
                           <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
-                              {result.mediaType}
-                            </span>
+                            <MediaTypeChip mediaType={result.mediaType} />
                             {result.year !== null && (
                               <span className="font-mono text-[11px] text-muted-foreground">
                                 {result.year}
                               </span>
                             )}
                             {result.averageScore !== null && (
-                              <span className="rounded border border-highlight/30 bg-highlight/15 px-1.5 py-0.5 font-mono text-[10px] text-highlight">
+                              <span className="inline-flex items-center gap-1 rounded border border-highlight/30 bg-highlight/15 px-1.5 py-0.5 font-mono text-[10px] text-highlight">
+                                <StarIcon className="size-2.5" aria-hidden="true" />
+                                {/*
+                                  Named for screen readers because this chip sits beside the
+                                  author's own ScoreBadge elsewhere in the builder and looks
+                                  like one — it is the provider's community aggregate, never
+                                  the user's rating (D28).
+                                */}
+                                <span className="sr-only">
+                                  {PROVIDER_LABELS[result.provider]} community score{" "}
+                                </span>
                                 {result.averageScore}%
                               </span>
                             )}

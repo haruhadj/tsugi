@@ -50,7 +50,11 @@ export type { ScoreFormat };
  * An imported list entry (Phase 7). `scoreRaw`/`scoreFormat` are both null
  * together or set together (D35) — never a bare `0`, which both trackers use
  * to mean "unrated", not "rated zero".
+ *
+ * D52: `status`, `genres`, and `year` added for Phase B import workspace.
  */
+export type ListStatus = "current" | "planning" | "completed" | "dropped" | "paused" | "repeating";
+
 export type ListEntry = {
   provider: Provider;
   externalId: number;
@@ -60,4 +64,7 @@ export type ListEntry = {
   coverImage: string | null;
   scoreRaw: number | null;
   scoreFormat: ScoreFormat | null;
+  status: ListStatus | null;
+  genres: string[];
+  year: number | null;
 };

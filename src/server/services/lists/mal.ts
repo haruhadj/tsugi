@@ -1,12 +1,13 @@
 import "server-only";
 import { getEnv } from "@/lib/env";
-import type { ListEntry, MediaType, ProviderResult } from "@/lib/types/media";
+import type { ListEntry, ListStatus, MediaType, ProviderResult } from "@/lib/types/media";
 
 const env = getEnv();
 
 // MAL v2 caps list_status fields differently per media type — "list_status"
 // alone returns { status, score, ... } for both, so one field set works here.
-const FIELDS = "list_status";
+// D52: extended to include genres and start_season for Phase B import workspace.
+const FIELDS = "list_status,genres,start_season";
 const PAGE_LIMIT = 100;
 
 function toPath(mediaType: MediaType): "animelist" | "mangalist" {
@@ -18,9 +19,11 @@ type MalNode = {
   title: string;
   alternative_titles?: { ja?: string | null };
   main_picture?: { large?: string | null; medium?: string | null };
+  genres?: Array<{ name?: string }> | null;
+  start_season?: { year?: number } | null;
 };
 
-type MalListStatus = { score: number };
+type MalListStatus = { score: number; status?: string };
 
 type MalListEntry = { node: MalNode; list_status: MalListStatus };
 
@@ -33,9 +36,36 @@ function pickTitle(node: MalNode): string {
   return node.title;
 }
 
+// Maps MAL status strings to unified ListStatus (D52).
+// MAL uses: watching, plan_to_watch, completed, dropped, on_hold (anime);
+// reading, plan_to_read, completed, dropped, on_hold (manga).
+function toListStatus(status: string | null | undefined): ListStatus | null {
+  if (!status) return null;
+  const normalized = status.toLowerCase();
+  switch (normalized) {
+    case "watching":
+    case "reading":
+      return "current";
+    case "plan_to_watch":
+    case "plan_to_read":
+      return "planning";
+    case "completed":
+      return "completed";
+    case "dropped":
+      return "dropped";
+    case "on_hold":
+      return "paused";
+    default:
+      return null;
+  }
+}
+
 function toListEntry(entry: MalListEntry, mediaType: MediaType): ListEntry {
   // 0 is MAL's "unrated" sentinel too (D35), same as AniList.
   const isRated = entry.list_status.score !== 0;
+
+  // MAL returns genres as [{ name: "Action" }, { name: "Drama" }, ...]
+  const genres = entry.node.genres?.map((g) => g.name ?? "").filter(Boolean) ?? [];
 
   return {
     provider: "mal",
@@ -47,6 +77,9 @@ function toListEntry(entry: MalListEntry, mediaType: MediaType): ListEntry {
     // MAL scores are always POINT_10 (D28) — no per-user format to read.
     scoreRaw: isRated ? entry.list_status.score : null,
     scoreFormat: isRated ? "POINT_10" : null,
+    status: toListStatus(entry.list_status.status),
+    genres,
+    year: entry.node.start_season?.year ?? null,
   };
 }
 

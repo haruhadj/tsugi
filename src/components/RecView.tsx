@@ -1,9 +1,10 @@
 import { EyeIcon } from "lucide-react";
 import { ListItemViews } from "@/components/ListItemViews";
+import { ListQuickActions } from "@/components/ListQuickActions";
 import { ShareListButton } from "@/components/ShareListButton";
-import type { SocialCardInput } from "@/lib/canvasExport";
 import { getEnv } from "@/lib/env";
 import { buildMarkdownExport } from "@/lib/markdown";
+import type { SocialCardInput } from "@/lib/canvasExport";
 import type { ListView } from "@/server/services/lists";
 
 /**
@@ -11,8 +12,9 @@ import type { ListView } from "@/server/services/lists";
  * that gets the full card treatment. The feed deliberately runs quieter so that
  * arriving here feels like arriving somewhere.
  *
- * A Server Component; only the item layouts below it need client state (the
- * ranked/tier/gallery switch) and the share modal, so that is where the boundary sits.
+ * A Server Component, and it has to stay one: `getEnv()` below validates the full
+ * server env, so this module must never gain a `"use client"`. The interactive parts
+ * are client leaves — the quick actions, the share modal, and the item layouts.
  */
 export function RecView({ rec }: { rec: ListView }) {
   // Built server-side from NEXT_PUBLIC_APP_URL rather than window.location, so the
@@ -98,12 +100,15 @@ export function RecView({ rec }: { rec: ListView }) {
                 )}
               </div>
 
-              <ShareListButton
-                url={shareUrl}
-                text={rec.caption ?? rec.name}
-                markdown={markdown}
-                card={card}
-              />
+              <div className="flex flex-wrap items-center gap-2">
+                <ListQuickActions url={shareUrl} card={card} />
+                <ShareListButton
+                  url={shareUrl}
+                  text={rec.caption ?? rec.name}
+                  markdown={markdown}
+                  card={card}
+                />
+              </div>
             </div>
           </header>
 

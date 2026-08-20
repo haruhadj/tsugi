@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { MediaCover } from "@/components/MediaCover";
+import { MediaTypeChip } from "@/components/MediaTypeChip";
 import { ScoreInput } from "@/components/ScoreInput";
 import { SourceLink } from "@/components/SourceLink";
 import { cn } from "@/lib/utils";
@@ -92,9 +93,7 @@ export function ItemTray({
                 />
                 <div className="min-w-0 flex-1">
                   <div className="mb-1 flex flex-wrap items-center gap-1.5">
-                    <span className="rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
-                      {item.mediaType}
-                    </span>
+                    <MediaTypeChip mediaType={item.mediaType} />
                     {item.year !== null && (
                       <span className="font-mono text-[11px] text-muted-foreground">
                         {item.year}

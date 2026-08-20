@@ -12,8 +12,8 @@ happened last time.
 | **Current phase** | **Phase 8 — Dashboard** ([spec](./planning/PHASE-8.md)), implementation complete 2026-08-16. Phase 7 carries forward account-gated criteria 1–8 and the live criterion-12 stopwatch pass as an unclosed gap — see Phase 7 row below and [PHASE-7.md](./planning/PHASE-7.md). |
 | **Phase status** | **In progress, 2026-08-16.** Phase 6 closed 2026-08-15 — see Phase status table and session log. `tokens.ts`, `anilist.ts`, `mal.ts`, and the `GET /api/lists/:provider/:mediaType` route are all implemented and passing `tsc`/`eslint`; all four service/route files now have unit-tier test coverage (`tokens.test.ts`, `anilist.test.ts`, `mal.test.ts`, `lists.db.test.ts`). The My-list picker UI is implemented (`MyListPicker.tsx`, `RecBuilder.tsx` mode toggle, criterion-9 gating). **Update, 2026-08-16 evening:** production was 500ing on both providers — migration `0002_broken_triton.sql` (creates `list_cache`) had never been applied to the production Supabase DB. Fixed by running `bun x drizzle-kit migrate` against production. Separately, per-user caching was redesigned from a 5-minute TTL to cache-once-then-explicit-refresh: `lists.ts` now serves the cached row unconditionally unless the client passes `?refresh=1`, which forces a live re-fetch and falls back to the existing stale cache (`{ entries, stale: true }`) if that forced re-fetch fails, rather than erroring. `MyListPicker.tsx` gained a refresh button and a "showing your last synced list" notice. Full suite: 149 pass, 0 fail. Unscoped `bun x eslint .` and `tsc --noEmit`: clean — **criterion 13 satisfied.** Criterion 12 checked structurally (no regression to the timed search path); the live stopwatch re-run still needs a human in a browser. Committed as `5ae4181`, pushed to `main`. Remaining: exit criteria 1–8 (blocked on manual OAuth dashboard registration) and criterion 12's live timed pass — see [PHASE-7.md](./planning/PHASE-7.md). |
 | **Upstash** | Provisioned 2026-08-11 — `fit-hyena-107044.upstash.io`, credentials in `.env`. Backs both rate limiting (D9) and the media resolve cache (Phase 4). |
-| **Prototype adaptation** | **2026-08-18.** The AI Studio prototype's builder page and UI system adapted into the app — see **D47**/**D48**/**D49** and `planning/TEMP-prototype-adaptation.md` (a temporary tracker, deleted once its Part 7 is signed off). Data layer: `list.category` (fixed enum), `list_item.genres` (`text[]` + GIN), genres fetched from both providers, the author's handle joined into the feed and the artifact, publish-on-create. UI: `ListBuilder` rewritten to the two-column workspace, `MediaSearchInput` rebuilt as an inline multi-add panel (`Command` without the `Popover`), `ItemTray` to the prototype's row card, plus the rundown, artifact, dashboard, settings, and sign-in. New: `SegmentedRadioGroup`, `SocialCardPreview`, `ChooseHandle`, `/handle`. Migration `0006` applied to production (hand-edited from drizzle-kit's unsafe `ADD COLUMN NOT NULL`). Gate green: `tsc`, `eslint`, 152 tests. |
-| **Last updated** | 2026-08-18 |
+| **Prototype adaptation** | **2026-08-18.** The AI Studio prototype's builder page and UI system adapted into the app — see **D47**/**D48**/**D49** (pass 1; its tracker's two open boxes are folded into pass 2's, and the file itself is awaiting deletion). Data layer: `list.category` (fixed enum), `list_item.genres` (`text[]` + GIN), genres fetched from both providers, the author's handle joined into the feed and the artifact, publish-on-create. UI: `ListBuilder` rewritten to the two-column workspace, `MediaSearchInput` rebuilt as an inline multi-add panel (`Command` without the `Popover`), `ItemTray` to the prototype's row card, plus the rundown, artifact, dashboard, settings, and sign-in. New: `SegmentedRadioGroup`, `SocialCardPreview`, `ChooseHandle`, `/handle`. Migration `0006` applied to production (hand-edited from drizzle-kit's unsafe `ADD COLUMN NOT NULL`). Gate green: `tsc`, `eslint`, 152 tests.<br><br>**Pass 2 — 2026-08-20, the reading surfaces.** See **D50**/**D51**/**D52** and `planning/TEMP-prototype-adaptation-2.md` (the one live tracker; deleted once the owner has walked the result in a browser). The feed gained a text search, an anime/manga format panel with live-filtered counts, icon'd sort tabs, and a mobile filter toggle; its cards became fully clickable in compact and grid via a link overlay and lost the decorative rank number. `MyListPicker` was rewritten into the import workspace (status pills, genre, sort, search-within, add-all) over `ListEntry`'s new `status`/`genres`/`year`, with `list_cache` versioned rather than migrated. A closing sweep of the remaining prototype files found five defects in our own work — including a `"use client"` on `RecView` that broke `/r/[slug]` on hydration while SSR and curl stayed green. New: `ListQuickActions`, `MediaTypeChip`, `FeedControls`. Gate green: `tsc`, `eslint`, 170 tests. **No browser walkthrough yet.** |
+| **Last updated** | 2026-08-20 |
 | **UI library** | **shadcn/ui + Radix** — replaced HeroUI on 2026-08-11 (**D41**). Custom "Eyecatch" palette, authored by us. Anything referencing `@heroui/*`, `onPress`, `isPending`, or `data-theme="dark"` is a leftover. |
 | **Application code** | Phase 0 scaffold, Phase 1's full data layer, and Phase 2's auth wiring: Hono catch-all at `/api`, `genericOAuth` for AniList + MAL (Google not yet configured), `/sign-in` and `/settings`, session helper. Frontend redesigned on shadcn with a real landing page. |
 | **Repository** | `main` pushed to `github.com/haruhadj/tsugi` (private). CI green. |
@@ -1091,6 +1091,93 @@ renders **no author line at all** rather than a placeholder.
 **Revisit if:** the gate turns out to block a flow it should not — it is one redirect in one
 helper, and narrowing it to the publish action alone is a small change.
 
+### D50 — The feed carries a text search and an anime/manga filter, and no `format` column
+
+The owner walked `/feed` and found it had no way to search and no way to read only anime or only
+manga. `listPublishedFeed` gains `q` and `mediaType`.
+
+**Both filters are correlated `EXISTS` subqueries against `list_item`, never a join** — the same
+rule D48 set for the genre filter, and for the same reason: joining `list_item` alongside the
+`list_vote` leftJoin multiplies their rows and corrupts every aggregate in the select. The
+predicate was extracted into one `feedWhere(params)` helper because it is now needed in three
+places — the page's list, the category counts, and the genre counts — and three copies drift.
+
+**The sidebar counts take the same filters.** This is the part worth recording, because leaving
+them unfiltered is cheaper and wrong: a reader who searches "berserk" and still sees "Shounen 47"
+in the directory clicks it and lands on one result. Counts that contradict the list they sit
+beside are worse than no counts. It costs three more indexed queries per feed render.
+
+**No `format` column — the owner's call, recorded with what it costs.** The prototype's "Media
+Format" panel offers TV / Movie / OVA / Manga / Novel. Ours offers All / Anime / Manga, which is
+exactly what `list_item.mediaType` already stores, so the panel needed no schema at all. Going
+finer would mean a new column, a migration, and a backfill that can only learn an existing item's
+format by re-resolving all of them against their provider. What that buys is a distinction readers
+rarely browse by; what it costs is that the panel cannot narrow to "films only".
+
+`q` is `ILIKE` over `list.name`, `list.caption`, `list.category`, and `user.username`, plus an
+`EXISTS` over `list_item.title`; it is trimmed and floored at two characters in the page, the way
+`MediaSearchInput` already does. An unknown `mediaType` falls back to unfiltered rather than
+rendering an empty page, as `category` already did.
+
+**Revisit if:** per-format chips (TV / Movie / OVA) are wanted on item rows — that is the same
+column, so the two asks should land together rather than paying for the backfill twice.
+
+### D51 — Feed cards are clickable through a link overlay, and the rank number is gone
+
+Two things the owner found on the same walk: a card responded to a click only on its title, and a
+decorative `01` under the vote pillar read as noise.
+
+**The overlay.** `relative` on the `<li>`, `after:absolute after:inset-0 after:content-['']` on
+the title's existing `<Link>`, and `relative z-10` on everything interactive that sits over it —
+vote pills, genre chips, copy and share.
+
+**A `div` + `onClick` was considered and rejected.** It looks equivalent and is not: it takes no
+focus, does not fire on Enter, shows no URL in the status bar, and kills middle-click and
+⌘-click — the gestures a reader uses to open a list *without* losing their place in the feed. The
+overlay is one real anchor, so all of that keeps working for free, and the accessible name stays
+the list's title instead of becoming the card's entire text. This is now written into
+`context/ui-rules.md` so the next agent does not "fix" it back into a handler.
+
+**Compact and grid go fully clickable; stream stays partial** — title, filmstrip, and a new "View
+list" footer link, as the prototype has it. Stream's body is long enough that a full-card overlay
+would swallow text selection over the caption.
+
+**The `01` was `aria-hidden` decoration** in all three densities, so nothing accessible was lost
+in removing it. The `firstSlot` prop that fed it went too, along with its call site — a prop kept
+"in case" is how a dead API survives.
+
+**Revisit if:** a density needs a card-level action that cannot sit above the overlay.
+
+### D52 — Tracker entries carry status, genres, and year; `list_cache` is versioned, not migrated
+
+The import workspace filters by watch status and by genre, so the tracker adapters had to start
+returning both. `ListEntry` gains `status: ListStatus | null`, `genres: string[]`, and
+`year: number | null`.
+
+**`ListStatus` is AniList's vocabulary** — `current` | `planning` | `completed` | `dropped` |
+`paused` | `repeating` — with MAL's `watching` / `plan_to_watch` / `on_hold` mapped onto it **in
+the adapter**, in one place. Borrowing one provider's vocabulary rather than inventing a third is
+the cheaper half of invariant 2: provider shapes are normalised at the boundary, and no surface
+above it has to know that two spellings of "on hold" exist.
+
+**No migration, but not no versioning either.** `list_cache.entries` is `jsonb`, so a widened
+shape needs no DDL. Parsing old rows tolerantly (`status ?? null`, `genres ?? []`) type-checks
+happily and renders the *wrong product*: an import workspace whose status pills all read 0 and
+whose genre select is empty — filters that exist and do nothing, which reads as a bug rather than
+as a cold cache. So `list_cache` gained a `version` column written from a `CACHE_VERSION`
+constant; a row whose version is stale re-fetches once and is current from then on.
+
+**Cost accepted:** one slower first My-list open per user, per provider, per media type after
+deploy.
+
+**`year` stops at `ListEntry`.** `list_item` has no `year` column, so the builder can show a year
+on a search result but `/r/[slug]` cannot show one on a saved row. The prototype does show it
+there. Closing that gap means a column, a backfill, and resolving the year at save time — flagged
+for the owner rather than absorbed, since it is schema work, not adaptation.
+
+**Revisit if:** a third provider arrives whose status vocabulary does not map cleanly onto
+AniList's six — that is the moment to introduce a neutral vocabulary instead of borrowing one.
+
 ## External prerequisites
 
 | Needed by | Service | Status |
@@ -1128,6 +1215,84 @@ the one you forgot. `scripts/check-db-reachable.sh` warns if a second file appea
 ## Session log
 
 Newest first. One entry per session: what changed, what was decided, what to pick up next.
+
+### 2026-08-20 — The prototype's reading surfaces: feed, import workspace, and a sweep that found five defects
+
+The 2026-08-18 pass adapted the prototype's *builder*. This one adapts what it left: the
+**reading** surfaces. The owner walked `/feed` and named four concrete gaps — no icons on the sort
+tabs or nav, no search and no media-format panel, cards that respond to a click only on the title,
+a decorative `01` that reads as noise — and then widened the instruction: bring the frontend to the
+prototype's design, and **find the remaining gaps rather than waiting to be told.** Four questions
+were answered up front (`reference/ai-studio-prototype/`'s "Media Format" reduced to Anime/Manga;
+whole-card clickability in compact and grid but not stream; all four My-list breakdowns; phased
+delivery, feed first). Tracked in `planning/TEMP-prototype-adaptation-2.md`.
+
+**The feed (D50).** `listPublishedFeed` gained `q` and `mediaType`, both as correlated `EXISTS`
+subqueries — never a join, per D48 — with the predicate extracted into one `feedWhere()` helper
+because it is now needed in three places. The sidebar counts take the same filters: unfiltered
+counts are cheaper and contradict the list they sit beside. There is deliberately **no `format`
+column** — Anime/Manga is what `list_item.mediaType` already stores, and TV/Movie/OVA would need a
+backfill that can only learn an existing item's format by re-resolving all of them.
+
+**The cards (D51).** Compact and grid became fully clickable through a **link overlay** — an
+`after:absolute after:inset-0` pseudo-element on the title's existing `<Link>` — not a `div` +
+`onClick`, which takes no focus, ignores Enter, and kills middle-click and ⌘-click, the two
+gestures a reader uses to open a list without losing the feed. Stream stays partial and gained a
+"View list" footer link. The `01` was `aria-hidden` in all three densities, so removing it lost
+nothing; `firstSlot` went with it. The pattern is now in `ui-rules.md` so it does not get "fixed"
+into a handler.
+
+**The import workspace (D52).** `ListEntry` gained `status`, `genres`, and `year`, with MAL's
+status spellings mapped onto AniList's vocabulary inside the adapter. `MyListPicker` was rewritten
+from a flat list of titles into the prototype's workspace: status pills with live counts, provider
+and anime/manga segmented controls moved down out of `ListBuilder`'s toolbar, a genre select, a
+sort select, search-within, a two-column result grid, and "Add all N shown" — all client-side over
+the already-fetched array, no new round trips. `list_cache.entries` is `jsonb` so no migration was
+needed, but tolerant parsing alone would have rendered an empty, silently useless filter rail
+against old rows, so the table gained a `version` column that forces one re-fetch instead.
+
+**The sweep is the part worth reading — it found five defects, not prototype deltas.** Walking the
+five remaining prototype files turned up little that was missing (our `ItemTray` is already the
+fuller adaptation; the dashboard's tinted stat icons and cover thumbnails were done in August 18's
+pass and the tracker item for them was stale when written). What it did turn up was our own work
+being wrong:
+
+- **A `"use client"` had been added to `RecView`**, which breaks `/r/[slug]` in a real browser and
+  in no other way: the file calls `getEnv()`, which validates the *whole* server env, and a client
+  bundle's `process.env` carries only `NEXT_PUBLIC_*`. SSR renders fine, so `tsc` and a curl smoke
+  both stayed green over a broken page. Fixed by extracting the two new quick-action buttons into a
+  `ListQuickActions` leaf; the registry row now says `RecView` must stay a server component.
+- **`ListItemViews` carried raw palette classes** (`text-amber-400`, `bg-zinc-950`) against
+  invariant 5 — and the tier map it introduced **inverted the ramp**, making S amber and C emerald
+  when `score-excellent` *is* the emerald end. The file's own correct token maps had been left
+  behind as dead code.
+- **The tier view banded on the four colour tiers instead of the five letters**, so the pillars
+  read "E / G / F / P", S collapsed into A, and *unscored* titles were filed under "D" — showing
+  unrated titles as badly rated. It now buckets on `tierBandFor().label`, seeded from `TIER_BANDS`
+  so the two cannot drift, with `score-unrated` for the unscored.
+- **Genre chips promised an interaction they could not deliver**: `span`s with
+  `aria-label="Filter by X"` and no handler, while the reset bar had nothing that could set the
+  filter it reset. They are `button`s with `aria-pressed` now.
+- **`ui-registry.md` rows 45–47 were structurally broken** by the previous edit — two components
+  merged into one row, one component's notes stranded under another's name.
+
+**Verified:** `tsc --noEmit` clean, `eslint .` clean, **170 tests pass** (was 152). Both
+hand-copied hex palettes (`opengraph-image.tsx`, `canvasExport.ts`) re-checked against
+`globals.css` and in agreement; all twelve db-tier tests carry an explicit 30s timeout.
+
+**Worth knowing:** the Phase C gate could not be run in the session that wrote it — the sandbox
+refused every `bun` invocation for that whole stretch, so a full phase sat code-complete and
+**unverified** until this one. It passed on the first run, but that was luck, not evidence; the
+five defects above are what reading-instead-of-running catches and what it does not.
+
+**Open, and all of it needs a human:** neither tracker's `bun dev` walkthrough has happened — the
+`RecView` bug above is precisely the class that only appears on hydration, so `/r/[slug]` must be
+checked in a **real browser, not curl**. Also open: the keyboard passes on the builder and the new
+filter rail, and one owner's-call gap — **`list_item` has no `year` column**, so the artifact
+cannot show the year the builder does. `planning/TEMP-prototype-adaptation.md`'s two open boxes are folded
+into `-2` under "Inherited from pass 1", so the file is now pure duplication and can go — the
+sandbox refused the deletion, so it needs one word from the owner. `-2` itself survives until the
+walkthrough is done.
 
 ### 2026-08-18 — The prototype's builder page and UI system adapted into the app
 

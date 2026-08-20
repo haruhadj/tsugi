@@ -9,6 +9,10 @@ import { fetchAniListList } from "@/server/services/lists/anilist";
 import { fetchMalList } from "@/server/services/lists/mal";
 import { getListAccessToken } from "@/server/services/lists/tokens";
 
+// D52: Cache schema version. Bump when ListEntry shape changes to force re-fetch
+// of stale rows that lack the new fields (status, genres, year).
+const CACHE_VERSION = 2;
+
 function isProvider(value: string): value is Provider {
   return value === "anilist" || value === "mal";
 }
@@ -61,7 +65,8 @@ export const trackerListsRouter = new Hono().get(
           eq(listCache.mediaType, mediaTypeParam),
         ),
       });
-      if (cached) {
+      // D52: stale version forces a re-fetch once, then the row is current.
+      if (cached && cached.version === CACHE_VERSION) {
         return c.json({ entries: cached.entries as ListEntry[] });
       }
     }
@@ -103,10 +108,11 @@ export const trackerListsRouter = new Hono().get(
         mediaType: mediaTypeParam,
         entries: result.data,
         fetchedAt: new Date(),
+        version: CACHE_VERSION,
       })
       .onConflictDoUpdate({
         target: [listCache.userId, listCache.provider, listCache.mediaType],
-        set: { entries: result.data, fetchedAt: new Date() },
+        set: { entries: result.data, fetchedAt: new Date(), version: CACHE_VERSION },
       });
 
     return c.json({ entries: result.data });

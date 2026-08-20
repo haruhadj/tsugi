@@ -141,6 +141,9 @@ export const listVote = pgTable(
 // exactly, so it already carries the D28/D35 null-pairing invariant; nothing
 // here re-validates that shape, since it is only ever written from a
 // `ProviderResult` that already satisfies it.
+//
+// D52: `version` tracks the schema version. Bump CACHE_VERSION in
+// trackerLists.ts when ListEntry shape changes; stale rows re-fetch once.
 export const listCache = pgTable(
   "list_cache",
   {
@@ -152,6 +155,7 @@ export const listCache = pgTable(
     mediaType: mediaTypeEnum("media_type").notNull(),
     entries: jsonb("entries").notNull(),
     fetchedAt: timestamp("fetched_at").notNull().defaultNow(),
+    version: integer("version").notNull().default(1),
   },
   (table) => [
     unique("list_cache_identity").on(table.userId, table.provider, table.mediaType),

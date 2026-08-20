@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { fetchMalList } from "./mal";
+import type { ListStatus } from "@/lib/types/media";
 
 function mockFetchJSON(body: unknown, status = 200): typeof fetch {
   return (async (_url: string, init?: RequestInit) => {
@@ -15,15 +16,24 @@ function mockFetchJSON(body: unknown, status = 200): typeof fetch {
   }) as unknown as typeof fetch;
 }
 
-function malEntry(overrides: Partial<{ id: number; title: string; score: number }> = {}) {
+function malEntry(overrides: Partial<{
+  id: number;
+  title: string;
+  score: number;
+  status: string;
+  genres: string[];
+  year: number;
+}> = {}) {
   return {
     node: {
       id: overrides.id ?? 154587,
       title: overrides.title ?? "Frieren: Beyond Journey's End",
       alternative_titles: { ja: "葬送のフリーレン" },
       main_picture: { large: "https://example.invalid/large.jpg", medium: "https://example.invalid/medium.jpg" },
+      genres: (overrides.genres ?? ["Fantasy", "Adventure"]).map((name) => ({ name })),
+      start_season: { year: overrides.year ?? 2023 },
     },
-    list_status: { score: overrides.score ?? 9 },
+    list_status: { score: overrides.score ?? 9, status: overrides.status ?? "completed" },
   };
 }
 
@@ -154,4 +164,57 @@ describe("fetchMalList", () => {
     expect(performance.now() - start).toBeLessThan(9_000);
     expect(result).toEqual({ ok: false, reason: "timeout" });
   }, 10_000);
+
+  // D52: status, genres, year mapping tests
+  test("maps status, genres, and year from MAL response", async () => {
+    const result = await fetchMalList(
+      "token",
+      "anime",
+      mockFetchJSON({ data: [malEntry({ status: "watching", genres: ["Action", "Drama"], year: 2024 })], paging: {} }),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const entry = result.data[0]!;
+    expect(entry.status).toBe("current");
+    expect(entry.genres).toEqual(["Action", "Drama"]);
+    expect(entry.year).toBe(2024);
+  });
+
+  test("maps MAL anime and manga status values to unified ListStatus", async () => {
+    const statusTests: { mal: string; expected: string }[] = [
+      { mal: "watching", expected: "current" },
+      { mal: "reading", expected: "current" },
+      { mal: "plan_to_watch", expected: "planning" },
+      { mal: "plan_to_read", expected: "planning" },
+      { mal: "completed", expected: "completed" },
+      { mal: "dropped", expected: "dropped" },
+      { mal: "on_hold", expected: "paused" },
+    ];
+
+    for (const { mal, expected } of statusTests) {
+      const result = await fetchMalList(
+        "token",
+        "anime",
+        mockFetchJSON({ data: [malEntry({ status: mal })], paging: {} }),
+      );
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.data[0]!.status).toBe(expected as ListStatus);
+    }
+  });
+
+  test("a missing status returns null, missing genres returns empty array", async () => {
+    const entry = malEntry();
+    delete (entry.list_status as { status?: string }).status;
+    delete (entry.node as { genres?: unknown }).genres;
+
+    const result = await fetchMalList("token", "anime", mockFetchJSON({ data: [entry], paging: {} }));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data[0]!.status).toBeNull();
+    expect(result.data[0]!.genres).toEqual([]);
+  });
 });
