@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Header } from "@/components/Header";
-import { ScoreBadge } from "@/components/ScoreBadge";
 import { Button } from "@/components/ui/button";
 import { ListBuilder } from "@/components/ListBuilder";
 import { redirect } from "next/navigation";
@@ -110,35 +109,64 @@ export default async function Home() {
 
           {/*
             The thesis, shown rather than described: this is the artifact you send.
-            Typographic on purpose — an eyecatch is type and light, and Tsugi cannot
-            hotlink a cover it has not fetched yet.
+            Deliberately the card's *anatomy* and not a filled-in example — the
+            version before this one invented a title, a 92/100, and a quote nobody
+            wrote, which is dummy data on the product's own front door. The slots
+            are labelled and empty instead, so the shape of the artifact is the
+            claim and nothing here asserts that a particular rec exists.
+
+            Dashed outlines rather than solid filled bars, and no `animate-pulse`:
+            this must read as a blueprint, not as a loading skeleton (ui-rules.md
+            reserves skeletons for a known-size block actually being filled).
           */}
           <div className="animate-card-in [animation-delay:140ms]">
             <figure className="relative">
               <div className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-xl">
                 <div className="brand-gradient h-1 w-full" />
                 <div className="p-8 sm:p-10">
+                  {/* True of every card: both trackers are real sources. */}
                   <p className="font-mono text-[0.65rem] tracking-[0.3em] text-muted-foreground uppercase">
-                    via AniList
-                  </p>
-                  <p className="mt-5 font-display text-3xl leading-tight font-extrabold tracking-[-0.02em] text-foreground sm:text-4xl">
-                    Frieren
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Beyond Journey&rsquo;s End
+                    Via AniList or MyAnimeList
                   </p>
 
-                  <div className="mt-8 flex items-end justify-between gap-6">
-                    <p className="max-w-[18rem] text-sm leading-relaxed text-foreground/85">
-                      &ldquo;Watch it slowly. It is about the parts of a journey you only
-                      notice afterwards.&rdquo;
+                  <div className="mt-6">
+                    <p className="font-mono text-[0.6rem] tracking-[0.22em] text-muted-foreground/70 uppercase">
+                      Title
                     </p>
-                    <ScoreBadge scoreRaw={92} scoreFormat="POINT_100" size="lg" />
+                    <div className="mt-2.5 h-7 w-3/4 rounded-md border border-dashed border-border bg-secondary/30" />
+                    <div className="mt-2 h-3.5 w-2/5 rounded border border-dashed border-border bg-secondary/20" />
+                  </div>
+
+                  <div className="mt-8 flex items-end justify-between gap-6">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-mono text-[0.6rem] tracking-[0.22em] text-muted-foreground/70 uppercase">
+                        Your note
+                      </p>
+                      <div className="mt-2.5 flex flex-col gap-1.5">
+                        <div className="h-3 w-full rounded border border-dashed border-border bg-secondary/20" />
+                        <div className="h-3 w-4/5 rounded border border-dashed border-border bg-secondary/20" />
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-center">
+                      <p className="font-mono text-[0.6rem] tracking-[0.22em] text-muted-foreground/70 uppercase">
+                        Score
+                      </p>
+                      {/* An em dash, not a number: a score is a (raw, format) pair
+                          and there is no pair to render here. */}
+                      <div className="mt-2.5 flex size-14 items-center justify-center rounded-xl border border-dashed border-border bg-secondary/30">
+                        <span
+                          aria-hidden
+                          className="font-display text-xl font-bold text-muted-foreground/50"
+                        >
+                          &mdash;
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
               <figcaption className="mt-3 font-mono text-[0.65rem] tracking-[0.24em] text-muted-foreground uppercase">
-                Example preview card
+                What your link unfurls into
               </figcaption>
             </figure>
           </div>

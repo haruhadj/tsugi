@@ -13,6 +13,7 @@ happened last time.
 | **Phase status** | **In progress, 2026-08-16.** Phase 6 closed 2026-08-15 — see Phase status table and session log. `tokens.ts`, `anilist.ts`, `mal.ts`, and the `GET /api/lists/:provider/:mediaType` route are all implemented and passing `tsc`/`eslint`; all four service/route files now have unit-tier test coverage (`tokens.test.ts`, `anilist.test.ts`, `mal.test.ts`, `lists.db.test.ts`). The My-list picker UI is implemented (`MyListPicker.tsx`, `RecBuilder.tsx` mode toggle, criterion-9 gating). **Update, 2026-08-16 evening:** production was 500ing on both providers — migration `0002_broken_triton.sql` (creates `list_cache`) had never been applied to the production Supabase DB. Fixed by running `bun x drizzle-kit migrate` against production. Separately, per-user caching was redesigned from a 5-minute TTL to cache-once-then-explicit-refresh: `lists.ts` now serves the cached row unconditionally unless the client passes `?refresh=1`, which forces a live re-fetch and falls back to the existing stale cache (`{ entries, stale: true }`) if that forced re-fetch fails, rather than erroring. `MyListPicker.tsx` gained a refresh button and a "showing your last synced list" notice. Full suite: 149 pass, 0 fail. Unscoped `bun x eslint .` and `tsc --noEmit`: clean — **criterion 13 satisfied.** Criterion 12 checked structurally (no regression to the timed search path); the live stopwatch re-run still needs a human in a browser. Committed as `5ae4181`, pushed to `main`. Remaining: exit criteria 1–8 (blocked on manual OAuth dashboard registration) and criterion 12's live timed pass — see [PHASE-7.md](./planning/PHASE-7.md). |
 | **Upstash** | Provisioned 2026-08-11 — `fit-hyena-107044.upstash.io`, credentials in `.env`. Backs both rate limiting (D9) and the media resolve cache (Phase 4). |
 | **Prototype adaptation** | **2026-08-18.** The AI Studio prototype's builder page and UI system adapted into the app — see **D47**/**D48**/**D49** (pass 1; its tracker's two open boxes are folded into pass 2's, and the file itself is awaiting deletion). Data layer: `list.category` (fixed enum), `list_item.genres` (`text[]` + GIN), genres fetched from both providers, the author's handle joined into the feed and the artifact, publish-on-create. UI: `ListBuilder` rewritten to the two-column workspace, `MediaSearchInput` rebuilt as an inline multi-add panel (`Command` without the `Popover`), `ItemTray` to the prototype's row card, plus the rundown, artifact, dashboard, settings, and sign-in. New: `SegmentedRadioGroup`, `SocialCardPreview`, `ChooseHandle`, `/handle`. Migration `0006` applied to production (hand-edited from drizzle-kit's unsafe `ADD COLUMN NOT NULL`). Gate green: `tsc`, `eslint`, 152 tests.<br><br>**Pass 2 — 2026-08-20, the reading surfaces.** See **D50**/**D51**/**D52** and `planning/TEMP-prototype-adaptation-2.md` (the one live tracker; deleted once the owner has walked the result in a browser). The feed gained a text search, an anime/manga format panel with live-filtered counts, icon'd sort tabs, and a mobile filter toggle; its cards became fully clickable in compact and grid via a link overlay and lost the decorative rank number. `MyListPicker` was rewritten into the import workspace (status pills, genre, sort, search-within, add-all) over `ListEntry`'s new `status`/`genres`/`year`, with `list_cache` versioned rather than migrated. A closing sweep of the remaining prototype files found five defects in our own work — including a `"use client"` on `RecView` that broke `/r/[slug]` on hydration while SSR and curl stayed green. New: `ListQuickActions`, `MediaTypeChip`, `FeedControls`. Gate green: `tsc`, `eslint`, 170 tests. **No browser walkthrough yet.** |
+| **Database contents** | **Empty, deliberately — 2026-08-20 (D54).** All 20 lists (17 `Untitled`, 2 `Phase 5 verification run`, 1 draft `test`) were leaked `schema.db.test.ts` fixtures being served as the public feed; cleared with the 5 users and, by cascade, 2 accounts / 43 sessions / 2 `list_cache` rows. Every table is at zero. **Sign-in is a fresh account** — AniList/MAL need reconnecting from `/settings`. A full suite run leaves it at zero, which is the standing check that the live-DB tier cleans up after itself. |
 | **Last updated** | 2026-08-20 |
 | **UI library** | **shadcn/ui + Radix** — replaced HeroUI on 2026-08-11 (**D41**). Custom "Eyecatch" palette, authored by us. Anything referencing `@heroui/*`, `onPress`, `isPending`, or `data-theme="dark"` is a leftover. |
 | **Application code** | Phase 0 scaffold, Phase 1's full data layer, and Phase 2's auth wiring: Hono catch-all at `/api`, `genericOAuth` for AniList + MAL (Google not yet configured), `/sign-in` and `/settings`, session helper. Frontend redesigned on shadcn with a real landing page. |
@@ -1216,6 +1217,51 @@ not the missing configuration.
 be validated before a build starts. Both are the moment to import a narrow, purpose-built
 validator rather than to reach for `getEnv()` again.
 
+### D54 — No surface invents data, and the live-DB tier brings its own fixtures
+
+Two halves of one rule, found together: **the product must not show data nobody created, and a
+test must not depend on data nobody created on purpose.**
+
+**The landing page.** `src/app/page.tsx`'s hero card rendered a fabricated recommendation —
+*Frieren / Beyond Journey's End*, a `ScoreBadge` hardcoded to `92` `POINT_100`, and a review
+quote no user ever wrote — captioned "Example preview card". It was the only invented content in
+the app; the feed, the rundown and the dashboard were already fully query-driven. It is now the
+card's **anatomy**: labelled empty slots (Title / Your note / Score) in dashed outlines, captioned
+"What your link unfurls into". The thesis still gets shown rather than described, but nothing on
+the front door asserts that a particular rec exists.
+
+Dashed outlines and **no `animate-pulse`** are load-bearing: this must read as a blueprint, not as
+a loading skeleton. `ui-rules.md` reserves skeletons for a known-size block actually being filled,
+and a permanent pulsing skeleton on a marketing page reads as a page that never finished loading.
+The score slot holds an em dash rather than a number because a score is a `(raw, format)` pair
+(invariant 6) and there is no pair to render.
+
+**The test tier.** `lists.db.test.ts` attributed its lists to whatever `select id from "user" limit
+1` happened to return. That is not a fixture, it is a dependency on residue — and it was invisible
+while residue existed. Emptying the database turned **12 of its tests red at once** with `no user
+rows to attribute a test list to`. It now creates `test-user-<random>` in `beforeAll` and deletes
+it in `afterAll`, matching what `schema.db.test.ts` already did correctly.
+
+**Teardown order is a real constraint, not boilerplate.** `list.user_id` is `ON DELETE NO ACTION`
+while `list_item`, `list_vote`, `account`, `session` and `list_cache` all cascade. So lists must be
+deleted **before** their owner; deleting the user first throws a foreign-key violation and leaks
+both rows. That asymmetry is exactly how the 20 rows below accumulated.
+
+**What was removed.** The database held 20 lists — 17 named `Untitled`, 2 `Phase 5 verification
+run`, 1 draft `test`, every one in the default `Eclectic / Multi-Genre` category with 1–2 items and
+no votes. Those literals are `schema.db.test.ts`'s own insert values, so they were leaked test
+fixtures being served as the public feed. Cleared with the 5 users and, by cascade, 2 accounts, 43
+sessions and 2 `list_cache` rows: an empty database, by the owner's explicit call, knowing it
+retires their own sign-in and provider connections. List content was dumped to
+`/tmp/tsugi-list-backup.json` first (20 lists / 22 items, no secrets). A full suite run afterwards
+left the database at **zero rows in every table**, which is the standing proof the tier no longer
+leaks.
+
+**Revisit if:** the hero card should show a *real* published list instead of an anatomy — the
+honest version of the original idea, and the better page once the feed has content worth quoting.
+It needs a query on the marketing front and an empty state for a cold database, which is why it is
+not this change.
+
 ## External prerequisites
 
 | Needed by | Service | Status |
@@ -1253,6 +1299,50 @@ the one you forgot. `scripts/check-db-reachable.sh` warns if a second file appea
 ## Session log
 
 Newest first. One entry per session: what changed, what was decided, what to pick up next.
+
+### 2026-08-20 — The dummy data comes out: an empty database and a hero card that invents nothing
+
+The owner asked to "remove all the dummy data in the app like in feeds." The interesting part is
+that **the feed had none.** `src/app/feed/page.tsx`, `FeedList` and `FeedControls` render entirely
+from `listPublishedFeed`, `listFeedCategories`, `listFeedGenres`, `listFeedMediaTypeCounts` and
+`countPublishedLists`; there are no seed scripts anywhere in the repo, and `mock-fetch.ts` is
+imported only by `*.test.ts`. The dummy data the owner was looking at was **database rows** — so
+the request needed a scope decision before anything irreversible happened, because "remove the
+dummy data" reads as a code change and would have been the wrong one.
+
+**What the database held.** 20 lists: 17 `Untitled`, 2 `Phase 5 verification run`, 1 draft `test`.
+All 1–2 items, all default `Eclectic / Multi-Genre`, no votes. Those are `schema.db.test.ts`'s own
+insert literals — leaked test fixtures being served as the public feed. The owner chose a full
+wipe: lists **and** users and accounts.
+
+**The cascade was wider than the question implied, and that needed saying.** The options offered
+sessions and `list_cache` as a *separate, narrower* choice, but `session.user_id` and
+`list_cache.user_id` are both `ON DELETE CASCADE` from `user` — there is no delete-users-keep-sessions.
+Re-confirmed with the real blast radius named per table before executing. Final state: **every table
+at zero.** Content dumped to `/tmp/tsugi-list-backup.json` (20 lists / 22 items, no secrets) first.
+
+**The wipe immediately found a bug.** `lists.db.test.ts` attributed its lists to whatever
+`select id from "user" limit 1` returned — a dependency on residue, invisible while residue existed.
+Twelve tests went red at once. Fixed to create and drop its own `test-user-<random>`, the pattern
+`schema.db.test.ts` already used. Teardown deletes lists **before** the owner, because
+`list.user_id` is `NO ACTION` while everything else cascades — get that order wrong and the delete
+throws and leaks both rows, which is how the 20 rows accumulated in the first place.
+
+**The one piece of invented data in code** was the landing hero: a fabricated *Frieren* rec with a
+hardcoded `92` `POINT_100` and a quote nobody wrote. Replaced with the card's anatomy — labelled
+empty slots in dashed outlines, no `animate-pulse` so it reads as a blueprint rather than a stuck
+skeleton, an em dash where the score goes because a score is a `(raw, format)` pair. See **D54**.
+
+Gate green: `tsc`, `eslint`, **170 tests pass / 0 fail**. A full suite run left the database at zero
+rows in every table — the standing proof the tier no longer leaks. `ScoreBadge`'s registry row had
+listed `page.tsx` as a consumer and no longer does; it now names its three real ones.
+
+**Pick up next:** the app is empty by design, so `/feed` renders its "The rundown is empty" state
+and the dashboard its own — **neither empty state has been seen in a browser**, and this is the
+first time either can be. Sign-in is a fresh account: the owner re-authenticates and re-connects
+AniList/MAL from `/settings`. The hero card's replacement is also unwalked. This folds into the
+browser walkthrough already open from the 2026-08-20 reading-surfaces pass rather than adding a
+second one.
 
 ### 2026-08-20 — The prototype's reading surfaces: feed, import workspace, and a sweep that found five defects
 

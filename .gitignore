@@ -22,6 +22,7 @@ next-env.d.ts
 # agent tooling — local only. Also in the user's global ignore, but that
 # does not travel with a clone, so state it here too.
 .claude/settings.local.json
+.serena/
 
 # os / editor
 .DS_Store

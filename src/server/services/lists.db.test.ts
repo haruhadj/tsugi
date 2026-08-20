@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 /*
   Live-database tier (D22). Covers what D47/D48/D49 added to the create and read
@@ -33,24 +33,28 @@ if (hasDb) {
       return import("@/server/services/lists");
     }
 
-    // Cached so every helper below reads the same owner — `getListBySlug` hides
-    // drafts from everyone but their owner (D42), so passing the wrong id back
-    // in would look like the list vanished.
-    let ownerId: string | null = null;
+    // The owner every helper below attributes its list to. Created here rather
+    // than borrowed from whatever `select id from "user" limit 1` happened to
+    // return: that earlier version passed only because development residue was
+    // sitting in the table, and every test in this file failed the moment the
+    // database was emptied. A test tier must bring its own fixtures.
+    //
+    // `getListBySlug` hides drafts from everyone but their owner (D42), so the
+    // id has to be stable across the whole describe block, not per test.
+    const testUserId = `test-user-${Math.random().toString(36).slice(2, 12)}`;
 
-    async function anyUserId(): Promise<string> {
-      if (ownerId) return ownerId;
-      const { sql } = await import("drizzle-orm");
-      const rows = await (await db()).execute<{ id: string }>(sql`select id from "user" limit 1`);
-      const id = [...rows][0]?.id;
-      if (!id) throw new Error("no user rows to attribute a test list to");
-      ownerId = id;
-      return id;
-    }
+    beforeAll(async () => {
+      const { user } = await import("@/db/auth-schema");
+      await (await db()).insert(user).values({
+        id: testUserId,
+        name: "Lists Service Test User",
+        email: `${testUserId}@users.tsugi.invalid`,
+      });
+    });
 
     async function makeList(overrides: Record<string, unknown> = {}) {
       const { createList } = await service();
-      const result = await createList(await anyUserId(), {
+      const result = await createList(testUserId, {
         name: "Genre and publish check",
         category: "Fantasy",
         comment: "created by lists.db.test.ts",
@@ -81,10 +85,16 @@ if (hasDb) {
     }
 
     afterAll(async () => {
-      if (createdSlugs.length === 0) return;
-      const { inArray } = await import("drizzle-orm");
+      const { eq, inArray } = await import("drizzle-orm");
       const { list } = await import("@/db/schema");
-      await (await db()).delete(list).where(inArray(list.slug, createdSlugs));
+      const { user } = await import("@/db/auth-schema");
+      // Lists first, then the owner: list.user_id is ON DELETE NO ACTION, so
+      // deleting the user while any of its lists survive throws a FK violation
+      // and leaks both rows. Deleting the list cascades to list_item.
+      if (createdSlugs.length > 0) {
+        await (await db()).delete(list).where(inArray(list.slug, createdSlugs));
+      }
+      await (await db()).delete(user).where(eq(user.id, testUserId));
     });
 
     test(
@@ -92,7 +102,7 @@ if (hasDb) {
       async () => {
         const slug = await makeList();
         const { getListBySlug } = await service();
-        const view = await getListBySlug(slug, await anyUserId());
+        const view = await getListBySlug(slug, testUserId);
 
         expect(view).not.toBeNull();
         expect(view!.category).toBe("Fantasy");
@@ -108,7 +118,7 @@ if (hasDb) {
       async () => {
         const slug = await makeList();
         const { getListBySlug } = await service();
-        const view = await getListBySlug(slug, await anyUserId());
+        const view = await getListBySlug(slug, testUserId);
 
         expect(view!.genres.length).toBeGreaterThan(0);
         // Both titles are Fantasy, so it must outrank anything only one carries.
@@ -124,7 +134,7 @@ if (hasDb) {
       async () => {
         const slug = await makeList();
         const { getListBySlug } = await service();
-        const view = await getListBySlug(slug, await anyUserId());
+        const view = await getListBySlug(slug, testUserId);
 
         const formats = view!.items.map((item) => item.scoreFormat).sort();
         expect(formats).toEqual(["POINT_10", "POINT_100"]);
@@ -150,7 +160,7 @@ if (hasDb) {
         const draftSlug = await makeList();
         expect(await getListBySlug(draftSlug, null)).toBeNull();
 
-        const draft = await getListBySlug(draftSlug, await anyUserId());
+        const draft = await getListBySlug(draftSlug, testUserId);
         expect(draft!.published).toBe(false);
         expect(draft!.publishedAt).toBeNull();
       },
