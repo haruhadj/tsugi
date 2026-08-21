@@ -76,7 +76,7 @@ button with no explanation is a dead end.
 `POINT_100`. Rendering a `POINT_3` rating as `2/3` is a bug (**D28**, invariant 6).
 
 **The format is read from `user.scoreFormat` on the session** — written at sign-in in Phase 2,
-defaulting to `POINT_10` for Google accounts (**D32**). It is already loaded by the time the
+written as `POINT_10` when a tracker gives no preference (**D32**). It is already loaded by the time the
 page renders, so the score input never waits on a network call and never guesses. Do not
 fetch it from AniList here; that is Phase 7's refresh, and it would put a third-party call on
 the 10-second path.

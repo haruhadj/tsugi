@@ -82,13 +82,20 @@ export function MediaSearchInput({
   const [state, setState] = useState<SearchState>({ status: "idle" });
   const abortRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Incremented on every search to track which request is current.
+  // Prevents stale responses from a previous query overwriting newer results.
+  const searchIdRef = useRef(0);
 
   const runSearch = (q: string, forProvider: Provider, forMediaType: MediaType) => {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
+    // Bump the search ID so any in-flight response from an older search is ignored.
+    const currentSearchId = ++searchIdRef.current;
     setState({ status: "loading" });
     searchMedia(forProvider, q, forMediaType, controller.signal).then((result) => {
+      // Ignore responses from stale searches (e.g. user kept typing, or switched provider/media).
+      if (currentSearchId !== searchIdRef.current) return;
       if (controller.signal.aborted) return;
       if (result.ok) {
         setState({ status: "results", results: result.data });
@@ -101,6 +108,7 @@ export function MediaSearchInput({
   useEffect(() => {
     if (query.length < MIN_QUERY_LENGTH) {
       abortRef.current?.abort();
+      setState({ status: "idle" });
       return;
     }
     const timer = setTimeout(() => runSearch(query, provider, mediaType), DEBOUNCE_MS);

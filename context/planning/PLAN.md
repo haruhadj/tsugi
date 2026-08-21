@@ -30,7 +30,7 @@ The phase map and the reasoning behind its shape. Versions live in
 |---|---|---|
 | [0](./PHASE-0.md) | Scaffold, Tailwind 4 + shadcn/ui, test harness, CI | GitHub remote ❌ |
 | [1](./PHASE-1.md) | Schema: groups, items, score pairs, auth tables, RLS | Supabase ✅ |
-| [2](./PHASE-2.md) | AniList · MAL · Google sign-in, the Hono app, `/settings` | 3 OAuth apps ❌ |
+| [2](./PHASE-2.md) | AniList · MAL sign-in, the Hono app, `/settings` | 2 OAuth apps ❌ |
 | [3](./PHASE-3.md) | `UnifiedMediaResult`, both search adapters | — |
 | [4](./PHASE-4.md) | Hono, rate limiting, create + read | Upstash ❌ |
 | [5](./PHASE-5.md) | Create screen, item tray, share modal | — |
@@ -53,7 +53,7 @@ tested without a session, so every later phase depends on it.
 That move pulled two things forward with it. The **Hono app** is created in Phase 2 rather
 than Phase 4, because Better-Auth mounts inside it (**D6**) and so the app has to exist
 first. And **`/settings`** ships there in minimal form, because `linkSocial()` needs a
-caller and a Google user with no way to link a tracker is a dead end (**D33**).
+caller so a user who signed in with one tracker can link the other (**D33**).
 
 **Phase 3 still sits before any UI.** The media providers are the only part of the system
 whose behaviour we do not control, and verification found both wanting — AniList allows 30
@@ -101,7 +101,7 @@ reasoning is the decision log in [`../progress-tracker.md`](../progress-tracker.
   requirement 2's component library is gone twice over
   (**D37**)
 - Anonymous creation removed; accounts required (**D23**)
-- GitHub replaced by AniList, MyAnimeList, and Google (**D24**)
+- GitHub replaced by AniList and MyAnimeList (**D24**)
 - One title per recommendation replaced by 1..10 grouped items (**D26**, capped by **D36**)
 - Scores optional, and preserved in the rater's own scale rather than normalised
   (**D27**, **D28**)

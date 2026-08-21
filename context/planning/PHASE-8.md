@@ -48,8 +48,8 @@ did not.)*
 recycled slug would resurrect a dead link as someone else's recommendation.
 
 **Connection management is finished here, not started here.** Phase 2 shipped `/settings` in
-minimal form — linked providers, and a link button — because `linkSocial()` had to work for
-a Google user to reach list import at all (**D33**). What this phase adds is everything that
+minimal form — linked providers, and a link button — because a user who signed in with one
+tracker had to be able to link the other (**D33**). What this phase adds is everything that
 needed a decision Phase 2 did not have: unlinking, the last-provider refusal, and surfacing
 connection state next to the recommendations it explains. Linking still uses `linkSocial()`,
 the explicit flow from **D25**, since automatic linking cannot work on synthesised emails.

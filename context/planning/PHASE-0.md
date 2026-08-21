@@ -69,7 +69,6 @@ Phase 6 means editing Phase 0's work.
 | `BETTER_AUTH_SECRET` | Phase 2 | `openssl rand -base64 32` |
 | `ANILIST_CLIENT_ID` / `_SECRET` | Phase 2 | `anilist.co/settings/developer` |
 | `MAL_CLIENT_ID` / `_SECRET` | Phase 2 | `myanimelist.net/apiconfig`. The id is **also** sent as `X-MAL-CLIENT-ID` on every API v2 call in Phase 7 |
-| `GOOGLE_CLIENT_ID` / `_SECRET` | Phase 2 | |
 
 Phase 0 defines and validates the first three. The rest are declared in `.env.example` with
 a comment naming the phase that turns them on, so nobody has to guess whether a blank value

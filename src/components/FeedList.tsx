@@ -24,26 +24,32 @@ const DENSITIES = [
 
 type Density = (typeof DENSITIES)[number]["id"];
 
+/** Covers a stream row shows below `md`. The rest are `hidden` there, not fetched
+ *  differently — the feed query is shared with the wider layout. */
+const MD_COVER_COUNT = 5;
+
 /**
  * The feed's rows, in one of three densities. Density is client state and never a URL
  * param: it is a reading preference, not part of what the page is showing, so it must
  * not change what a shared /feed link resolves to. Sort, category and page do all live
  * in the URL, and are owned by the server component above this one.
  *
- * `sortNav` and `filterBar` are rendered by the server and handed down rather than
- * placed above this component, so the density toggle can share the sort tabs' row
- * instead of claiming an otherwise empty line of its own.
+ * `sortNav`, `filterBar` and `browseDrawer` are rendered by the server and handed down
+ * rather than placed above this component, so the density toggle can share the sort tabs'
+ * row instead of claiming an otherwise empty line of its own.
  */
 export function FeedList({
   entries,
   firstSlot,
   sortNav,
   filterBar,
+  browseDrawer,
 }: {
   entries: FeedEntry[];
   firstSlot: number;
   sortNav: ReactNode;
   filterBar?: ReactNode;
+  browseDrawer?: ReactNode;
 }) {
   const [density, setDensity] = useState<Density>("stream");
 
@@ -51,30 +57,33 @@ export function FeedList({
     <div>
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         {sortNav}
-        <div
-          role="group"
-          aria-label="Feed layout"
-          className="inline-flex items-center gap-0.5 rounded-full border border-border bg-secondary/40 p-0.5"
-        >
-          {DENSITIES.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              onClick={() => setDensity(option.id)}
-              aria-pressed={density === option.id}
-              title={option.label}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
-                "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                density === option.id
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <option.icon className="size-3.5" aria-hidden />
-              <span className="hidden sm:inline">{option.label}</span>
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          {browseDrawer}
+          <div
+            role="group"
+            aria-label="Feed layout"
+            className="inline-flex items-center gap-0.5 rounded-full border border-border bg-secondary/40 p-0.5"
+          >
+            {DENSITIES.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setDensity(option.id)}
+                aria-pressed={density === option.id}
+                title={option.label}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+                  "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  density === option.id
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <option.icon className="size-3.5" aria-hidden />
+                <span className="hidden sm:inline">{option.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -180,7 +189,6 @@ function Meta({ entry }: { entry: FeedEntry }) {
         <ListOrderedIcon className="size-3" aria-hidden />
         {entry.itemCount} {entry.itemCount === 1 ? "title" : "titles"}
       </span>
-      <span>/r/{entry.slug}</span>
     </div>
   );
 }
@@ -219,12 +227,23 @@ function StreamCard({ entry, slot }: { entry: FeedEntry; slot: number }) {
           Decorative: the covers repeat a list this row already names and links, and
           FeedEntry carries no per-title text to caption them with. Hidden rather than
           given invented alt like "Title 3", which would be noise to a screen reader.
+
+          The filmstrip divides the row's whole width between the covers — this is the
+          surface the sidebar was moved into a drawer for. `max-w-32` stops a two-title
+          list from rendering two 500px posters; under `md` only the first five are
+          shown, because ten slivers of 18px are not covers.
         */}
         {entry.covers.length > 0 && (
-          <ul aria-hidden className="flex gap-2 overflow-x-auto pb-1">
+          <ul aria-hidden className="flex items-start gap-1.5">
             {entry.covers.map((cover, index) => (
-              <li key={index} className="relative shrink-0">
-                <MediaCover src={cover} title="" width={56} height={84} className="rounded-md" />
+              <li
+                key={index}
+                className={cn(
+                  "min-w-0 max-w-32 flex-1",
+                  index >= MD_COVER_COUNT && "hidden md:block",
+                )}
+              >
+                <MediaCover src={cover} title="" width={128} height={192} fluid />
               </li>
             ))}
           </ul>
@@ -301,20 +320,25 @@ function GridCard({ entry, slot }: { entry: FeedEntry; slot: number }) {
       <AuthorTag username={entry.authorUsername} />
 
       {/*
-        The covers overlap into a fanned stack. Negative margin on every cover but the
-        first, so the leftmost stays flush with the card's padding.
+        The covers fan into an overlapping stack that spans the card's full width.
+        Each is `flex-1` so they share the row evenly and grow to fill it; the
+        negative margin overlaps them, and `ring-card` draws the seam between. The
+        first stays flush with the card's left padding; the flex growth carries the
+        last one out to the right edge, so there is no dead space beside the stack
+        whatever the card's width. `basis-0` keeps the split even regardless of the
+        covers' intrinsic size.
       */}
       {entry.covers.length > 0 && (
         <ul aria-hidden className="flex">
           {entry.covers.map((cover, index) => (
-            <li key={index} className={cn("shrink-0", index > 0 && "-ml-6")}>
-              <MediaCover
-                src={cover}
-                title=""
-                width={56}
-                height={84}
-                className="rounded-md ring-2 ring-card"
-              />
+            <li
+              key={index}
+              className={cn("min-w-0 flex-1 basis-0", index > 0 && "-ml-4")}
+              // Later covers sit on top of earlier ones, so the fan reads
+              // left-over-right like a spread hand rather than the reverse.
+              style={{ zIndex: index }}
+            >
+              <MediaCover src={cover} title="" width={56} height={84} fluid className="ring-2 ring-card" />
             </li>
           ))}
         </ul>

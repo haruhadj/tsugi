@@ -1,10 +1,10 @@
 # Phase 2 — Authentication
 
-**Status:** Closed — 2026-08-11. 11/14 exit criteria verified; 3 accepted open (Google-dependent, non-default score format, re-sign-in refresh). MAL's refresh-token expiry needs a second look before Phase 7 — see [progress-tracker.md](../progress-tracker.md).
+**Status:** Closed — 2026-08-11. 12/14 exit criteria verified; 2 accepted open (non-default score format, re-sign-in refresh). MAL's refresh-token expiry needs a second look before Phase 7 — see [progress-tracker.md](../progress-tracker.md).
 **User-visible output:** sign-in works; nothing else is reachable yet
-**Prerequisites:** three OAuth applications — **none exist yet** (2026-08-09):
-AniList (`anilist.co/settings/developer`), MyAnimeList (`myanimelist.net/apiconfig`), and
-Google. The owner will supply the credentials.
+**Prerequisites:** two OAuth applications — **none exist yet** (2026-08-09):
+AniList (`anilist.co/settings/developer`) and MyAnimeList (`myanimelist.net/apiconfig`).
+The owner will supply the credentials.
 
 Auth moved from last place to third. It is no longer optional polish — **creating a
 recommendation requires a session** (**D23**), so nothing downstream can be built or tested
@@ -17,9 +17,8 @@ without it.
   this is the first phase with anything to mount. Phase 4 adds routes to it, not a second app
 - `src/lib/auth.ts` — extended from Phase 1's minimal config
 - AniList and MyAnimeList via Better-Auth's `genericOAuth` plugin
-- Google via the built-in `socialProviders`
 - The auth handler mounted inside that Hono app
-- `src/app/(auth)/sign-in` — one screen, three buttons
+- `src/app/(auth)/sign-in` — one screen, two buttons
 - `src/app/(settings)/settings` — **a minimal connections screen**: which providers are
   linked, a button to link another, and the product's **only sign-out control**
 - Capturing `user.scoreFormat` at sign-in (**D32**)
@@ -31,19 +30,17 @@ without it.
 - The dashboard, and everything else on the settings screen — unlinking, the last-provider
   guard, the recommendation list. Phase 8.
 - Any Hono route other than `/api/auth/*`. The app exists; `/api/recs` is Phase 4.
-- Email/password, magic links, and any provider beyond the three above.
+- Email/password, magic links, and any provider beyond the two above.
 - Automatic account linking. It cannot work here; see below.
 
 ## Key design decisions
 
-**Three providers, two tiers, and the tiers are the point.** AniList and MyAnimeList are
-the tracker accounts, and the only ones that unlock list import in Phase 7. Google is the
-fallback of last resort — sign-in and nothing more — so that lacking a tracker is not a
-hard wall.
+**Two providers, both trackers.** AniList and MyAnimeList are the only ways in, and
+both unlock list import in Phase 7. There is no non-tracker fallback: reading the
+product needs no account at all, and signing in is what a tracker sign-in is for.
 
-The sign-in screen is arranged to push people toward a tracker: AniList and MyAnimeList
-first and visually primary, Google separated below. A Google user can link a tracker later
-from `/settings` and gain import then. (**D24**)
+The sign-in screen offers AniList and MyAnimeList as equals. A user who signs in with
+one can link the other later from `/settings` and have both. (**D24**)
 
 **AniList and MAL need `genericOAuth`.** Neither is a built-in Better-Auth provider. The
 plugin takes `authorizationUrl`, `tokenUrl`, and a custom `getUserInfo` — verified against
@@ -75,7 +72,7 @@ everywhere and costs nothing.
 
 **Automatic account linking is therefore off.** Better-Auth links accounts by matching a
 *verified* email. Synthesised addresses never match, so a user signing in with AniList and
-later with Google would silently get **two accounts**. Linking must be explicit: sign in
+later with MAL would silently get **two accounts**. Linking must be explicit: sign in
 first, then link a second provider from `/settings` via `linkSocial()`. Do not enable
 `trustedProviders` for the trackers — it would link strangers who happen to collide. (**D25**)
 
@@ -86,15 +83,15 @@ routes under `/api` would reintroduce exactly the precedence question D6 exists 
 
 **A settings screen ships here in minimal form.** Criterion 6 requires `linkSocial()` to
 work, and `linkSocial()` needs somewhere to be called from. Deferring the whole screen to
-Phase 8 would leave a Google user with no route to a tracker, which is the exact promise
-D24 makes to justify offering Google at all. So: linked providers, a link button, nothing
-else. Unlinking and the last-provider guard are Phase 8's, because they need decisions this
-phase does not have. (**D33**)
+Phase 8 would leave a user unable to link their second tracker, which is the exact promise
+D24 makes about the two providers being combinable. So: linked providers, a link button,
+nothing else. Unlinking and the last-provider guard are Phase 8's, because they need
+decisions this phase does not have. (**D33**)
 
 **The user's score format is read at sign-in.** Add
 `mediaListOptions { scoreFormat }` to the `Viewer` query that `getUserInfo` already makes —
 one extra field on a request that has to happen anyway, not a second round trip. MAL is
-always `POINT_10`; Google keeps the `POINT_10` default. Without this, Phase 5 has no way to
+always `POINT_10`. Without this, Phase 5 has no way to
 know whether to render smileys or a 1–10 strip, and Phase 7 would be the first phase that
 could tell — one phase too late. (**D32**)
 
@@ -119,18 +116,18 @@ expired session dumps someone on a login page having lost a draft.
 
 ## Exit criteria
 
-1. Signing in with **each of the three providers** creates rows in `user`, `session`, and
-   `account`. Three separate runs; no provider is assumed to work because another did.
+1. Signing in with **each of the two providers** creates rows in `user`, `session`, and
+   `account`. Two separate runs; no provider is assumed to work because the other did.
 2. The AniList and MAL `account` rows contain a non-empty `accessToken`.
 3. The MAL row also contains a `refreshToken` — without it Phase 7 breaks after an hour.
 4. `user.email` for tracker sign-ins matches `^(anilist|mal)-\d+@users\.tsugi\.invalid$`
    — a **hyphen**, not a colon, which would be an invalid local part.
-5. Signing in with AniList and then Google (same person, separate flows) produces **two
+5. Signing in with AniList and then MAL (same person, separate flows) produces **two
    distinct users**. This is expected, and the criterion exists so nobody later reports it
    as a bug: automatic linking cannot work without verified emails.
 6. From an authenticated session, `linkSocial()` on `/settings` attaches a second provider
-   to the **same** user — `account` gains a row, `user` does not. A Google-only user who
-   links AniList this way gains list import in Phase 7.
+   to the **same** user — `account` gains a row, `user` does not. A user who signed in with
+   one tracker and links the other this way has both lists available in Phase 7.
 7. `GET /api/auth/*` is served through the Hono app, not a competing Next route.
    `find src/app/api -name 'route.ts'` returns **exactly one** file — the catch-all.
 8. A server component can read the session; an unauthenticated read returns null rather than
@@ -140,8 +137,8 @@ expired session dumps someone on a login page having lost a draft.
 10. Signing out — from the control on `/settings`, the only one in the product — clears the
     session cookie and the `session` row, and lands on `/` in its signed-out form.
 11. **An AniList user who rates in `POINT_5` has `user.scoreFormat = "POINT_5"` after
-    sign-in** — read the row, do not infer it. A MAL sign-in stores `POINT_10`; a Google
-    sign-in keeps the default. This is what makes Phase 5's criterion 8 reachable (**D32**).
+    sign-in** — read the row, do not infer it. A MAL sign-in stores `POINT_10`. This is
+    what makes Phase 5's criterion 8 reachable (**D32**).
 12. Changing the score format on AniList and signing in again updates the stored value. It
     is a preference, not a fact about the account. **This requires `overrideUserInfo: true`
     on the provider** — without it Better-Auth silently keeps the original and this criterion

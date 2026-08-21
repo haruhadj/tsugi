@@ -10,7 +10,7 @@ tsugi/
 ├── .github/workflows/ci.yml
 ├── src/
 │   ├── app/
-│   │   ├── (auth)/sign-in/             Phase 2 — AniList · MAL · Google
+│   │   ├── (auth)/sign-in/             Phase 2 — AniList · MAL
 │   │   ├── (settings)/settings/        Phase 2 — connections; expanded Phase 8
 │   │   ├── (dashboard)/                Phase 8 — "my recs"
 │   │   ├── api/[[...route]]/route.ts   Hono catch-all — created Phase 2, the ONLY route.ts

@@ -1,5 +1,6 @@
 import { CompassIcon, PlusIcon, XIcon } from "lucide-react";
 import Link from "next/link";
+import { FeedBrowseDrawer } from "@/components/FeedBrowseDrawer";
 import { FeedList } from "@/components/FeedList";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
@@ -137,6 +138,112 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
     </div>
   ) : null;
 
+  // The rundown's directory. Previously a permanent 18rem column beside the feed;
+  // now handed to FeedList, which puts it behind a Browse drawer so the stream rows
+  // — and their cover filmstrip — get the page's whole width (see FeedList).
+  const directory = (
+    <>
+    {categories.length > 0 && (
+      <nav
+        aria-label="Categories"
+        className="rounded-2xl border border-border bg-card/60 p-4"
+      >
+        <h2 className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
+          Categories
+        </h2>
+        <ul className="mt-3 flex flex-col">
+          <li>
+            <Link
+              href={hrefFor({ category: undefined })}
+              aria-current={category === undefined ? "true" : undefined}
+              className={cn(
+                "flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
+                "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                category === undefined
+                  ? "bg-secondary text-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
+              )}
+            >
+              <span className="truncate">All</span>
+              <span className="font-mono text-[11px] tabular-nums">
+                {totalPublished}
+              </span>
+            </Link>
+          </li>
+          {categories.map((entry) => (
+            <li key={entry.name}>
+              <Link
+                href={hrefFor({ category: entry.name })}
+                aria-current={category === entry.name ? "true" : undefined}
+                className={cn(
+                  "flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
+                  "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  category === entry.name
+                    ? "bg-secondary text-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                )}
+              >
+                <span className="truncate">{entry.name}</span>
+                <span className="font-mono text-[11px] tabular-nums">{entry.count}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    )}
+
+    {/*
+      Genres sit below categories and read differently on purpose:
+      a category is where the author filed the list, a genre is what
+      the titles on it actually are. Same directory shape, amber
+      rather than the category's neutral selection, matching the chips
+      on the rows themselves.
+    */}
+    {genres.length > 0 && (
+      <nav aria-label="Genres" className="rounded-2xl border border-border bg-card/60 p-4">
+        <h2 className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
+          Genres
+        </h2>
+        <ul className="mt-3 flex flex-col">
+          {genres.map((entry) => (
+            <li key={entry.name}>
+              <Link
+                href={hrefFor({ genre: genre === entry.name ? undefined : entry.name })}
+                aria-current={genre === entry.name ? "true" : undefined}
+                className={cn(
+                  "flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
+                  "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  genre === entry.name
+                    ? "bg-highlight/15 text-highlight"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                )}
+              >
+                <span className="truncate font-mono text-xs">#{entry.name}</span>
+                <span className="font-mono text-[11px] tabular-nums">{entry.count}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    )}
+
+    <section className="rounded-2xl border border-border bg-card/60 p-4">
+      <h2 className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
+        About Tsugi
+      </h2>
+      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+        Score the anime and manga you would hand to someone, and Tsugi turns them
+        into a link worth sending. Reading takes no account at all.
+      </p>
+      {session === null && (
+        <Button asChild variant="outline" size="sm" className="mt-4 w-full rounded-full">
+          <Link href="/sign-in">Sign in to vote</Link>
+        </Button>
+      )}
+    </section>
+    </>
+  );
+
   return (
     <div className="min-h-screen">
       <Header username={session ? (session.user.username ?? session.user.name) : null} />
@@ -169,11 +276,13 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
             </div>
           </section>
 
-          <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_18rem]">
-            <div className="min-w-0">
+          <div className="mt-8">
               {entries.length === 0 ? (
                 <>
-                  {sortNav}
+                  <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+                    {sortNav}
+                    <FeedBrowseDrawer filtered={hasFilter}>{directory}</FeedBrowseDrawer>
+                  </div>
                   {filterBar}
                   <div className="mt-6 flex flex-col items-center rounded-2xl border border-dashed border-border px-6 py-16 text-center">
                     <div className="flex size-12 items-center justify-center rounded-2xl bg-secondary">
@@ -207,6 +316,9 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
                   firstSlot={firstSlot}
                   sortNav={sortNav}
                   filterBar={filterBar}
+                  browseDrawer={
+                    <FeedBrowseDrawer filtered={hasFilter}>{directory}</FeedBrowseDrawer>
+                  }
                 />
               )}
 
@@ -226,108 +338,6 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
                   </Button>
                 ) : null}
               </div>
-            </div>
-
-            <aside className="flex flex-col gap-4">
-              {categories.length > 0 && (
-                <nav
-                  aria-label="Categories"
-                  className="rounded-2xl border border-border bg-card/60 p-4"
-                >
-                  <h2 className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
-                    Categories
-                  </h2>
-                  <ul className="mt-3 flex flex-col">
-                    <li>
-                      <Link
-                        href={hrefFor({ category: undefined })}
-                        aria-current={category === undefined ? "true" : undefined}
-                        className={cn(
-                          "flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
-                          "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                          category === undefined
-                            ? "bg-secondary text-foreground"
-                            : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                        )}
-                      >
-                        <span className="truncate">All</span>
-                        <span className="font-mono text-[11px] tabular-nums">
-                          {totalPublished}
-                        </span>
-                      </Link>
-                    </li>
-                    {categories.map((entry) => (
-                      <li key={entry.name}>
-                        <Link
-                          href={hrefFor({ category: entry.name })}
-                          aria-current={category === entry.name ? "true" : undefined}
-                          className={cn(
-                            "flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
-                            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                            category === entry.name
-                              ? "bg-secondary text-foreground"
-                              : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                          )}
-                        >
-                          <span className="truncate">{entry.name}</span>
-                          <span className="font-mono text-[11px] tabular-nums">{entry.count}</span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </nav>
-              )}
-
-              {/*
-                Genres sit below categories and read differently on purpose:
-                a category is where the author filed the list, a genre is what
-                the titles on it actually are. Same directory shape, amber
-                rather than the category's neutral selection, matching the chips
-                on the rows themselves.
-              */}
-              {genres.length > 0 && (
-                <nav aria-label="Genres" className="rounded-2xl border border-border bg-card/60 p-4">
-                  <h2 className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
-                    Genres
-                  </h2>
-                  <ul className="mt-3 flex flex-col">
-                    {genres.map((entry) => (
-                      <li key={entry.name}>
-                        <Link
-                          href={hrefFor({ genre: genre === entry.name ? undefined : entry.name })}
-                          aria-current={genre === entry.name ? "true" : undefined}
-                          className={cn(
-                            "flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
-                            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                            genre === entry.name
-                              ? "bg-highlight/15 text-highlight"
-                              : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                          )}
-                        >
-                          <span className="truncate font-mono text-xs">#{entry.name}</span>
-                          <span className="font-mono text-[11px] tabular-nums">{entry.count}</span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </nav>
-              )}
-
-              <section className="rounded-2xl border border-border bg-card/60 p-4">
-                <h2 className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
-                  About Tsugi
-                </h2>
-                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                  Score the anime and manga you would hand to someone, and Tsugi turns them
-                  into a link worth sending. Reading takes no account at all.
-                </p>
-                {session === null && (
-                  <Button asChild variant="outline" size="sm" className="mt-4 w-full rounded-full">
-                    <Link href="/sign-in">Sign in to vote</Link>
-                  </Button>
-                )}
-              </section>
-            </aside>
           </div>
         </div>
       </main>

@@ -50,6 +50,13 @@
       "when": 1787040654784,
       "tag": "0006_far_starfox",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787329234320,
+      "tag": "0007_messy_payback",
+      "breakpoints": true
     }
   ]
 }

@@ -143,8 +143,7 @@ render a `POINT_3` user three smileys rather than a 1–10 strip, so it needs to
 format *before* list import exists to fetch it. Nothing in Phases 1–5 would otherwise
 produce that value. Storing it on `user` — written at sign-in in Phase 2, refreshed at
 every list fetch in Phase 7 — is what keeps it off the create screen's critical path and out
-of a later migration. Google accounts keep the `POINT_10` default; they have no tracker to
-read a preference from. (**D32**)
+of a later migration. (**D32**)
 
 **Constraints are duplicated on purpose.** Comment length and the score pairing are enforced
 in Zod, in the column, and in the UI. This contradicts DRY and is still correct: the database
@@ -216,7 +215,7 @@ render a different anime on someone's card. Invariant 2, decision **D15**.
     sufficient. If it prints "No configuration file found", the config is the problem, not
     the flags.
 19. `src/lib/auth.ts` references no provider and no secret:
-    `grep -inE "anilist|myanimelist|google|clientId|secret" src/lib/auth.ts` returns
+    `grep -inE "anilist|myanimelist|clientId|secret" src/lib/auth.ts` returns
     nothing. Providers arrive in Phase 2.
 20. `grep -rn "prepare" src/db/index.ts` shows `prepare: false`.
 21. The connection actually goes through the pooler — `DATABASE_URL` contains `:6543`, and

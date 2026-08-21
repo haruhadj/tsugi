@@ -15,7 +15,7 @@ happened last time.
 | **Prototype adaptation** | **2026-08-18.** The AI Studio prototype's builder page and UI system adapted into the app — see **D47**/**D48**/**D49** and `planning/TEMP-prototype-adaptation.md` (a temporary tracker, deleted once its Part 7 is signed off). Data layer: `list.category` (fixed enum), `list_item.genres` (`text[]` + GIN), genres fetched from both providers, the author's handle joined into the feed and the artifact, publish-on-create. UI: `ListBuilder` rewritten to the two-column workspace, `MediaSearchInput` rebuilt as an inline multi-add panel (`Command` without the `Popover`), `ItemTray` to the prototype's row card, plus the rundown, artifact, dashboard, settings, and sign-in. New: `SegmentedRadioGroup`, `SocialCardPreview`, `ChooseHandle`, `/handle`. Migration `0006` applied to production (hand-edited from drizzle-kit's unsafe `ADD COLUMN NOT NULL`). Gate green: `tsc`, `eslint`, 152 tests. |
 | **Last updated** | 2026-08-18 |
 | **UI library** | **shadcn/ui + Radix** — replaced HeroUI on 2026-08-11 (**D41**). Custom "Eyecatch" palette, authored by us. Anything referencing `@heroui/*`, `onPress`, `isPending`, or `data-theme="dark"` is a leftover. |
-| **Application code** | Phase 0 scaffold, Phase 1's full data layer, and Phase 2's auth wiring: Hono catch-all at `/api`, `genericOAuth` for AniList + MAL (Google not yet configured), `/sign-in` and `/settings`, session helper. Frontend redesigned on shadcn with a real landing page. |
+| **Application code** | Phase 0 scaffold, Phase 1's full data layer, and Phase 2's auth wiring: Hono catch-all at `/api`, `genericOAuth` for AniList + MAL, `/sign-in` and `/settings`, session helper. Frontend redesigned on shadcn with a real landing page. |
 | **Repository** | `main` pushed to `github.com/haruhadj/tsugi` (private). CI green. |
 
 ### Phase status
@@ -24,7 +24,7 @@ happened last time.
 |---|---|
 | 0 — Foundation & CI | **Complete** — 2026-08-10 |
 | 1 — Data layer | **Complete** — 2026-08-10 (criterion 25 unverified, see Immediate next steps) |
-| 2 — Authentication | **Closed** — 2026-08-11. 11/14 exit criteria verified; 3 accepted open (Google-dependent, non-default score format, re-sign-in refresh — see session log). MAL's refresh-token expiry needs a second look before Phase 7 |
+| 2 — Authentication | **Closed** — 2026-08-11. 12/14 exit criteria verified; 2 accepted open (non-default score format, re-sign-in refresh — see session log). MAL's refresh-token expiry needs a second look before Phase 7 |
 | 3 — Media providers | **Closed** — 2026-08-11. 14/14 exit criteria verified, 0 accepted debt |
 | 4 — API surface | **Closed** — 2026-08-11. 25/26 exit criteria verified; criterion 17 deliberately not automated (see session log) |
 | 5 — Create & share UX | **Closed** — 2026-08-15. 27/31 exit criteria verified live (Playwright + `bun run test`, 121/121). 1 accepted open item: criterion 10, search dropdown fetches cover art but doesn't render it. 2 test-harness-blocked, not product bugs: criteria 13/27 (headless Chromium won't grant clipboard-write permission). 2 blocked on Jikan's known ~50% 504 rate, each attempted once per plan: criteria 4/24. See session log. |
@@ -63,19 +63,13 @@ There is no more code to write until one of these happens.
    worth a real two-account pass only if the mocked coverage is ever in doubt.
 5. **Phase 6 criterion 13** — paste a real `/r/[slug]` link into Discord/X and confirm the
    unfurl. Never done live; accepted as open debt when Phase 6 closed.
-6. **Google sign-in is still deferred** — the owner asked to do AniList and MAL first. When
-   ready: register the app, add `socialProviders.google` to `src/lib/auth.ts` (built-in, not
-   `genericOAuth`), wire the button in `SignInButtons.tsx` (already rendered, currently
-   disabled), and re-run Phase 2 criterion 5 (AniList + Google produce two distinct users).
-   No target date set.
-7. **Phase 1 criterion 25** — `get_advisors(type: "security")` needs a Supabase MCP session,
+6. **Phase 1 criterion 25** — `get_advisors(type: "security")` needs a Supabase MCP session,
    which no session so far has had. Substance already covered by direct live-database/RLS
    checks (criteria 17, 22–24); this is a second automated opinion, not a known gap.
 
 No Phase 9 exists yet — `PLAN.md`'s phase map ends at Phase 8, and every explicitly out-of-
 scope item (editing, public profiles, following, feeds, analytics) is marked "permanently,"
-not "later." The only unresolved scope thread is Google sign-in above, which is deferred
-inside Phase 2, not a new phase.
+not "later." No unresolved scope threads remain open inside the existing phases.
 
 ---
 
@@ -394,8 +388,8 @@ product's defining feature and the reason for the 10-second promise — is remov
 **The concern I raised, and the owner's decision:** requiring AniList/MAL accounts does not
 merely add friction, it narrows *who can use Tsugi at all* to people already holding an
 account on another service. The stated audience was casual Discord conversation. The owner
-accepted this and added a non-tracker way in for people without one — Discord and Google in
-the first pass, then Google alone once Discord was dropped hours later (**D24**).
+accepted this: Tsugi requires an AniList or MyAnimeList account to sign in, and reading the
+product needs no account at all (**D24**).
 
 **Chosen:** every write path checks the session; `userId` is `NOT NULL` in the database so a
 single missed check cannot create an orphan. `/r/[slug]` and its OG card stay fully open —
@@ -403,27 +397,26 @@ gating them would end the distribution loop the product depends on.
 **The promise is restated, not abandoned:** under 10 seconds *for a signed-in user*.
 **Revisit if:** sign-in conversion turns out to be the thing killing creation volume.
 
-### D24 — Three providers, two tiers
+### D24 — Two providers, both trackers
 *Amended 2026-08-09, later the same day: Discord dropped.*
 
-**AniList** and **MyAnimeList** are the tracker accounts, and the only ones that unlock list
-import. **Google** is the fallback of last resort — sign-in and nothing more.
+**AniList** and **MyAnimeList** are the only ways in, and both unlock list import. There is
+no non-tracker fallback — reading the product needs no account at all.
 
 GitHub, from the original brief, is gone: a developer's identity provider is an odd thing to
 ask of someone sharing an anime recommendation. Discord was briefly included for audience
 fit and then removed by the owner, on the reasoning that Tsugi should **push people toward a
-tracker account**, with a single universal fallback rather than a menu of them. Every extra
-sign-in button dilutes that push and adds an OAuth app to maintain.
+tracker account** rather than offer a menu of sign-ins. Every extra sign-in button dilutes
+that push and adds an OAuth app to maintain.
 
-**Chosen:** three providers. The sign-in screen puts AniList and MyAnimeList first and
-visually primary, with Google separated below. A Google user can link a tracker later from
-**account settings** and gain import then (**D25**) — so choosing Google is a deferral, not a
-dead end.
+**Chosen:** two providers. The sign-in screen offers AniList and MyAnimeList as equals; a
+user who signs in with one can link the other later from **account settings** and have both
+(**D25**).
 **Note:** Discord remains a **share target** in the ShareModal. That is a different thing
-entirely — a button that copies a formatted message for pasting into Discord — and removing
-the OAuth provider does not touch it.
+entirely — a button that copies a formatted message for pasting into Discord — and it was
+never an OAuth provider here.
 **Revisit if:** sign-in conversion shows people bouncing off the tracker requirement, which
-would argue for making the fallback more prominent rather than adding another one.
+would argue for a non-tracker way in after all.
 
 ### D25 — Synthesised emails, and no automatic account linking
 Verified by introspection: **AniList's `User` type has no email field**, and MAL's
@@ -437,13 +430,13 @@ package's `z.email()` calls are all on routes we do not use — so it would have
 something else touched the address. Changed to `-`, which is valid everywhere.
 
 **Consequence:** Better-Auth links accounts by matching a *verified* email. Synthesised
-addresses never match, so signing in with AniList and later Google produces **two separate
+addresses never match, so signing in with AniList and later MAL produces **two separate
 users**. That is expected behaviour, and a Phase 2 exit criterion asserts it so nobody
 reports it as a bug. Linking is explicit only, from an authenticated session. Never enable
 `trustedProviders` for the trackers — it would link strangers who happen to collide.
 
 **Amended 2026-08-10 (Phase 2 implementation):** "via `linkSocial()`" above was imprecise.
-That method is for **built-in social providers** (Google). AniList and MAL are `genericOAuth`
+That method is for **built-in social providers**. AniList and MAL are `genericOAuth`
 providers, which expose a separate `authClient.oauth2.link()` — verified by reading the
 plugin's own source. See **D40**.
 
@@ -531,8 +524,8 @@ Better-Auth CLI emits it into the **first** migration (Phase 1), populated at si
 (Phase 2), read from the session (Phase 5), refreshed on every list fetch (Phase 7).
 **Rejected:** fetching it live in Phase 5 — it puts a third-party call on the 10-second path
 for a value that changes maybe twice a year.
-**Default:** `POINT_10`, which is MAL's only scale and a reasonable guess for Google accounts
-that have no tracker to ask.
+**Default:** `POINT_10`, which is MAL's only scale and a reasonable fallback when a tracker
+does not report a format.
 **Revisit if:** a user links a second tracker whose format differs from the first — today
 the most recent write wins, which is fine for one preference and would not be if it became
 two.
@@ -540,13 +533,13 @@ two.
 ### D33 — `/settings` ships minimal in Phase 2, expanded in Phase 8
 Phase 2 required `linkSocial()` to work "from account settings" and Phase 8 owned the screen
 — two phases apart, with no screen defined in `user-flow.md` at all. Left alone, Phase 2's
-criterion 6 was unbuildable and a Google user could not reach a tracker until Phase 8, one
+criterion 6 was unbuildable and a user could not link their second tracker until Phase 8, one
 phase *after* list import shipped.
 
 **Chosen:** Phase 2 builds `/settings` with exactly two capabilities — show linked providers,
 link another. Phase 8 adds unlinking, the last-provider refusal, and the dashboard beside it.
-**Why not defer it all:** D24 sells Google as "a deferral, not a dead end". Without a linking
-screen it is a dead end, and the sign-in copy would be a lie.
+**Why not defer it all:** D24 promises the two trackers are combinable. Without a linking
+screen a user is stuck with whichever they signed in on, and criterion 6 has nowhere to run.
 
 ### D34 — The create limiter keys on the user, not the IP
 The 5/min limit was specified per IP back when creation was anonymous. Under **D23** every
@@ -733,8 +726,7 @@ became unbounded `text`, at which point the CHECK becomes the only enforcement a
 
 ### D40 — Two facts corrected implementing Phase 2, plus MAL's PKCE workaround verified as far as it can be without an app
 
-*Found implementing AniList and MyAnimeList sign-in, 2026-08-10. Google deferred at the
-owner's request — see the immediate next steps.*
+*Found implementing AniList and MyAnimeList sign-in, 2026-08-10.*
 
 **The Drizzle adapter does not introspect the schema `db` was built with — it needs its own
 copy.** `drizzleAdapter(db, { provider: "pg" })` looked complete (the `db` instance already
@@ -745,12 +737,11 @@ tables directly, bypassing the adapter entirely. **Chosen:** pass `schema: { use
 account, verification }` explicitly in the adapter config. `src/lib/auth.ts` corrected.
 
 **Linking an AniList/MAL account uses `authClient.oauth2.link()`, not `linkSocial()`.**
-D25's prose says "explicit only, via `linkSocial()`" — true for built-in social providers
-(Google), but AniList and MAL are `genericOAuth` providers, which register a *separate*
+D25's prose says "explicit only, via `linkSocial()`" — true for built-in social providers,
+but AniList and MAL are `genericOAuth` providers, which register a *separate*
 `/oauth2/link` endpoint or the client (`authClient.oauth2.link({ providerId, callbackURL })`).
 Verified by reading `generic-oauth/routes.mjs`'s own JSDoc, which names the client method
-directly. `ProviderConnections.tsx` uses the correct one; `linkSocial()` is reserved for
-Google once it exists in `auth.ts`.
+directly. `ProviderConnections.tsx` uses the correct one; `linkSocial()` is unused.
 
 **MAL's plain-PKCE workaround (see the comment above `getMalToken` in `auth.ts`) is verified
 as far as it can be without a MAL app.** The constructed authorization URL genuinely carries
@@ -1100,13 +1091,12 @@ helper, and narrowing it to the publish action alone is a small change.
 | — | Supabase MCP server | ✅ authenticated, `.mcp.json` committed to the repo. See **D19**. |
 | Phase 2 | **AniList OAuth app** | ❌ `anilist.co/settings/developer` |
 | Phase 2 | **MyAnimeList OAuth app** | ❌ `myanimelist.net/apiconfig` — also supplies `X-MAL-CLIENT-ID` for Phase 7 |
-| Phase 2 | **Google OAuth app** | ❌ — the fallback tier |
 | Phase 4 | Upstash Redis | ✅ `fit-hyena-107044.upstash.io`, provisioned and verified live — 2026-08-11 |
 | Phase 6 | Vercel project | ❌ create before Phase 6 |
 
 Phases 1, 3, 5, 7, and 8 need nothing external, and Phase 0 needs only a GitHub remote — a
 five-minute job, not a blocker. **Phase 1 can run start to finish today; Phase 2 is the first
-hard stop**, and it needs three OAuth registrations rather than one.
+hard stop**, and it needs two OAuth registrations rather than one.
 
 **Environment lives in `.env`, and only `.env`.** Not `.env.local` — Next.js loads that at
 higher precedence, so having both means the file you edited can be silently overridden by
@@ -1128,6 +1118,30 @@ the one you forgot. `scripts/check-db-reachable.sh` warns if a second file appea
 ## Session log
 
 Newest first. One entry per session: what changed, what was decided, what to pick up next.
+
+### 2026-08-21 — The rundown's sidebar became a drawer, so the covers could grow
+
+The owner wanted the stream card's cover filmstrip (`FeedList`) to be as large as possible,
+and named the culprit: the permanent 18rem category/genre/about sidebar on `/feed` was taking
+width the covers could have had. Moved that whole directory into a right-hand `Sheet` behind a
+Browse trigger on the density/sort row (`FeedBrowseDrawer`, new; `sheet` primitive added), and
+dropped the page from a `lg:grid-cols-[1fr_18rem]` grid to a single full-width column. The feed
+query is unchanged — the directory's panels are still server-rendered and are handed into the
+drawer as `children`, so nothing moved into the client bundle except the open/close state.
+
+The covers themselves now flex across the row's full width: `MediaCover` grew a `fluid` mode
+that fills the container and holds a `2/3` aspect ratio (the fixed `width`/`height` still feed
+`next/image` the source size), and the stream card's list items are `flex-1 max-w-32`. Below
+`md` only the first five of the ten covers show — ten slivers on a phone are not covers. The
+cover count had already been raised 5→10 in `lists.ts` earlier in the working tree.
+
+Gate: `tsc --noEmit` clean, `eslint` clean on every file touched here, 152 tests pass. Verified
+live against the running dev server — `/feed` renders the drawer with the directory inside it,
+the 18rem grid is gone, and the ten covers render with `aspect-ratio:128 / 192`, five of them
+`hidden md:block`. **Not mine, still in the working tree and flagged to the owner:** the earlier
+uncommitted `MediaSearchInput.tsx` race-condition fix trips `react-hooks/set-state-in-effect`
+at its `setState({ status: "idle" })` inside a `useEffect` — a real lint error, but from that
+prior change, not this one.
 
 ### 2026-08-18 — The prototype's builder page and UI system adapted into the app
 
@@ -1564,9 +1578,6 @@ total); live-verified against the real database otherwise, and re-verified after
 rather than trusted on the first pass.
 
 **Accepted as open, deliberately, not by omission:**
-- **Criterion 1 and criterion 5** need Google, which stays deferred at the owner's standing
-  request. Re-open both the moment Google is implemented — criterion 5 in particular is the
-  one that proves synthesised-email users don't silently merge.
 - **Criterion 11** is proven for a `POINT_10` AniList account (the only one available to test
   against) but not for a non-default format — the mechanism is confirmed, the actual
   format-switching path is not. Re-verify with a `POINT_5`-or-other account before leaning on
@@ -1751,13 +1762,13 @@ described HeroUI as a deliverable rather than merely referencing it.
 The redesign touched no auth logic. Worth a look on a phone before Phase 5, since the share
 flow is a phone flow and the landing hero is the only untested responsive layout.
 
-### 2026-08-10 — Phase 2 started: AniList + MAL wired, Google deferred
+### 2026-08-10 — Phase 2 started: AniList + MAL wired
 
-Owner asked to implement AniList and MyAnimeList now, Google later. Built per
+Owner asked to implement AniList and MyAnimeList sign-in. Built per
 `planning/PHASE-2.md`: the Hono catch-all at `src/app/api/[[...route]]/route.ts` (the only
 `route.ts` under `src/app/api`, confirmed), `src/lib/auth.ts` extended with `genericOAuth`
 for both trackers, `src/lib/auth-client.ts`, `getServerSession()`, `/sign-in`
-(`SignInButtons`, three buttons — Google renders `isDisabled`), and `/settings`
+(`SignInButtons`, two buttons), and `/settings`
 (`ProviderConnections`, redirects to `/sign-in` when signed out, owns the product's only
 sign-out control). Generated `BETTER_AUTH_SECRET`. Both new components registered in
 `ui-registry.md`.
@@ -1789,7 +1800,6 @@ require an actual sign-in flow. Placeholder credentials in `.env` (gitignored) l
 everything *except* the live OAuth round trip.
 
 **Next:** swap real AniList/MAL credentials into `.env` and run the live-flow criteria.
-Google after that — provider config, sign-in button, and criterion 5 (two distinct users).
 
 ### 2026-08-10 — Phase 1 implemented: schema, Better-Auth tables, RLS verified live
 
@@ -2073,8 +2083,9 @@ palette is `oklch()`, which Satori cannot parse and renders as black.
   grouped multi-title recommendations, list import, scores optional and preserved in the
   rater's own scale. → **D23–D31**.
 - I pushed back once on required accounts — it narrows the audience to people who already
-  hold a tracker account, not just adding friction — and the owner accepted that, adding
-  Discord and Google as a way in. Recorded in D23 rather than left implicit.
+  hold a tracker account, not just adding friction — and the owner accepted that: signing in
+  requires a tracker, while reading the product needs no account. Recorded in D23 rather than
+  left implicit.
 - Verified before re-planning: Better-Auth's `genericOAuth` plugin; AniList OAuth endpoints
   and `MediaListCollection`; MAL v2's OAuth, `plain`-only PKCE, 1h/1mo token lifetimes,
   mandatory client id, and **complete absence of CORS**; the five AniList score formats; and
@@ -2084,9 +2095,9 @@ palette is `oklch()`, which Satori cannot parse and renders as black.
   the API vendor to the id space, invariants renumbered 11 → 15, schema split into
   `recommendation` + `recommendation_item`.
 - **Amended within the same session:** Discord dropped as an OAuth provider, leaving
-  AniList + MyAnimeList + Google (**D24**). Discord survives as a *share target* — a
+  AniList + MyAnimeList (**D24**). Discord survives as a *share target* — a
   separate concern that was checked line by line before editing, since the word appears in
   both roles across nine files.
-- Account linking confirmed as living in **profile/account settings**, which is what makes
-  a Google sign-in a deferral rather than a dead end.
+- Account linking confirmed as living in **profile/account settings**, which is what lets a
+  user who signed in with one tracker link the other and gain both lists.
 - **Next:** Phase 0 is unchanged and still ready. Phase 2 is the first hard stop.

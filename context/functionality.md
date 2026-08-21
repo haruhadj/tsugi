@@ -7,9 +7,8 @@ re-proposed each session. Changing anything here is a decision that belongs in
 ## In scope
 
 ### Accounts (Phase 2)
-- Sign in with **AniList**, **MyAnimeList**, or **Google**
-- AniList and MAL additionally unlock list import; Google is sign-in only, and exists so
-  that not having a tracker is not a hard wall
+- Sign in with **AniList** or **MyAnimeList**
+- Both unlock list import
 - Explicit provider linking from `/settings` — automatic linking is impossible here, since
   neither tracker returns an email (**D25**). The screen ships minimal in Phase 2 and is
   expanded in Phase 8 (**D33**)

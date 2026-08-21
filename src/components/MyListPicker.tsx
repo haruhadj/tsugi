@@ -42,6 +42,9 @@ export function MyListPicker({
   const [filter, setFilter] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  // Incremented on every load to track which request is current.
+  // Prevents stale responses from a previous provider/media type overwriting newer results.
+  const loadIdRef = useRef(0);
   // Keyed by `${provider}:${mediaType}` — avoids re-fetching (and re-showing
   // a loading spinner for) a tab already loaded this session when the user
   // switches back to it.
@@ -52,6 +55,8 @@ export function MyListPicker({
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
+    // Bump the load ID so any in-flight response from an older load is ignored.
+    const currentLoadId = ++loadIdRef.current;
     if (force) {
       setRefreshing(true);
     } else {
@@ -62,6 +67,8 @@ export function MyListPicker({
       signal: controller.signal,
     })
       .then(async (res) => {
+        // Ignore responses from stale loads (e.g. user switched provider/media type).
+        if (currentLoadId !== loadIdRef.current) return;
         if (controller.signal.aborted) return;
         if (res.status === 200) {
           const data = (await res.json()) as { entries: ListEntry[]; stale?: boolean };
@@ -75,9 +82,11 @@ export function MyListPicker({
         }
       })
       .catch(() => {
+        if (currentLoadId !== loadIdRef.current) return;
         if (!controller.signal.aborted) setState({ status: "error", reason: "unavailable" });
       })
       .finally(() => {
+        if (currentLoadId !== loadIdRef.current) return;
         if (!controller.signal.aborted) setRefreshing(false);
       });
   };
