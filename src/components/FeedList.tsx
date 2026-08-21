@@ -301,7 +301,7 @@ function Meta({ entry }: { entry: FeedEntry }) {
         <ListOrderedIcon className="size-3" aria-hidden />
         {entry.itemCount} {entry.itemCount === 1 ? "title" : "titles"}
       </span>
-      <span>/r/{entry.slug}</span>
+      {/* <span>/r/{entry.slug}</span> */}
     </div>
   );
 }
