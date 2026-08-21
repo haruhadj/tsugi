@@ -323,37 +323,27 @@ export async function getListBySlug(
  * failure surface as a page error. Atomic `SET views = views + 1` rather than
  * read-modify-write avoids lost updates under concurrent hits on the same slug.
  *
- * A logged-in `userId` dedups against `listView`, a durable per-(list,user)
- * record — the view only counts if that insert actually lands a new row, so
- * repeat visits from any device or browser session never double-count. With
- * no `userId` (anonymous), dedup falls back to middleware.ts's session
- * cookie, and the count always increments here since that cookie is this
- * function's only signal of first-view.
+ * Only logged-in views count (anonymous views are never counted). `userId`
+ * dedups against `listView`, a durable per-(list,user) record — the view
+ * only counts if that insert actually lands a new row, so repeat visits from
+ * any device or browser session never double-count.
  */
-export async function incrementViewCount(slug: string, userId: string | null): Promise<void> {
+export async function incrementViewCount(slug: string, userId: string): Promise<void> {
   try {
-    if (userId) {
-      const [row] = await db.select({ id: list.id }).from(list).where(eq(list.slug, slug));
-      if (!row) return;
+    const [row] = await db.select({ id: list.id }).from(list).where(eq(list.slug, slug));
+    if (!row) return;
 
-      const inserted = await db
-        .insert(listView)
-        .values({ listId: row.id, userId })
-        .onConflictDoNothing()
-        .returning({ id: listView.id });
-      if (inserted.length === 0) return;
-
-      await db
-        .update(list)
-        .set({ views: sql`${list.views} + 1` })
-        .where(eq(list.id, row.id));
-      return;
-    }
+    const inserted = await db
+      .insert(listView)
+      .values({ listId: row.id, userId })
+      .onConflictDoNothing()
+      .returning({ id: listView.id });
+    if (inserted.length === 0) return;
 
     await db
       .update(list)
       .set({ views: sql`${list.views} + 1` })
-      .where(eq(list.slug, slug));
+      .where(eq(list.id, row.id));
   } catch {
     // Swallowed by design — a lost view count is not worth a page failure.
   }

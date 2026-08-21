@@ -9,12 +9,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
-import {
-  FeedMediaTypeFilter,
-  FeedPanel,
-  FeedSearch,
-  FeedSidebar,
-} from "@/components/FeedControls";
+import { FeedBrowseDrawer } from "@/components/FeedBrowseDrawer";
+import { FeedMediaTypeFilter, FeedPanel, FeedSearch } from "@/components/FeedControls";
 import { FeedList } from "@/components/FeedList";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
@@ -100,6 +96,133 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
   const firstSlot = (page - 1) * PAGE_SIZE + 1;
 
   const matchingLists = categories.reduce((sum, entry) => sum + entry.count, 0);
+
+  // The rundown's directory: search, media format, categories, genres, and the
+  // account panel. Previously a permanent 18rem column beside the feed; now handed
+  // to FeedList, which puts it behind a Browse drawer so the stream rows get the
+  // page's whole width (see FeedList and FeedBrowseDrawer).
+  const directory = (
+    <>
+      <FeedSearch urlState={urlState} />
+
+      <FeedMediaTypeFilter urlState={urlState} counts={mediaTypeCounts} />
+
+      {categories.length > 0 && (
+        <nav aria-label="Categories" className="rounded-2xl border border-border bg-card/60 p-4">
+          <h2 className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
+            Categories
+          </h2>
+          <ul className="mt-3 flex flex-col">
+            <li>
+              <Link
+                href={hrefFor({ category: undefined })}
+                aria-current={category === undefined ? "true" : undefined}
+                className={cn(
+                  "flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
+                  "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  category === undefined
+                    ? "bg-secondary text-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                )}
+              >
+                <span className="truncate">All</span>
+                {/* The other filters still apply, so this is how many the reader
+                    would see with the category cleared — not the global total
+                    the account panel below quotes. */}
+                <span className="font-mono text-[11px] tabular-nums">{matchingLists}</span>
+              </Link>
+            </li>
+            {categories.map((entry) => (
+              <li key={entry.name}>
+                <Link
+                  href={hrefFor({ category: entry.name })}
+                  aria-current={category === entry.name ? "true" : undefined}
+                  className={cn(
+                    "flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
+                    "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                    category === entry.name
+                      ? "bg-secondary text-foreground"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                  )}
+                >
+                  <span className="truncate">{entry.name}</span>
+                  <span className="font-mono text-[11px] tabular-nums">{entry.count}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
+
+      {/*
+        Genres sit below categories and read differently on purpose: a category is
+        where the author filed the list, a genre is what the titles on it actually
+        are. Same directory shape, amber rather than the category's neutral
+        selection, matching the chips on the rows themselves.
+      */}
+      {genres.length > 0 && (
+        <nav aria-label="Genres" className="rounded-2xl border border-border bg-card/60 p-4">
+          <h2 className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
+            Genres
+          </h2>
+          <ul className="mt-3 flex flex-col">
+            {genres.map((entry) => (
+              <li key={entry.name}>
+                <Link
+                  href={hrefFor({ genre: genre === entry.name ? undefined : entry.name })}
+                  aria-current={genre === entry.name ? "true" : undefined}
+                  className={cn(
+                    "flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
+                    "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                    genre === entry.name
+                      ? "bg-highlight/15 text-highlight"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                  )}
+                >
+                  <span className="truncate font-mono text-xs">#{entry.name}</span>
+                  <span className="font-mono text-[11px] tabular-nums">{entry.count}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
+
+      {/*
+        The drawer's last slot is an invitation rather than a description: a reader
+        who opened the drawer already knows what the rundown is, so the space is
+        worth more as the next step.
+      */}
+      <FeedPanel title="Your rundown">
+        <dl className="mt-3 grid grid-cols-2 gap-2">
+          <div className="rounded-xl border border-border bg-secondary/40 px-3 py-2">
+            <dt className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground uppercase">
+              Curations
+            </dt>
+            <dd className="mt-0.5 font-display text-lg font-bold tabular-nums">
+              {totalPublished}
+            </dd>
+          </div>
+          <div className="rounded-xl border border-border bg-secondary/40 px-3 py-2">
+            <dt className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground uppercase">
+              Sources
+            </dt>
+            <dd className="mt-0.5 text-sm font-semibold">AniList + MAL</dd>
+          </div>
+        </dl>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          Score the anime and manga you would hand to someone and yours joins them as a link
+          worth sending.
+        </p>
+        <Button asChild size="sm" className="mt-4 w-full rounded-full">
+          <Link href={session === null ? "/sign-in" : "/"}>
+            <PlusIcon className="size-4" aria-hidden />
+            {session === null ? "Sign in to build one" : "Build one"}
+          </Link>
+        </Button>
+      </FeedPanel>
+    </>
+  );
 
   // Built here rather than inline below because FeedList lays them out around its own
   // density toggle: the sort tabs share the toggle's row, the filter bar sits under it.
@@ -231,11 +354,14 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
             </div>
           </section>
 
-          <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_18rem]">
+          <div className="mt-8">
             <div className="min-w-0">
               {entries.length === 0 ? (
                 <>
-                  {sortNav}
+                  <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+                    {sortNav}
+                    <FeedBrowseDrawer filtered={hasFilter}>{directory}</FeedBrowseDrawer>
+                  </div>
                   {filterBar}
                   <div className="mt-6 flex flex-col items-center rounded-2xl border border-dashed border-border px-6 py-16 text-center">
                     <div className="flex size-12 items-center justify-center rounded-2xl bg-secondary">
@@ -271,7 +397,14 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
                   </div>
                 </>
               ) : (
-                <FeedList entries={entries} sortNav={sortNav} filterBar={filterBar} />
+                <FeedList
+                  entries={entries}
+                  sortNav={sortNav}
+                  filterBar={filterBar}
+                  browseDrawer={
+                    <FeedBrowseDrawer filtered={hasFilter}>{directory}</FeedBrowseDrawer>
+                  }
+                />
               )}
 
               <div className="mt-8 flex items-center justify-between">
@@ -291,144 +424,6 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
                 ) : null}
               </div>
             </div>
-
-            <aside className="flex flex-col gap-4">
-              <FeedSidebar activeFilterCount={activeFilters}>
-                <FeedSearch urlState={urlState} />
-
-                <FeedMediaTypeFilter urlState={urlState} counts={mediaTypeCounts} />
-
-                {categories.length > 0 && (
-                  <nav
-                    aria-label="Categories"
-                    className="rounded-2xl border border-border bg-card/60 p-4"
-                  >
-                    <h2 className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
-                      Categories
-                    </h2>
-                    <ul className="mt-3 flex flex-col">
-                      <li>
-                        <Link
-                          href={hrefFor({ category: undefined })}
-                          aria-current={category === undefined ? "true" : undefined}
-                          className={cn(
-                            "flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
-                            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                            category === undefined
-                              ? "bg-secondary text-foreground"
-                              : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                          )}
-                        >
-                          <span className="truncate">All</span>
-                          {/* The other filters still apply, so this is how many
-                            the reader would see with the category cleared —
-                            not the global total the CTA below quotes. */}
-                          <span className="font-mono text-[11px] tabular-nums">
-                            {matchingLists}
-                          </span>
-                        </Link>
-                      </li>
-                      {categories.map((entry) => (
-                        <li key={entry.name}>
-                          <Link
-                            href={hrefFor({ category: entry.name })}
-                            aria-current={category === entry.name ? "true" : undefined}
-                            className={cn(
-                              "flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
-                              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                              category === entry.name
-                                ? "bg-secondary text-foreground"
-                                : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                            )}
-                          >
-                            <span className="truncate">{entry.name}</span>
-                            <span className="font-mono text-[11px] tabular-nums">
-                              {entry.count}
-                            </span>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </nav>
-                )}
-
-                {/*
-                Genres sit below categories and read differently on purpose:
-                a category is where the author filed the list, a genre is what
-                the titles on it actually are. Same directory shape, amber
-                rather than the category's neutral selection, matching the chips
-                on the rows themselves.
-              */}
-                {genres.length > 0 && (
-                  <nav
-                    aria-label="Genres"
-                    className="rounded-2xl border border-border bg-card/60 p-4"
-                  >
-                    <h2 className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
-                      Genres
-                    </h2>
-                    <ul className="mt-3 flex flex-col">
-                      {genres.map((entry) => (
-                        <li key={entry.name}>
-                          <Link
-                            href={hrefFor({
-                              genre: genre === entry.name ? undefined : entry.name,
-                            })}
-                            aria-current={genre === entry.name ? "true" : undefined}
-                            className={cn(
-                              "flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
-                              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                              genre === entry.name
-                                ? "bg-highlight/15 text-highlight"
-                                : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                            )}
-                          >
-                            <span className="truncate font-mono text-xs">#{entry.name}</span>
-                            <span className="font-mono text-[11px] tabular-nums">
-                              {entry.count}
-                            </span>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </nav>
-                )}
-
-                {/*
-                The sidebar's last slot is an invitation rather than a
-                description: a reader this far down the page already knows what
-                the rundown is, so the space is worth more as the next step.
-              */}
-                <FeedPanel title="Your rundown">
-                  <dl className="mt-3 grid grid-cols-2 gap-2">
-                    <div className="rounded-xl border border-border bg-secondary/40 px-3 py-2">
-                      <dt className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground uppercase">
-                        Curations
-                      </dt>
-                      <dd className="mt-0.5 font-display text-lg font-bold tabular-nums">
-                        {totalPublished}
-                      </dd>
-                    </div>
-                    <div className="rounded-xl border border-border bg-secondary/40 px-3 py-2">
-                      <dt className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground uppercase">
-                        Sources
-                      </dt>
-                      <dd className="mt-0.5 text-sm font-semibold">AniList + MAL</dd>
-                    </div>
-                  </dl>
-                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                    Score the anime and manga you would hand to someone and yours joins them as
-                    a link worth sending.
-                  </p>
-                  <Button asChild size="sm" className="mt-4 w-full rounded-full">
-                    <Link href={session === null ? "/sign-in" : "/"}>
-                      <PlusIcon className="size-4" aria-hidden />
-                      {session === null ? "Sign in to build one" : "Build one"}
-                    </Link>
-                  </Button>
-                </FeedPanel>
-              </FeedSidebar>
-            </aside>
           </div>
         </div>
       </main>

@@ -1,26 +1,19 @@
 "use client";
 
-import {
-  BookOpenIcon,
-  FilterIcon,
-  SearchIcon,
-  SparklesIcon,
-  TvIcon,
-  XIcon,
-} from "lucide-react";
+import { BookOpenIcon, SearchIcon, SparklesIcon, TvIcon, XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { SegmentedRadioGroup } from "@/components/SegmentedRadioGroup";
 import { Input } from "@/components/ui/input";
 import { buildFeedHref, FEED_SEARCH_MIN_LENGTH, type FeedUrlState } from "@/lib/feed-params";
 import type { FeedMediaTypeCounts } from "@/server/services/lists";
-import { cn } from "@/lib/utils";
 
 /**
- * The rundown's three interactive sidebar controls. They are the only client
- * leaves on an otherwise server-rendered page: each one writes to the URL and
- * lets the server component above re-render, so every filter stays shareable
- * and back-button-able. None of them holds the feed's data.
+ * The rundown's two interactive filter controls, plus the panel shell they and
+ * the directory share. They are the only client leaves on an otherwise
+ * server-rendered page: each writes to the URL and lets the server component
+ * above re-render, so every filter stays shareable and back-button-able. None
+ * of them holds the feed's data.
  *
  * Each takes the page's plain `FeedUrlState` and calls the shared
  * `buildFeedHref` — a function cannot cross the server/client boundary, so the
@@ -117,7 +110,7 @@ export function FeedMediaTypeFilter({
         label="Media format"
         value={urlState.mediaType ?? "all"}
         // A column, not a row: three icon+word+count segments do not fit the
-        // 18rem sidebar, and this reads as a list beside Categories and Genres.
+        // drawer's width, and this reads as a list beside Categories and Genres.
         orientation="vertical"
         className="mt-3"
         onChange={(next) =>
@@ -152,52 +145,7 @@ export function FeedMediaTypeFilter({
   );
 }
 
-/**
- * The sidebar is a column beside the feed at `lg` and a disclosure below it.
- *
- * A real `<button aria-expanded aria-controls>` over a conditionally rendered
- * region, rather than a CSS-only trick: on a phone the sidebar is the *only*
- * way to reach categories, genres and search, so it has to be announced as
- * something that opens.
- */
-export function FeedSidebar({
-  activeFilterCount,
-  children,
-}: {
-  activeFilterCount: number;
-  children: ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen((previous) => !previous)}
-        aria-expanded={open}
-        aria-controls="feed-sidebar"
-        className="inline-flex items-center gap-2 self-start rounded-full border border-border bg-card/60 px-4 py-2 text-xs font-medium transition-colors hover:border-input focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:hidden"
-      >
-        <FilterIcon className="size-3.5" aria-hidden />
-        {open ? "Hide filters" : "Filters"}
-        {activeFilterCount > 0 && (
-          <span className="rounded-full bg-primary px-1.5 font-mono text-[10px] tabular-nums text-primary-foreground">
-            {activeFilterCount}
-          </span>
-        )}
-      </button>
-
-      <div
-        id="feed-sidebar"
-        className={cn("flex-col gap-4", open ? "flex" : "hidden", "lg:flex")}
-      >
-        {children}
-      </div>
-    </>
-  );
-}
-
-/** The sidebar's panel shell — one shape, so the five panels read as a set. */
+/** The drawer's panel shell — one shape, so its panels read as a set. */
 export function FeedPanel({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="rounded-2xl border border-border bg-card/60 p-4">

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { after } from "next/server";
 import { Header } from "@/components/Header";
@@ -63,15 +62,10 @@ export default async function RecommendationPage({ params }: { params: Params })
   // promise resolves (confirmed via concurrent-load testing: bare `void`
   // dropped most writes under 20 concurrent requests).
   //
-  // Dedup differs by whether the visitor is signed in. Logged-in viewers
-  // dedup against the durable `listView` table (persists across devices and
-  // sessions); anonymous viewers dedup against middleware.ts's session
-  // cookie, which sets x-tsugi-first-view only when this session hasn't
-  // recorded this slug yet, so repeat visits within the same browser session
-  // don't re-count.
+  // Only logged-in views count, deduped against the durable `listView` table
+  // (persists across devices and sessions) so a view only lands once per user.
   const userId = session?.user.id ?? null;
-  const firstView = userId || (await headers()).get("x-tsugi-first-view") === "1";
-  if (firstView) after(() => incrementViewCount(slug, userId));
+  if (userId) after(() => incrementViewCount(slug, userId));
 
   // A visitor can land here from anywhere with no account, so the page carries the
   // full header — it is the only route back into the product.

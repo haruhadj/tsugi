@@ -35,18 +35,20 @@ type Density = (typeof DENSITIES)[number]["id"];
  * not change what a shared /feed link resolves to. Sort, category and page do all live
  * in the URL, and are owned by the server component above this one.
  *
- * `sortNav` and `filterBar` are rendered by the server and handed down rather than
- * placed above this component, so the density toggle can share the sort tabs' row
- * instead of claiming an otherwise empty line of its own.
+ * `sortNav`, `filterBar` and `browseDrawer` are rendered by the server and handed down
+ * rather than placed above this component, so the density toggle can share the sort
+ * tabs' row instead of claiming an otherwise empty line of its own.
  */
 export function FeedList({
   entries,
   sortNav,
   filterBar,
+  browseDrawer,
 }: {
   entries: FeedEntry[];
   sortNav: ReactNode;
   filterBar?: ReactNode;
+  browseDrawer?: ReactNode;
 }) {
   const [density, setDensity] = useState<Density>("stream");
 
@@ -56,30 +58,33 @@ export function FeedList({
           single toolbar rather than three controls stacked down the page. */}
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 rounded-2xl border border-border bg-card/60 p-2">
         {sortNav}
-        <div
-          role="group"
-          aria-label="Feed layout"
-          className="inline-flex items-center gap-0.5 rounded-full border border-border bg-secondary/40 p-0.5"
-        >
-          {DENSITIES.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              onClick={() => setDensity(option.id)}
-              aria-pressed={density === option.id}
-              title={option.label}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
-                "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                density === option.id
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <option.icon className="size-3.5" aria-hidden />
-              <span className="hidden sm:inline">{option.label}</span>
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          {browseDrawer}
+          <div
+            role="group"
+            aria-label="Feed layout"
+            className="inline-flex items-center gap-0.5 rounded-full border border-border bg-secondary/40 p-0.5"
+          >
+            {DENSITIES.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setDensity(option.id)}
+                aria-pressed={density === option.id}
+                title={option.label}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+                  "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  density === option.id
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <option.icon className="size-3.5" aria-hidden />
+                <span className="hidden sm:inline">{option.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -169,23 +174,31 @@ function ShareRowButton({ slug, name }: { slug: string; name: string }) {
  * but image URLs — captioning it would have meant inventing alt text. Now that
  * each cover arrives with its title and `(raw, format)` score pair, the strip
  * says something the row does not, so it is exposed.
+ *
+ * Each cover is `flex-1` so the strip divides the row's whole width between
+ * however many covers there are, rather than sitting at a fixed size and
+ * scrolling — no cap on that growth, or a short list would leave the leftover
+ * width unfilled at the end of the row instead of resolving to a share for
+ * each cover. `fluid` on `MediaCover` is what lets the art itself grow to fill
+ * that flexible slot instead of rendering at its 56×84 intrinsic size.
  */
 function Filmstrip({ covers }: { covers: FeedCover[] }) {
   if (covers.length === 0) return null;
 
   return (
-    <ul aria-label="Leading titles" className="flex gap-2 overflow-x-auto pb-1">
+    <ul aria-label="Leading titles" className="flex items-start gap-2">
       {covers.map((cover, index) => (
         <li
           key={`${cover.title}-${index}`}
-          className="flex w-14 shrink-0 flex-col items-center gap-1"
+          className="flex min-w-0 flex-1 basis-0 flex-col items-center gap-1"
         >
-          <div className="relative">
+          <div className="relative w-full">
             <MediaCover
               src={cover.coverImage}
               title={cover.title}
               width={56}
               height={84}
+              fluid
               className="rounded-md"
             />
             {/* The rank restates the cover's position in a list that is already
@@ -417,21 +430,29 @@ function GridCard({ entry }: { entry: FeedEntry }) {
         The covers overlap into a fanned stack — a deliberately decorative
         treatment, unlike the stream's filmstrip, so it keeps its aria-hidden:
         overlapping art cannot be read in order and the titles are one click away.
-        Negative margin on every cover but the first, so the leftmost stays flush
-        with the card's padding.
+        Each is `flex-1` so they share the card's width evenly and grow to fill
+        it; the negative margin overlaps them, and `ring-card` draws the seam
+        between. The first stays flush with the card's left padding, and the
+        flex growth carries the last one out to the right edge, so there is no
+        dead space beside the stack whatever the card's width. `basis-0` keeps
+        the split even regardless of the covers' intrinsic size.
       */}
       {entry.covers.length > 0 && (
         <ul aria-hidden className="flex">
           {entry.covers.map((cover, index) => (
             <li
               key={`${cover.title}-${index}`}
-              className={cn("shrink-0", index > 0 && "-ml-6")}
+              className={cn("min-w-0 flex-1 basis-0", index > 0 && "-ml-4")}
+              // Later covers sit on top of earlier ones, so the fan reads
+              // left-over-right like a spread hand rather than the reverse.
+              style={{ zIndex: index }}
             >
               <MediaCover
                 src={cover.coverImage}
                 title=""
                 width={56}
                 height={84}
+                fluid
                 className="rounded-md ring-2 ring-card"
               />
             </li>
