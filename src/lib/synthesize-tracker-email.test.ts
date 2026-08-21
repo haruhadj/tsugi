@@ -30,7 +30,7 @@ describe("isSynthesizedTrackerEmail", () => {
   });
 
   test("rejects a provider outside the two trackers", () => {
-    expect(isSynthesizedTrackerEmail("google-1@users.tsugi.invalid")).toBe(false);
+    expect(isSynthesizedTrackerEmail("discord-1@users.tsugi.invalid")).toBe(false);
   });
 
   test("rejects a real-looking address, since one could collide otherwise", () => {

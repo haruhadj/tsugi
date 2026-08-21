@@ -3,7 +3,7 @@ import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/db";
 import { user } from "@/db/auth-schema";
-import { list, listItem, listVote } from "@/db/schema";
+import { list, listItem, listVote, listView } from "@/db/schema";
 import type { ListCategory } from "@/lib/categories";
 import type { CreateListInput, UpdateListInput } from "@/lib/validators/list";
 import type { MediaType, ScoreFormat, UnifiedMediaResult } from "@/lib/types/media";
@@ -322,9 +322,34 @@ export async function getListBySlug(
  * the caller, so this swallows its own errors rather than letting a view-count
  * failure surface as a page error. Atomic `SET views = views + 1` rather than
  * read-modify-write avoids lost updates under concurrent hits on the same slug.
+ *
+ * A logged-in `userId` dedups against `listView`, a durable per-(list,user)
+ * record — the view only counts if that insert actually lands a new row, so
+ * repeat visits from any device or browser session never double-count. With
+ * no `userId` (anonymous), dedup falls back to middleware.ts's session
+ * cookie, and the count always increments here since that cookie is this
+ * function's only signal of first-view.
  */
-export async function incrementViewCount(slug: string): Promise<void> {
+export async function incrementViewCount(slug: string, userId: string | null): Promise<void> {
   try {
+    if (userId) {
+      const [row] = await db.select({ id: list.id }).from(list).where(eq(list.slug, slug));
+      if (!row) return;
+
+      const inserted = await db
+        .insert(listView)
+        .values({ listId: row.id, userId })
+        .onConflictDoNothing()
+        .returning({ id: listView.id });
+      if (inserted.length === 0) return;
+
+      await db
+        .update(list)
+        .set({ views: sql`${list.views} + 1` })
+        .where(eq(list.id, row.id));
+      return;
+    }
+
     await db
       .update(list)
       .set({ views: sql`${list.views} + 1` })
@@ -625,7 +650,7 @@ export type FeedEntry = {
 const FEED_GENRE_COUNT = 3;
 
 /** How many covers each feed row carries. Enough to fill the filmstrip, no more. */
-const FEED_COVER_COUNT = 5;
+const FEED_COVER_COUNT = 10;
 
 /**
  * Everything the rundown can be narrowed by. One type, because the row query and

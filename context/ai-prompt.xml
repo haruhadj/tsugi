@@ -47,7 +47,7 @@
       <orm>Drizzle ORM 0.45.2 / drizzle-kit 0.31.10 — migrations only, never DDL via MCP (D19)</orm>
       <security>RLS enabled on every table, from the first migration (D20)</security>
     </database>
-    <authentication>Better-Auth 1.6.26 mounted inside Hono (D6). `genericOAuth` for AniList and MAL (MAL needs custom PKCE token exchange, D30). Google deferred. GitHub OAuth was never built.</authentication>
+    <authentication>Better-Auth 1.6.26 mounted inside Hono (D6). `genericOAuth` for AniList and MAL (MAL needs custom PKCE token exchange, D30). GitHub OAuth was never built.</authentication>
     <validation>Zod 4.4.3 with `@hono/zod-validator` 0.9.0 at every boundary</validation>
     <data_providers>
       <tier1>AniList GraphQL (id space `anilist`)</tier1>
@@ -121,7 +121,7 @@ tsugi/
   <current_state date="2026-08-17">
     <phase id="0" status="complete">Foundation &amp; CI — 2026-08-10</phase>
     <phase id="1" status="complete">Data layer — 2026-08-10 (criterion 25 unverified)</phase>
-    <phase id="2" status="closed">Authentication — 11/14 verified; Google deferred</phase>
+    <phase id="2" status="closed">Authentication — 11/11 verified</phase>
     <phase id="3" status="closed">Media providers — 14/14</phase>
     <phase id="4" status="closed">API surface — 25/26</phase>
     <phase id="5" status="closed">Create &amp; share UX — 27/31, 1 accepted open</phase>

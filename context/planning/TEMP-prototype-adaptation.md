@@ -249,7 +249,7 @@ Rewrite `src/components/ListBuilder.tsx` to the prototype's two-column workspace
       10/10 it would misrepresent what `user.scoreFormat` does. Show the detected tracker scale
       as read-only context instead.
 - [x] **Sign-in**: `SignInButtons` adopts the per-provider chrome (glyph chip, provider tokens,
-      footer reassurance line). Google stays visibly disabled.
+      footer reassurance line).
 
 ## Part 7 — Docs (not optional)
 

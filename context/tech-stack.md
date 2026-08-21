@@ -406,7 +406,6 @@ official API, which is a different service with different rules.
 
 ### Better-Auth providers
 
-- **Built in:** Google — configured under `socialProviders`, no plugin.
 - **Not built in:** AniList and MyAnimeList — both go through the `genericOAuth` plugin,
   which takes `authorizationUrl`, `tokenUrl`, `pkce`, and custom `getToken` / `getUserInfo`.
 - Account linking is enabled by default **but matches on verified email**, so it cannot work

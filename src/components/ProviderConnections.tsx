@@ -50,7 +50,7 @@ export function ProviderConnections() {
     setLinkingProvider(providerId);
     // AniList and MyAnimeList are genericOAuth providers — linking one goes
     // through oauth2.link(), not linkSocial() (that method is for built-in
-    // social providers only, e.g. Google once it's wired in).
+    // social providers only).
     await authClient.oauth2.link({ providerId, callbackURL: "/settings" });
   }
 

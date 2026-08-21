@@ -16,9 +16,8 @@ window — Discord, WhatsApp, X.
 
 That audience is narrower than "anyone who watches anime", and deliberately so. Creating
 requires an account (**D23**), and the accounts that matter are AniList and MyAnimeList.
-Google exists as a way in for someone without a tracker, but it unlocks only sign-in — no
-list import. Tsugi is built for people who already keep a list, and the sign-in screen is
-arranged to say so.
+Tsugi is built for people who already keep a list, and the sign-in screen is arranged to
+say so.
 
 ## What success means
 

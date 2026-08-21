@@ -129,8 +129,6 @@ rated, a user picks from their own list — and their existing score comes with 
 - **Writing back to AniList or MAL.** Tsugi never modifies anyone's list. Read-only, both
   directions of pressure resisted permanently.
 - Continuous sync. A list is fetched on demand, not mirrored.
-- Import for Google-only accounts — Google has no anime list. The mode is hidden, not
-  disabled-with-an-explanation, for users with no tracker linked.
 - Importing an entire list *as* a recommendation in one action. The user still chooses items.
 
 ## Key design decisions
@@ -201,13 +199,12 @@ Criteria 1–8 are `*.db.test.ts` / manual against a real linked account.
    empty list.
 8. A recommendation built from one imported item and one searched item stores both, with the
    correct `provider` on each.
-9. For a Google-only account, the **My list** mode is not shown at all.
-10. `grep -rn "accessToken" src/app src/components` returns nothing. Invariant 10.
-11. Nothing in the codebase issues a write to either provider:
+9. `grep -rn "accessToken" src/app src/components` returns nothing. Invariant 10.
+10. Nothing in the codebase issues a write to either provider:
     `grep -rniE "SaveMediaListEntry|PUT|PATCH|DELETE" src/server/services/lists` returns
     nothing.
-12. Phase 5's criterion 1 still passes — the create flow has not regressed.
-13. `bun x tsc --noEmit`, `bun x eslint .`, and `bun test` all exit 0.
+11. Phase 5's criterion 1 still passes — the create flow has not regressed.
+12. `bun x tsc --noEmit`, `bun x eslint .`, and `bun test` all exit 0.
 
 ## Risks
 

@@ -135,6 +135,29 @@ export const listVote = pgTable(
   ],
 ).enableRLS();
 
+// One row per (list, user) that has ever viewed it — the durable record a
+// logged-in viewer's repeat visits are deduped against, unlike the anonymous
+// path's browser-session cookie (middleware.ts). Never deleted or updated;
+// its mere existence is the dedup signal, so `list.views` only increments
+// when the insert here actually lands a new row.
+export const listView = pgTable(
+  "list_view",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    listId: uuid("list_id")
+      .notNull()
+      .references(() => list.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    unique("view_per_user_per_list").on(table.listId, table.userId),
+    index("list_view_list_id_idx").on(table.listId),
+  ],
+).enableRLS();
+
 // Per-user cache of a fetched list (Phase 7 scope). One row per (user,
 // provider, mediaType) — a re-fetch within TTL reads this instead of hitting
 // AniList/MAL again. `entries` mirrors `ListEntry[]` (src/lib/types/media.ts)

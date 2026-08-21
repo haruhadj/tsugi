@@ -8,8 +8,7 @@ Every screen, and every path between them. If a screen is not here, it does not 
    ┌──────────────┐   not signed in    ┌──────────────────────────┐
    │  /  Create   │ ─────────────────► │  /sign-in                │
    │              │ ◄───────────────── │  AniList · MAL           │
-   └──────┬───────┘   session          │  Google                  │
-          │                            └──────────────────────────┘
+   └──────┬───────┘   session          └──────────────────────────┘
           │                            ┌──────────────────────────┐
           │  ────────────────────────► │  /settings  (Phase 2)    │
           │                            │  connected providers     │
@@ -54,13 +53,10 @@ the product's whole distribution model. A list whose author has no handle shows 
 
 ## `/sign-in`
 
-Three buttons, no form, no copy beyond a line explaining why. Reached from the create screen,
+Two buttons, no form, no copy beyond a line explaining why. Reached from the create screen,
 never as a mid-flow interruption.
 
-**AniList** and **MyAnimeList** are presented first and marked as unlocking list import.
-**Google** is offered below, separately, as plain sign-in. The difference is stated on the
-screen — someone choosing Google should not later feel misled about why *My list* is
-missing. They can link a tracker afterwards from [`/settings`](#settings--connections).
+**AniList** and **MyAnimeList** are both marked as unlocking list import.
 
 Signing in with a second provider later does **not** merge accounts (**D25**); linking is a
 deliberate action on [`/settings`](#settings--connections). The sign-in screen says so,
@@ -69,16 +65,14 @@ quietly, rather than letting someone discover it by accumulating duplicate accou
 ## `/settings` — connections
 
 Ships in **Phase 2**, minimal on purpose: which providers this account has linked, and a
-button to link another. It exists that early because `linkSocial()` needs somewhere to be
-called from, and without it a Google sign-in is a dead end rather than a deferral — the
-opposite of what **D24** promises (**D33**).
+button to link the other tracker. It exists that early because the link flow needs somewhere
+to be called from, so someone who signed in with one tracker can add the other (**D33**).
 
 ```
   Connected
   ┌────────────────────────────────────────────┐
-  │ ✓ Google          signed in with this      │
-  │   AniList         [ Link ]  ◀ unlocks My list
-  │   MyAnimeList     [ Link ]                 │
+  │ ✓ AniList         signed in with this      │
+  │   MyAnimeList     [ Link ]  ◀ links the other tracker
   └────────────────────────────────────────────┘
 ```
 
@@ -156,7 +150,7 @@ than letting someone build an eleventh item and lose it to a 400 (**D36**). The 
 header is the warning — `Items (9/10)` once it is close.
 
 Score input uses **the user's own scale** — read from `user.scoreFormat` on the session,
-captured at sign-in and defaulting to 10-point for Google accounts (**D32**). A `POINT_3`
+captured at sign-in (**D32**). A `POINT_3`
 user sees three smileys, not a 1–10 strip. No format has a zero position: clearing a score
 removes it rather than setting `0`, which is what the trackers mean by *unrated* (**D35**).
 Imported items arrive with their score already set, or with none (Phase 7).

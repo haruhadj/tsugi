@@ -5,11 +5,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 
-// AniList and MyAnimeList are visually primary and unlock list import
-// (Phase 7); Google is a plain fallback, separated below (D24). Google is
-// not wired into src/lib/auth.ts yet, so its button is disabled rather than
-// omitted — the sign-in screen's shape should not have to change again once
-// it is.
+// AniList and MyAnimeList are the two providers — both unlock list import
+// (Phase 7). Each carries its own brand glyph and per-button pending state.
 export function SignInButtons() {
   const [pendingProvider, setPendingProvider] = useState<"anilist" | "mal" | null>(null);
 
@@ -60,23 +57,6 @@ export function SignInButtons() {
         ))}
         <p className="text-sm text-muted-foreground">
           Unlocks importing your list later.
-        </p>
-      </div>
-
-      <div className="flex flex-col gap-3">
-        <Button variant="outline" size="lg" disabled>
-          <span className="flex items-center gap-2.5">
-            <span
-              className="flex size-6 items-center justify-center rounded-md bg-secondary font-mono text-[10px] font-bold text-muted-foreground"
-              aria-hidden
-            >
-              G
-            </span>
-            Continue with Google
-          </span>
-        </Button>
-        <p className="text-sm text-muted-foreground">
-          Sign-in only — link a tracker afterwards from Settings.
         </p>
       </div>
 
