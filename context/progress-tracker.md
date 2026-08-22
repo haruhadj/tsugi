@@ -1310,6 +1310,31 @@ tech-stack.md.
 later wanted — that trades the two live vocabularies for a hand-maintained mapping, and is the
 opposite direction from this per-provider choice.
 
+### D55 — Terms of Service and Privacy Policy are in scope; Cookie and Refund policies are not
+
+*Scoping pass against the project-blueprint skill's legal/policy checklist, 2026-08-22.*
+
+Tsugi has accounts (Better-Auth + AniList/MAL/OAuth-style sign-in), user-generated content
+(recommendations, ≤280-char comments), and stores OAuth provider tokens plus a fire-and-forget
+view counter (invariant 13) — enough to trigger both checklist rows.
+
+**Chosen, owner-selected:**
+- **Terms of Service** — in scope. Triggered by accounts + user-generated content.
+- **Privacy Policy** — in scope. Triggered by OAuth token storage and view-count tracking.
+- **Cookie Policy / consent banner** — **out of scope.** Better-Auth issues session cookies,
+  but the product has no stated EU/UK/CA audience targeting and no separate analytics/tracker
+  cookies beyond the session itself — the checklist's trigger condition is not met.
+- **Disclaimer** — **out of scope.** No advice-adjacent content (health/legal/financial) and
+  no affiliate links anywhere in scope.
+- **Refund/Cancellation Policy** — **out of scope.** No payments or subscriptions exist or are
+  planned (see `functionality.md`'s out-of-scope table).
+
+**Not yet a phase.** These are content deliverables, not features — the copy is the owner's to
+write (not legal advice), not the agent's. Routed into `user-flow.md` as real routes (`/terms`,
+`/privacy`) with no phase number assigned yet; add one to `PLAN.md` before building the routes.
+**Revisit if:** payments, an EU/UK/CA-targeted launch, or advice-adjacent content are ever
+added — each would flip its corresponding row back to in-scope.
+
 ## External prerequisites
 
 | Needed by | Service | Status |

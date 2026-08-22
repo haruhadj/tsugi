@@ -219,4 +219,11 @@ Your recommendations, newest first, each showing its items and view count. Delet
 edit is not (see `functionality.md`). It sits beside `/settings`, which gains unlinking in
 the same phase — that is where someone goes to ask why *My list* is missing.
 
+## `/terms` and `/privacy` (no phase assigned yet)
+
+Static content routes, added by **D55**. Not gated — same public-access rule as `/r/[slug]`,
+since a policy page that requires sign-in defeats its own purpose. Copy is the owner's to
+write; no phase number exists yet, so these are documented as routes without a build date.
+Link from the sign-in screen and the footer once built.
+
 Related: [`functionality.md`](./functionality.md) · [`ui-rules.md`](./ui-rules.md)

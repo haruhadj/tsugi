@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter_Tight, JetBrains_Mono, Unbounded } from "next/font/google";
 import { Suspense } from "react";
+import { Footer } from "@/components/Footer";
 import { TopLoader } from "@/components/TopLoader";
 import "./globals.css";
 
@@ -66,6 +67,9 @@ export default function RootLayout({
           <TopLoader />
         </Suspense>
         {children}
+        {/* Global, session-less — unlike Header this needs no per-page prop, so it
+            lives once here rather than being threaded through every page.tsx. */}
+        <Footer />
       </body>
     </html>
   );

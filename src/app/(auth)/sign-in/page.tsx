@@ -37,6 +37,18 @@ export default async function SignInPage() {
             </div>
 
             <SignInButtons />
+
+            <p className="text-center text-xs text-muted-foreground">
+              By signing in, you agree to the{" "}
+              <Link href="/terms" className="underline underline-offset-2 hover:text-foreground">
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">
+                Privacy Policy
+              </Link>
+              .
+            </p>
           </div>
         </div>
 

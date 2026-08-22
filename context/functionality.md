@@ -71,6 +71,12 @@ re-proposed each session. Changing anything here is a decision that belongs in
 - RLS on every table (**D20**)
 - CI gating type errors and lint errors on every push and PR
 
+### Legal/policy pages
+- **Terms of Service** (`/terms`) — accounts and user-generated content require it (**D55**)
+- **Privacy Policy** (`/privacy`) — OAuth token storage and view-count tracking require it
+  (**D55**). Copy is owner-authored; not legal advice. No phase assigned yet — see `PLAN.md`
+  before building the routes.
+
 ## Out of scope
 
 Each of these was considered and rejected. The reason is the part that matters.
@@ -92,6 +98,9 @@ Each of these was considered and rejected. The reason is the part that matters.
 | **Internationalised UI** | English only. Media titles are already multilingual via provider data; translating the chrome is not the bottleneck. |
 | **Analytics beyond the view counter** | A single integer answers "did anyone click it". More needs a consent banner, which costs time on the critical path. |
 | **Custom OG card themes** | Rendering cost and QA surface scale with template count. One excellent card beats six adequate ones. |
+| **Cookie Policy / consent banner** | No stated EU/UK/CA audience targeting and no tracking cookies beyond the Better-Auth session itself (**D55**). Revisit if that targeting changes. |
+| **Disclaimer page** | No advice-adjacent content (health/legal/financial) and no affiliate links anywhere in scope (**D55**). |
+| **Refund/Cancellation Policy** | No payments or subscriptions exist or are planned (**D55**). |
 
 ## The test for a new feature request
 
