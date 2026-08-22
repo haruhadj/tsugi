@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { fetchAniListList } from "./anilist";
+import { setDummyEnv } from "@/lib/test/setDummyEnv";
 import type { ListStatus } from "@/lib/types/media";
+
+setDummyEnv();
+const { fetchAniListList } = await import("./anilist");
 
 function viewerBody(overrides: Partial<{ id: number; scoreFormat: string }> = {}) {
   return {

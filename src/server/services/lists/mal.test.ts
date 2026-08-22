@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { fetchMalList } from "./mal";
+import { setDummyEnv } from "@/lib/test/setDummyEnv";
 import type { ListStatus } from "@/lib/types/media";
+
+setDummyEnv();
+const { fetchMalList } = await import("./mal");
 
 function mockFetchJSON(body: unknown, status = 200): typeof fetch {
   return (async (_url: string, init?: RequestInit) => {

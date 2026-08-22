@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { aggregateGenres } from "@/server/services/lists";
+import { setDummyEnv } from "@/lib/test/setDummyEnv";
+
+// "@/server/services/lists" imports "@/db", which calls getEnv() at module
+// load — see setDummyEnv's own comment.
+setDummyEnv();
+const { aggregateGenres } = await import("@/server/services/lists");
 
 /**
  * The genre cloud's ordering is load-bearing: it decides which three chips a

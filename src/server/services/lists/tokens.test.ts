@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { setDummyEnv } from "@/lib/test/setDummyEnv";
 
 // tokens.ts hits Postgres directly (no injectable db), so this is a true unit
 // test only because @/db is mocked out below, before the module under test is
@@ -27,6 +28,8 @@ mock.module("@/db", () => ({
 
 mock.module("@/db/auth-schema", () => ({ account: {}, user: {} }));
 
+// tokens.ts also calls getEnv() at module load — see setDummyEnv's own comment.
+setDummyEnv();
 const { getListAccessToken } = await import("./tokens");
 
 const originalFetch = global.fetch;
