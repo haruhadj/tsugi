@@ -1262,6 +1262,32 @@ honest version of the original idea, and the better page once the feed has conte
 It needs a query on the marketing front and an empty state for a cold database, which is why it is
 not this change.
 
+### D-listbuilder-wizard — `ListBuilder` becomes a 3-step wizard (Details → Add → Arrange)
+
+**2026-08-22, Phase-8-era, scoped by owner request.** The two-column workspace (D47/D48) put
+`MediaSearchInput`/`MyListPicker`'s results directly above `ItemTray`, but `MyListPicker`
+loads a user's whole tracker list at once — dozens of rows — which buried the tray the author
+was supposed to be building. Rebuilt as three explicit steps rather than adding pagination or
+a collapse toggle to the picker: **1) Details** (title/category/caption/note), **2) Add**
+(the search/import picker, full height, tray out of view by design), **3) Arrange**
+(`ItemTray`, genre preview, social card toggle, Save/Publish). A clickable step rail lets the
+author jump back; `goNext`/`goBack` gate on name-required (leaving step 1) and
+≥1-item-required (leaving step 2), and `submit()` bounces to the offending step on validation
+failure rather than showing an inline error with no visible field. Entering via the "Import"
+nav link (`?from=mylist`) now lands on step 2 with the mylist picker already selected, fixing
+a pre-existing no-op where that link changed the query param but the mode never followed
+render-side. That mode-sync was originally a `useEffect` calling `setState`, which is what
+`react-hooks/set-state-in-effect` was already flagging on the pre-wizard code (confirmed by
+lint, not introduced by this change) — rewritten as a render-time adjustment (compare
+`fromParam` against a `prevFrom` ref-like state and adjust inline) so there is no
+setState-in-effect at all, and the same shape was reused for `MediaSearchInput`'s later
+genre-derivation (see D-genre-browse). No new component: the rail is a plain `<ol>`, not a
+registry addition.
+
+**Revisit if:** a future step needs its own sub-navigation (e.g. Arrange growing tabs for
+"items" vs "social card") — that is the point where a generic step/wizard primitive earns its
+keep instead of `ListBuilder` hand-rolling one.
+
 ### D-genre-browse — Search browses by genre with per-provider vocabularies (Search panel only)
 
 **2026-08-22, Phase-8-era, scoped by owner request.** `MediaSearchInput` gained a genre

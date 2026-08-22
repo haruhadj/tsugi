@@ -275,7 +275,7 @@ export function MediaSearchInput({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
             {genres.length > 0 && (
               <Select
                 value={activeGenre ?? "__all__"}
