@@ -88,7 +88,14 @@ export function SegmentedRadioGroup<T extends string>({
                   glyph and its own word. */}
               <span className="flex min-w-0 items-center gap-1.5">
                 {option.icon && <option.icon className="size-3.5 shrink-0" aria-hidden />}
-                <span className="truncate">{option.label}</span>
+                {/*
+                  Never truncated: every option here is a short, meaningful word
+                  (a provider name, "Anime"/"Manga") that reads as broken with
+                  even one letter clipped. A tight row overflows instead — see
+                  the `orientation="vertical"` note above for the layout that
+                  avoids the squeeze entirely.
+                */}
+                <span className="whitespace-nowrap">{option.label}</span>
               </span>
               {option.hint && (
                 // Left readable rather than aria-hidden: "Anime, 9" is how many
