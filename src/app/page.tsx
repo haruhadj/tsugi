@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { ListBuilder } from "@/components/ListBuilder";
+import { ArrowRightIcon, CompassIcon } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth";
 import { HANDLE_ROUTE } from "@/lib/require-handle";
@@ -95,12 +96,6 @@ export default async function Home() {
               <Button asChild size="lg">
                 <Link href="/sign-in">Make a list</Link>
               </Button>
-              <Link
-                href="/feed"
-                className="font-mono text-xs tracking-[0.2em] text-muted-foreground uppercase underline-offset-4 transition-colors hover:text-foreground hover:underline"
-              >
-                Browse the rundown
-              </Link>
               <p className="font-mono text-xs text-muted-foreground">
                 Sign in with AniList or MyAnimeList
               </p>
@@ -108,66 +103,34 @@ export default async function Home() {
           </div>
 
           {/*
-            The thesis, shown rather than described: this is the artifact you send.
-            Deliberately the card's *anatomy* and not a filled-in example — the
-            version before this one invented a title, a 92/100, and a quote nobody
-            wrote, which is dummy data on the product's own front door. The slots
-            are labelled and empty instead, so the shape of the artifact is the
-            claim and nothing here asserts that a particular rec exists.
-
-            Dashed outlines rather than solid filled bars, and no `animate-pulse`:
-            this must read as a blueprint, not as a loading skeleton (ui-rules.md
-            reserves skeletons for a known-size block actually being filled).
+            Descriptive rather than a filled-in example: a version of this
+            block once invented a title, a 92/100, and a quote nobody wrote,
+            which is dummy data on the product's own front door. This just
+            points at the real thing, one click away.
           */}
           <div className="animate-card-in [animation-delay:140ms]">
-            <figure className="relative">
-              <div className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-xl">
-                <div className="p-8 sm:p-10">
-                  {/* True of every card: both trackers are real sources. */}
-                  <p className="font-mono text-[0.65rem] tracking-[0.3em] text-muted-foreground uppercase">
-                    Via AniList or MyAnimeList
-                  </p>
-
-                  <div className="mt-6">
-                    <p className="font-mono text-[0.6rem] tracking-[0.22em] text-muted-foreground/70 uppercase">
-                      Title
-                    </p>
-                    <div className="mt-2.5 h-7 w-3/4 rounded-md border border-dashed border-border bg-secondary/30" />
-                    <div className="mt-2 h-3.5 w-2/5 rounded border border-dashed border-border bg-secondary/20" />
-                  </div>
-
-                  <div className="mt-8 flex items-end justify-between gap-6">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-mono text-[0.6rem] tracking-[0.22em] text-muted-foreground/70 uppercase">
-                        Your note
-                      </p>
-                      <div className="mt-2.5 flex flex-col gap-1.5">
-                        <div className="h-3 w-full rounded border border-dashed border-border bg-secondary/20" />
-                        <div className="h-3 w-4/5 rounded border border-dashed border-border bg-secondary/20" />
-                      </div>
-                    </div>
-                    <div className="shrink-0 text-center">
-                      <p className="font-mono text-[0.6rem] tracking-[0.22em] text-muted-foreground/70 uppercase">
-                        Score
-                      </p>
-                      {/* An em dash, not a number: a score is a (raw, format) pair
-                          and there is no pair to render here. */}
-                      <div className="mt-2.5 flex size-14 items-center justify-center rounded-xl border border-dashed border-border bg-secondary/30">
-                        <span
-                          aria-hidden
-                          className="font-display text-xl font-bold text-muted-foreground/50"
-                        >
-                          &mdash;
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+            <Link
+              href="/feed"
+              className="group block rounded-2xl border border-border bg-card p-8 shadow-xl transition-colors hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-10"
+            >
+              <div className="flex size-12 items-center justify-center rounded-2xl bg-secondary">
+                <CompassIcon className="size-6 text-primary" aria-hidden />
               </div>
-              <figcaption className="mt-3 font-mono text-[0.65rem] tracking-[0.24em] text-muted-foreground uppercase">
-                What your link unfurls into
-              </figcaption>
-            </figure>
+              <h2 className="mt-6 font-display text-xl font-bold tracking-[-0.01em] text-foreground">
+                Browse the rundown
+              </h2>
+              <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted-foreground">
+                Every list people have published, ranked by what the room thinks of them.
+                See what a shared link actually looks like before you make your own.
+              </p>
+              <span className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
+                See the feed
+                <ArrowRightIcon
+                  className="size-4 transition-transform group-hover:translate-x-0.5"
+                  aria-hidden
+                />
+              </span>
+            </Link>
           </div>
         </section>
 
