@@ -9,9 +9,12 @@ import { fetchAniListList } from "@/server/services/lists/anilist";
 import { fetchMalList } from "@/server/services/lists/mal";
 import { getListAccessToken } from "@/server/services/lists/tokens";
 
-// D52: Cache schema version. Bump when ListEntry shape changes to force re-fetch
-// of stale rows that lack the new fields (status, genres, year).
-const CACHE_VERSION = 2;
+// D52: Cache schema version. Bump when ListEntry shape changes, or when a fetch
+// bug is fixed, to force re-fetch of stale rows that predate the fix.
+// v3: AniList entries cached before the media.id dedup in anilist.ts could
+// carry the same title twice (once per AniList list it belonged to), which
+// then collided on React's `provider-externalId` key in MyListPicker.
+const CACHE_VERSION = 3;
 
 function isProvider(value: string): value is Provider {
   return value === "anilist" || value === "mal";
