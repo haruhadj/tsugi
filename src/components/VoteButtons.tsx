@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { VotePill, type VoteDirection } from "@/components/VotePill";
 import { cn } from "@/lib/utils";
 
@@ -17,34 +17,65 @@ type Props = {
 export function VoteButtons({ slug, initialScore, orientation, className }: Props) {
   const [score, setScore] = useState(initialScore);
   const [myDirection, setMyDirection] = useState<VoteDirection>(0);
-  const [isVoting, setIsVoting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Guards reconciliation, not clicks — clicks are never blocked, so voting stays
+  // clickable through a slow request instead of going dead-looking. Each vote()
+  // call claims the next id; a response only touches state if its id is still the
+  // latest, so a slow, superseded response can't clobber a state a newer click
+  // already moved past.
+  const requestId = useRef(0);
+
   async function vote(direction: 1 | -1) {
-    if (isVoting) return;
-    setIsVoting(true);
     setError(null);
+    const thisRequestId = ++requestId.current;
 
-    const res = await fetch(`/api/feed/${slug}/vote`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ direction }),
-    });
+    // Applied before the request lands, so the click feels instant. Clicking the
+    // same direction again is a toggle-off (0) — the same rule the server applies —
+    // so the optimistic guess matches what a successful response will say.
+    const previousScore = score;
+    const previousDirection = myDirection;
+    const optimisticDirection: VoteDirection = previousDirection === direction ? 0 : direction;
+    setScore((current) => current - previousDirection + optimisticDirection);
+    setMyDirection(optimisticDirection);
 
-    if (res.status === 401) {
-      setError("Sign in to vote.");
-    } else if (res.status === 429) {
-      const { retryAfter } = await res.json();
-      setError(`Too many votes. Wait ${retryAfter}s.`);
-    } else if (!res.ok) {
-      setError("Couldn't vote. Try again.");
-    } else {
-      const { direction: newDirection } = (await res.json()) as { direction: VoteDirection };
-      setScore((current) => current - myDirection + newDirection);
-      setMyDirection(newDirection);
+    function rollback() {
+      if (requestId.current !== thisRequestId) return;
+      setScore(previousScore);
+      setMyDirection(previousDirection);
     }
 
-    setIsVoting(false);
+    try {
+      const res = await fetch(`/api/feed/${slug}/vote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ direction }),
+      });
+
+      if (res.status === 401) {
+        rollback();
+        setError("Sign in to vote.");
+      } else if (res.status === 429) {
+        rollback();
+        const { retryAfter } = await res.json();
+        setError(`Too many votes. Wait ${retryAfter}s.`);
+      } else if (!res.ok) {
+        rollback();
+        setError("Couldn't vote. Try again.");
+      } else {
+        const { direction: newDirection } = (await res.json()) as { direction: VoteDirection };
+        // Reconcile against the optimistic guess, not the pre-click state — the
+        // optimistic update has already been applied. Skipped entirely if a later
+        // click has since superseded this request.
+        if (requestId.current === thisRequestId && newDirection !== optimisticDirection) {
+          setScore((current) => current - optimisticDirection + newDirection);
+          setMyDirection(newDirection);
+        }
+      }
+    } catch {
+      rollback();
+      setError("Couldn't vote. Try again.");
+    }
   }
 
   return (
@@ -55,13 +86,7 @@ export function VoteButtons({ slug, initialScore, orientation, className }: Prop
         className,
       )}
     >
-      <VotePill
-        score={score}
-        direction={myDirection}
-        onVote={vote}
-        disabled={isVoting}
-        orientation={orientation}
-      />
+      <VotePill score={score} direction={myDirection} onVote={vote} orientation={orientation} />
       {error ? (
         <span className="max-w-28 text-center font-mono text-[10px] leading-tight text-destructive">
           {error}

@@ -41,7 +41,7 @@ export function VotePill({
 
   const button = cn(
     "rounded-full text-muted-foreground transition-colors",
-    "hover:bg-accent hover:text-foreground disabled:opacity-50",
+    "hover:bg-accent hover:text-foreground",
     "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none",
     scale.pad,
   );
