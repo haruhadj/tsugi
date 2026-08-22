@@ -40,10 +40,21 @@ Tailwind 4 and shadcn are configured in CSS. There is no `tailwind.config.ts`.
 @import "tw-animate-css";
 ```
 
-**Tsugi ships one theme.** The palette is defined on `:root, .dark` together — on `:root` so
-it applies unconditionally, and repeated under `.dark` (which `<html>` carries) so shadcn
-components' own `dark:` variants resolve against the same values instead of falling through
-to a light palette that does not exist. Deleting either selector half-breaks the page in a
+**Tsugi ships one theme, with five selectable colour schemes on top (D56).** The base palette
+is defined on `:root, .dark` together — on `:root` so it applies unconditionally, and repeated
+under `.dark` (which `<html>` carries) so shadcn components' own `dark:` variants resolve
+against the same values instead of falling through to a light palette that does not exist.
+
+A colour scheme (`rose` default, `indigo`, `emerald`, `violet`, `sky`) is a
+`:root[data-palette="X"], .dark[data-palette="X"]` block layered after the base one, and it
+only ever overrides `--primary`/`--primary-foreground`/`--ring`/`--highlight`/
+`--highlight-foreground` — rule 1's neutral zinc ground and the score-tier ramp (invariant 6)
+never move, on purpose: a scheme is "which two accents", not a new visual system. Picked in
+Settings (`ColorSchemeField`), stored in a plain `tsugi-palette` cookie (per-browser, not
+per-account — there's no server round trip), applied by a render-blocking inline script in
+`RootLayout` before hydration so switching schemes never flashes the default on the next load.
+`src/lib/palette.ts` is the catalogue — id, label, and the two swatch hexes — that both the CSS
+and the picker read from. Deleting either selector half-breaks the page in a
 way that only shows on the few components that use `dark:`.
 
 ## Colour — semantic names only

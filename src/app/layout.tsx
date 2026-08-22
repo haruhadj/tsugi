@@ -61,6 +61,22 @@ export default function RootLayout({
         it clears nothing.
       */}
       <body className="pb-14 md:pb-0">
+        {/*
+          Colour scheme (D56): a `data-palette` attribute read from a plain
+          cookie, set before hydration so switching schemes in Settings never
+          flashes the default on the next load. Render-blocking and inline on
+          purpose — anything deferred runs after first paint. "rose" needs no
+          attribute; it's what globals.css's unscoped block already renders.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              '(function(){try{var m=document.cookie.match(/(?:^|; )tsugi-palette=([^;]+)/);' +
+              'var p=m&&decodeURIComponent(m[1]);' +
+              'if(p&&p!=="rose")document.documentElement.setAttribute("data-palette",p);' +
+              "}catch(e){}})();",
+          }}
+        />
         {/* useSearchParams needs a Suspense boundary to stay statically
             renderable — see TopLoader for why it depends on that hook. */}
         <Suspense fallback={null}>

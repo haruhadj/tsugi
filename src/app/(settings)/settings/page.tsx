@@ -1,4 +1,5 @@
-import { Link2Icon, SlidersHorizontalIcon, UserIcon } from "lucide-react";
+import { Link2Icon, PaletteIcon, SlidersHorizontalIcon, UserIcon } from "lucide-react";
+import { ColorSchemeField } from "@/components/ColorSchemeField";
 import { Header } from "@/components/Header";
 import { ProviderConnections } from "@/components/ProviderConnections";
 import { UsernameField } from "@/components/UsernameField";
@@ -38,6 +39,20 @@ export default async function SettingsPage() {
                   Identity
                 </h2>
                 <UsernameField initialUsername={session.user.username ?? ""} />
+              </div>
+            </section>
+
+            <section className="overflow-hidden rounded-2xl border border-border bg-card/60">
+              <div className="flex flex-col gap-4 p-6 sm:p-8">
+                <h2 className="flex items-center gap-1.5 font-mono text-[0.65rem] font-semibold tracking-[0.24em] text-muted-foreground uppercase">
+                  <PaletteIcon className="size-3.5 text-primary" aria-hidden />
+                  Colour scheme
+                </h2>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  Changes the accent pair everywhere. The zinc background and score
+                  colours stay the same in every scheme — only this changes.
+                </p>
+                <ColorSchemeField />
               </div>
             </section>
 

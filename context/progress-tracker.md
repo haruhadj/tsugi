@@ -1335,6 +1335,49 @@ write (not legal advice), not the agent's. Routed into `user-flow.md` as real ro
 **Revisit if:** payments, an EU/UK/CA-targeted launch, or advice-adjacent content are ever
 added — each would flip its corresponding row back to in-scope.
 
+### D56 — Colour schemes reverse "Tsugi ships one theme" (D45), scoped to two tokens
+
+*Owner request, 2026-08-22: a configurable colour scheme palette in user settings, "a bunch of
+different styles."*
+
+D45 states "Tsugi ships one theme" and was itself a reversal of two earlier multi-theme/dark-
+mode systems (D37, D41) that were built and torn out. Reversing it again for a real feature
+request needs its own entry rather than a silent code change, per this file's own rules.
+
+**What shipped.** Five colour schemes — `rose` (default, identical to the unscoped block),
+`indigo`, `emerald`, `violet`, `sky` — each a `:root[data-palette="X"], .dark[data-palette="X"]`
+block in `globals.css` layered after the base one. Catalogue (id, label, swatch hex) lives in
+`src/lib/palette.ts`. Picked via `ColorSchemeField` in `/settings`, applied instantly to
+`<html data-palette>`, and mirrored to a plain `tsugi-palette` cookie so a render-blocking
+inline script in `RootLayout` can set the attribute before hydration — no flash on reload, no
+server round trip.
+
+**What did not reverse.** D45's mechanism holds: every value is still authored once, in
+`globals.css`, and consumed as a token. A scheme only ever swaps `--primary`/
+`--primary-foreground`/`--ring`/`--highlight`/`--highlight-foreground` — five tokens, not the
+whole system. Rule 1 ("the ground is neutral") and invariant 6 (a score's colour is meaningful)
+both depend on values that must not move per-user, so `--background`/`--card`/`--border` and
+the entire `score-*` ramp are fixed across every scheme.
+
+**Deliberately per-browser, not per-account.** No `user` table column, no migration, no API
+route — the cookie is the only state. Cross-device sync was considered and dropped: reading it
+in `RootLayout` before first paint would mean awaiting a session there, which would pull every
+route (including the public, deliberately-static `/r/[slug]` and its OG image, invariant 9/13)
+into per-request dynamic rendering just to read one preference. A per-browser cookie gets the
+same flash-free result at no architectural cost; the loss is that a scheme picked on one device
+doesn't follow to another.
+
+**The OG card and canvas export are untouched.** `opengraph-image.tsx` and `canvasExport.ts`
+already hardcode the `rose` hex block for Satori/canvas's benefit (D45's carve-out) and continue
+to; a shared artifact rendering the same fixed brand colours regardless of the viewer's local
+scheme is correct, not a bug — the two files that must move with a *base* palette change don't
+need to move with a personal one.
+
+**Revisit if:** the owner wants schemes to follow a signed-in user across devices — that would
+mean either accepting dynamic rendering for the whole app, or reading the cookie only on
+authenticated routes (`/settings`, `/dashboard`) and leaving `/r/[slug]` on the default, which
+is a different and more involved design than what shipped here.
+
 ## External prerequisites
 
 | Needed by | Service | Status |

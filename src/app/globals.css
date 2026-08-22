@@ -14,6 +14,10 @@
   without the `dark` class, and repeated under `.dark` (which <html> carries) so that
   shadcn components' own `dark:` variants resolve against the same values instead of
   falling through to a light palette that does not exist here.
+
+  D56 layers five selectable colour schemes on top of this one theme (`[data-palette]`
+  blocks further down) — see context/ui-tokens.md for the full contract. Only the two
+  accent tokens move between schemes; everything above still applies to all of them.
 */
 
 @custom-variant dark (&:is(.dark *));
@@ -166,6 +170,56 @@
 
   --anilist: oklch(0.685 0.169 237.323); /* #0EA5E9 — sky-500 */
   --mal: oklch(0.585 0.233 277.117); /* #6366F1 — indigo-500 */
+}
+
+/*
+  Colour schemes (D56, in `context/progress-tracker.md`) — user-selectable in
+  Settings, applied by `data-palette` on <html>. Reverses D45's "Tsugi ships one
+  theme" line, but keeps its mechanism: everything still resolves through the
+  same semantic tokens, so this is five value sets, not five component trees.
+
+  Deliberately narrow — only `--primary`/`--highlight` (and their foregrounds and
+  `--ring`, which aliases `--primary`) move. The neutral zinc ground
+  (`--background`/`--card`/`--border`) and the score-tier ramp stay fixed across
+  every scheme: rule 1 ("the ground is neutral") and invariant 6 (a score's
+  colour means something) both depend on values that don't shift under the user.
+  "rose" is the default and matches the unscoped block above exactly, so it needs
+  no override.
+*/
+:root[data-palette="indigo"],
+.dark[data-palette="indigo"] {
+  --primary: oklch(0.585 0.233 277.117); /* #6366F1 — indigo-500 */
+  --primary-foreground: oklch(0.985 0 0); /* #FAFAFA */
+  --ring: oklch(0.585 0.233 277.117); /* #6366F1 — indigo-500 */
+  --highlight: oklch(0.667 0.295 322.15); /* #D946EF — fuchsia-500 */
+  --highlight-foreground: oklch(0.985 0 0); /* #FAFAFA */
+}
+
+:root[data-palette="emerald"],
+.dark[data-palette="emerald"] {
+  --primary: oklch(0.696 0.17 162.48); /* #10B981 — emerald-500 */
+  --primary-foreground: oklch(0.985 0 0); /* #FAFAFA */
+  --ring: oklch(0.696 0.17 162.48); /* #10B981 — emerald-500 */
+  --highlight: oklch(0.841 0.238 128.85); /* #A3E635 — lime-400 */
+  --highlight-foreground: oklch(0.141 0.005 285.823); /* #09090B */
+}
+
+:root[data-palette="violet"],
+.dark[data-palette="violet"] {
+  --primary: oklch(0.606 0.25 292.717); /* #8B5CF6 — violet-500 */
+  --primary-foreground: oklch(0.985 0 0); /* #FAFAFA */
+  --ring: oklch(0.606 0.25 292.717); /* #8B5CF6 — violet-500 */
+  --highlight: oklch(0.712 0.194 13.428); /* #FB7185 — rose-400 */
+  --highlight-foreground: oklch(0.141 0.005 285.823); /* #09090B */
+}
+
+:root[data-palette="sky"],
+.dark[data-palette="sky"] {
+  --primary: oklch(0.685 0.169 237.323); /* #0EA5E9 — sky-500 */
+  --primary-foreground: oklch(0.985 0 0); /* #FAFAFA */
+  --ring: oklch(0.685 0.169 237.323); /* #0EA5E9 — sky-500 */
+  --highlight: oklch(0.769 0.188 70.08); /* #F59E0B — amber-500 */
+  --highlight-foreground: oklch(0.141 0.005 285.823); /* #09090B */
 }
 
 @layer base {
