@@ -346,7 +346,7 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
               {/* Right-aligned from `md` up, under the copy below it — the eyebrow
                   already says where you are, so the action gets the corner. */}
               <Button asChild className="rounded-full md:ml-auto">
-                <Link href="/">
+                <Link href={session === null ? "/sign-in" : "/"}>
                   <PlusIcon aria-hidden />
                   Create &amp; share a list
                 </Link>

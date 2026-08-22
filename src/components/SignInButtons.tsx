@@ -59,11 +59,6 @@ export function SignInButtons() {
           Unlocks importing your list later.
         </p>
       </div>
-
-      <p className="flex items-center justify-center gap-1.5 border-t border-border pt-4 font-mono text-[11px] text-muted-foreground">
-        <ShieldCheckIcon className="size-3.5 text-success" aria-hidden />
-        OAuth only — Tsugi never sees your password.
-      </p>
     </div>
   );
 }

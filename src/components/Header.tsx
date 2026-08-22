@@ -41,7 +41,12 @@ export function Header({ username }: { username: string | null }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  const items = NAV.filter((item) => !item.needsSession || username !== null);
+  // Signed-out landing page already links to /feed itself (its hero card),
+  // so the nav's own "Rundown" entry would just repeat it there.
+  const isSignedOutLanding = pathname === "/" && username === null;
+  const items = NAV.filter(
+    (item) => (!item.needsSession || username !== null) && !(isSignedOutLanding && item.href === "/feed"),
+  );
 
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
