@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Inter_Tight, JetBrains_Mono, Unbounded } from "next/font/google";
+import { Suspense } from "react";
+import { TopLoader } from "@/components/TopLoader";
 import "./globals.css";
 
 // Three roles, three faces (context/ui-tokens.md § Type):
@@ -57,7 +59,14 @@ export default function RootLayout({
         of flow — a spacer inside Header would sit at the top of the document, where
         it clears nothing.
       */}
-      <body className="pb-14 md:pb-0">{children}</body>
+      <body className="pb-14 md:pb-0">
+        {/* useSearchParams needs a Suspense boundary to stay statically
+            renderable — see TopLoader for why it depends on that hook. */}
+        <Suspense fallback={null}>
+          <TopLoader />
+        </Suspense>
+        {children}
+      </body>
     </html>
   );
 }
