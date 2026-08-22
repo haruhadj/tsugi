@@ -2,8 +2,6 @@ import "server-only";
 import { getEnv } from "@/lib/env";
 import type { ListEntry, ListStatus, MediaType, ProviderResult } from "@/lib/types/media";
 
-const env = getEnv();
-
 // MAL v2 caps list_status fields differently per media type — "list_status"
 // alone returns { status, score, ... } for both, so one field set works here.
 // D52: extended to include genres and start_season for Phase B import workspace.
@@ -93,7 +91,7 @@ async function getPage(
     response = await fetchImpl(url, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        "X-MAL-CLIENT-ID": env.MAL_CLIENT_ID,
+        "X-MAL-CLIENT-ID": getEnv().MAL_CLIENT_ID,
       },
       signal: AbortSignal.timeout(8_000),
     });
