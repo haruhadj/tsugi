@@ -268,7 +268,7 @@ export function DashboardRecList({ initialRecs }: { initialRecs: ListView[] }) {
 
               {rec.items.length > 1 && (
                 <ul aria-hidden className="mt-4 flex gap-2 overflow-x-auto pb-1">
-                  {rec.items.slice(0, 8).map((item) => (
+                  {rec.items.map((item) => (
                     <li key={item.position} className="shrink-0">
                       <MediaCover
                         src={item.coverImage}

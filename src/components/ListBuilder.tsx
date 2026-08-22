@@ -14,7 +14,6 @@ import {
   SaveIcon,
   TagIcon,
 } from "lucide-react";
-import { useSearchParams } from "next/navigation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -96,33 +95,10 @@ function previewGenres(items: TrayItem[]): { name: string; count: number }[] {
 }
 
 export function ListBuilder() {
-  const searchParams = useSearchParams();
-  const fromParam = searchParams.get("from");
-  const initialMode: Mode = fromParam === "mylist" ? "mylist" : "search";
-
   const [provider, setProvider] = useState<Provider>("anilist");
   const [mediaType, setMediaType] = useState<MediaType>("anime");
-  const [mode, setMode] = useState<Mode>(initialMode);
-  // Arriving via the Import nav link lands the user straight on the add step so
-  // the tracker picker is what they see; a plain visit starts at Details.
-  const [step, setStep] = useState<Step>(fromParam === "mylist" ? 2 : 1);
-
-  // The Import nav link points at `/?from=mylist`. When the user is already on
-  // this page, that navigation only changes the query string — the component
-  // never remounts, so the initial `useState` alone would leave the builder
-  // stuck in whatever mode it was in. Sync during render (React's recommended
-  // "adjust state when a prop changes" pattern) rather than in an effect, which
-  // would cascade an extra render.
-  const [prevFrom, setPrevFrom] = useState(fromParam);
-  if (fromParam !== prevFrom) {
-    setPrevFrom(fromParam);
-    if (fromParam === "mylist") {
-      setMode("mylist");
-      setStep(2);
-    } else {
-      setMode("search");
-    }
-  }
+  const [mode, setMode] = useState<Mode>("search");
+  const [step, setStep] = useState<Step>(1);
 
   const [items, setItems] = useState<TrayItem[]>([]);
   const [name, setName] = useState("");

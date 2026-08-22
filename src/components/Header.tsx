@@ -2,7 +2,6 @@
 
 import {
   CompassIcon,
-  DownloadCloudIcon,
   LayoutDashboardIcon,
   LogOutIcon,
   PlusIcon,
@@ -27,7 +26,6 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { href: "/feed", label: "Rundown", icon: CompassIcon, needsSession: false },
   { href: "/", label: "Create", icon: PlusIcon, needsSession: true },
-  { href: "/?from=mylist", label: "Import", icon: DownloadCloudIcon, needsSession: true },
   { href: "/dashboard", label: "Your lists", icon: LayoutDashboardIcon, needsSession: true },
 ] as const;
 
