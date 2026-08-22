@@ -22,7 +22,6 @@ export default async function SignInPage() {
       <div className="w-full max-w-md animate-card-in">
         {/* Same card as the hero's example, at the other end of the flow. */}
         <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-xl">
-          <div className="brand-gradient h-1 w-full" />
           <div className="flex flex-col gap-8 p-8 sm:p-10">
             <div className="flex flex-col gap-5">
               <Wordmark size="lg" />

@@ -59,6 +59,7 @@ export function MediaCover({
       alt={title}
       width={width}
       height={height}
+      sizes={fluid ? "(max-width: 640px) 33vw, 15vw" : undefined}
       style={fluid ? box : undefined}
       className={cn("rounded-md object-cover", !fluid && "shrink-0", className)}
       onError={() => setFailed(true)}

@@ -13,6 +13,7 @@ import {
   SparklesIcon,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { type ReactNode, useState } from "react";
 import { MediaCover } from "@/components/MediaCover";
 import { ScoreBadge } from "@/components/ScoreBadge";
@@ -313,8 +314,15 @@ function Meta({ entry }: { entry: FeedEntry }) {
  * chips, a caption worth selecting), and a card-wide target would swallow them.
  */
 function StreamCard({ entry }: { entry: FeedEntry }) {
+  const router = useRouter();
+
   return (
-    <li className="flex gap-4 rounded-2xl border border-border bg-card/60 p-4 transition-colors hover:border-input sm:p-5">
+    <li
+      onClick={(e) => {
+        if (e.target === e.currentTarget) router.push(`/r/${entry.slug}`);
+      }}
+      className="flex cursor-pointer gap-4 rounded-2xl border border-border bg-card/60 p-4 transition-colors hover:border-input sm:p-5"
+    >
       <div className="flex shrink-0 flex-col items-center gap-2">
         <VoteButtons slug={entry.slug} initialScore={entry.score} orientation="vertical" />
       </div>

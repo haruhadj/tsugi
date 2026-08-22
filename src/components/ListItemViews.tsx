@@ -342,10 +342,16 @@ function PosterCard({ item, score }: { item: Item; score?: React.ReactNode }) {
         <p className="truncate text-xs font-bold text-foreground">{item.title}</p>
         <div className="flex items-center justify-between gap-1">
           <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
-            #{item.position}
+            #{item.position + 1}
           </span>
           {score}
         </div>
+        <SourceLink
+          provider={item.provider as Provider}
+          mediaType={item.mediaType as MediaType}
+          externalId={item.externalId}
+          className="block truncate text-[10px] text-muted-foreground underline-offset-2 hover:text-primary"
+        />
       </div>
     </div>
   );
@@ -378,7 +384,7 @@ function GalleryView({
 
             {/* Rank is the list's own ordering, so it is `position` — not the filtered index. */}
             <div className="absolute top-2 left-2 rounded-md border border-border bg-background/80 px-2 py-0.5 font-mono text-xs font-bold text-primary backdrop-blur-sm tabular-nums">
-              #{item.position}
+              #{item.position + 1}
             </div>
 
             {hasScore(item) && (
@@ -386,8 +392,6 @@ function GalleryView({
                 <ScoreBadge scoreRaw={item.scoreRaw} scoreFormat={item.scoreFormat} size="sm" />
               </div>
             )}
-
-            <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-background via-background/85 to-transparent" />
           </div>
 
           <div className="space-y-1 bg-card p-3">
@@ -412,6 +416,12 @@ function GalleryView({
                 &ldquo;{item.comment}&rdquo;
               </p>
             )}
+            <SourceLink
+              provider={item.provider as Provider}
+              mediaType={item.mediaType as MediaType}
+              externalId={item.externalId}
+              className="block text-[10px] text-muted-foreground underline-offset-2 hover:text-primary"
+            />
           </div>
         </li>
       ))}
@@ -434,7 +444,7 @@ function RankedView({
         <li key={item.position} className="rounded-2xl border border-border bg-card/60 p-4 sm:p-5">
           <div className="flex gap-4">
             <span className="flex w-8 shrink-0 items-center justify-center font-mono text-xl font-bold text-muted-foreground/50 tabular-nums">
-              {item.position}
+              {item.position + 1}
             </span>
 
             <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

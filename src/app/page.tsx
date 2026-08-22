@@ -122,7 +122,6 @@ export default async function Home() {
           <div className="animate-card-in [animation-delay:140ms]">
             <figure className="relative">
               <div className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-xl">
-                <div className="brand-gradient h-1 w-full" />
                 <div className="p-8 sm:p-10">
                   {/* True of every card: both trackers are real sources. */}
                   <p className="font-mono text-[0.65rem] tracking-[0.3em] text-muted-foreground uppercase">

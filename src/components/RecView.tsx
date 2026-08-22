@@ -36,13 +36,12 @@ export function RecView({ rec }: { rec: ListView }) {
     comment: rec.comment,
     itemCount: rec.items.length,
     items: rec.items.map((item) => ({ title: item.title, coverImage: item.coverImage })),
+    username: rec.authorUsername,
   };
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10 sm:py-16">
       <article className="animate-card-in overflow-hidden rounded-3xl border border-border bg-card/60 shadow-xl">
-        <div className="brand-gradient h-1 w-full" />
-
         <div className="p-6 sm:p-10">
           <header className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-3">

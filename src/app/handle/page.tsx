@@ -22,7 +22,6 @@ export default async function HandlePage() {
 
       <main className="mx-auto flex max-w-md flex-col px-6 py-16">
         <div className="animate-card-in overflow-hidden rounded-3xl border border-border bg-card shadow-xl">
-          <div className="brand-gradient h-1 w-full" />
           <div className="flex flex-col gap-6 p-6 sm:p-8">
             <Wordmark size="lg" />
 

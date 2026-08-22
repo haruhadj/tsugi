@@ -6,10 +6,10 @@ import { cn } from "@/lib/utils";
   source text for complete class names and would emit none of these from an interpolation.
 */
 const TIER_CLASSES: Record<ScoreTier, string> = {
-  excellent: "bg-score-excellent/15 text-score-excellent border-score-excellent/30",
-  good: "bg-score-good/15 text-score-good border-score-good/30",
-  fair: "bg-score-fair/15 text-score-fair border-score-fair/30",
-  poor: "bg-score-poor/15 text-score-poor border-score-poor/30",
+  excellent: "text-score-excellent border-score-excellent/30",
+  good: "text-score-good border-score-good/30",
+  fair: "text-score-fair border-score-fair/30",
+  poor: "text-score-poor border-score-poor/30",
 };
 
 const SIZES = {
@@ -23,6 +23,10 @@ const SIZES = {
  * and its scale are always spelled out by formatScore (`87/100`, or POINT_3's "liked
  * it", which has no numeric rendering at all), so the badge never depends on colour to
  * be read (ui-rules.md § Accessibility).
+ *
+ * The badge sits on an opaque `bg-background` chip rather than a tinted tier background,
+ * since it's frequently placed directly over cover art of unpredictable colour/brightness —
+ * a translucent tier tint would wash out or vanish against light covers.
  *
  * Numerals are mono and tabular so a column of scores lines up.
  */
@@ -42,7 +46,7 @@ export function ScoreBadge({
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center rounded-full border font-mono leading-none font-semibold tabular-nums",
+        "inline-flex shrink-0 items-center rounded-full border bg-background/80 font-mono leading-none font-semibold tabular-nums backdrop-blur-sm",
         TIER_CLASSES[tier],
         SIZES[size],
         className,
