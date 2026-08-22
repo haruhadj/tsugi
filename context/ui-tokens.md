@@ -5,24 +5,27 @@ even when it looks right — it is the thing that makes "change the theme withou
 component" false, and nobody notices until one button is the wrong colour.
 
 Rewritten on 2026-08-17 (**D45**) to match the AI Studio prototype, replacing the violet
-"Eyecatch" palette that **D41** had established. If you find `#6C63FF`, `bloom`, `text-bloom`,
-`.eyecatch-bar`, `.eyecatch-edge`, or a 2px `--radius`, it is from that era. Older leftovers
-still worth recognising: `bg-accent` used as *the* accent and `data-theme="dark"` are HeroUI,
-pre-**D41**.
+"Eyecatch" palette that **D41** had established, and rewritten again on 2026-08-22 (**D57**)
+around the project logo (`public/logo.png`). If you find `#6C63FF`, `bloom`, `text-bloom`,
+`.eyecatch-bar`, `.eyecatch-edge`, or a 2px `--radius`, it is from the Eyecatch era. Older
+leftovers still worth recognising: `bg-accent` used as *the* accent and `data-theme="dark"` are
+HeroUI, pre-**D41**. `#09090B`/zinc-950 as *the* ground and rose as the only accent are D45's
+"Curation Desk", pre-**D57** — it now survives only as the `rose` colour scheme (below).
 
-## The direction — "Curation Desk"
+## The direction
 
-Tsugi's screens are a near-black workspace where the lists are the only colour. Zinc surfaces,
-a rose accent, soft-rounded panels, and score tiers that carry their own meaning in colour.
+Tsugi's ground and accents are sampled straight from the logo: a deep indigo-navy workspace
+with a violet-purple accent and a warm gold counter-accent, soft-rounded panels, and score
+tiers that carry their own meaning in colour.
 
 This is a direction, not a mood board. It cashes out as four rules:
 
-1. **The ground is neutral, so the content is not.** `--background` is zinc-950. Everything
-   with chroma on a screen — a rose accent, an amber pick, a green score — is content or an
-   action, never chrome.
-2. **Two accents, unequal.** `primary` (rose) is the action colour. `highlight` (amber) is the
-   counter-accent: the brand gradient's far end, and the one "editor's pick" mark per surface.
-   It is not a second button colour.
+1. **The ground is a colour, not a neutral — but still just the ground.** `--background` is
+   the logo's navy. Chroma-bearing content — the purple accent, the gold pick, a green score —
+   still has to read as content or action against it, never disappear into it as more chrome.
+2. **Two accents, unequal.** `primary` (violet-purple) is the action colour. `highlight` (gold)
+   is the counter-accent: the brand gradient's far end, and the one "editor's pick" mark per
+   surface. It is not a second button colour.
 3. **Radius is 12px, and panels go further.** Cards are `rounded-2xl`/`rounded-3xl`, pills and
    badges are `rounded-full`. Nothing in this system is hard-edged.
 4. **Separation comes from surface, hairline, and — on the artifact — shadow.** `--card`
@@ -40,22 +43,26 @@ Tailwind 4 and shadcn are configured in CSS. There is no `tailwind.config.ts`.
 @import "tw-animate-css";
 ```
 
-**Tsugi ships one theme, with five selectable colour schemes on top (D56).** The base palette
-is defined on `:root, .dark` together — on `:root` so it applies unconditionally, and repeated
-under `.dark` (which `<html>` carries) so shadcn components' own `dark:` variants resolve
-against the same values instead of falling through to a light palette that does not exist.
+**Tsugi ships one theme, with six selectable colour schemes on top (D56, D57).** The base
+palette is defined on `:root, .dark` together — on `:root` so it applies unconditionally, and
+repeated under `.dark` (which `<html>` carries) so shadcn components' own `dark:` variants
+resolve against the same values instead of falling through to a light palette that does not
+exist. Deleting either selector half-breaks the page in a way that only shows on the few
+components that use `dark:`.
 
-A colour scheme (`rose` default, `indigo`, `emerald`, `violet`, `sky`) is a
-`:root[data-palette="X"], .dark[data-palette="X"]` block layered after the base one, and it
-only ever overrides `--primary`/`--primary-foreground`/`--ring`/`--highlight`/
-`--highlight-foreground` — rule 1's neutral zinc ground and the score-tier ramp (invariant 6)
-never move, on purpose: a scheme is "which two accents", not a new visual system. Picked in
-Settings (`ColorSchemeField`), stored in a plain `tsugi-palette` cookie (per-browser, not
-per-account — there's no server round trip), applied by a render-blocking inline script in
-`RootLayout` before hydration so switching schemes never flashes the default on the next load.
-`src/lib/palette.ts` is the catalogue — id, label, and the two swatch hexes — that both the CSS
-and the picker read from. Deleting either selector half-breaks the page in a
-way that only shows on the few components that use `dark:`.
+A colour scheme is a `:root[data-palette="X"], .dark[data-palette="X"]` block layered after the
+base one. `raiden` (**default**, no attribute needed — it's what the base block above already
+renders) and `rose` (the retired D45 "Curation Desk" direction) each override the full ground —
+`--background`/`--card`/`--border`/`--muted`/etc — because each represents a distinct visual
+identity, logo vs. not. The other four (`indigo`, `emerald`, `violet`, `sky`) are deliberately
+narrower: layered on whichever ground is currently active, they only ever override
+`--primary`/`--primary-foreground`/`--ring`/`--highlight`/`--highlight-foreground` — a scheme is
+"which two accents", not a new visual system. The score-tier ramp (invariant 6) never moves in
+any scheme. Picked in Settings (`ColorSchemeField`), stored in a plain `tsugi-palette` cookie
+(per-browser, not per-account — there's no server round trip), applied by a render-blocking
+inline script in `RootLayout` before hydration so switching schemes never flashes the default
+on the next load. `src/lib/palette.ts` is the catalogue — id, label, and the two swatch hexes —
+that both the CSS and the picker read from.
 
 ## Colour — semantic names only
 
@@ -65,8 +72,7 @@ an ordinary utility: `bg-background`, `text-muted-foreground`, `border-border`, 
 Use the semantic token. Never the underlying value.
 
 Hex below is the **exact** sRGB equivalent of the `oklch()` in `globals.css` — not an
-approximation. The greys are Tailwind's zinc ramp and the accents its rose/amber/emerald/
-indigo, so any value can be checked against the published palette rather than guessed at.
+approximation, sampled directly from `public/logo.png` for the ground/accent rows.
 
 **Two files copy this column** and must be changed with it: the OG card
 (`src/app/r/[slug]/opengraph-image.tsx`) and the downloadable card (`src/lib/canvasExport.ts`).
@@ -75,19 +81,19 @@ shared card just stops matching the site.
 
 | Token | Hex | Use for |
 |---|---|---|
-| `background` | `#09090B` | page ground — zinc-950 |
-| `card` / `popover` | `#18181B` | raised surfaces — panels, the modal |
+| `background` | `#101434` | page ground — the logo's navy |
+| `card` / `popover` | `#181C40` | raised surfaces — panels, the modal |
 | `foreground` | `#FAFAFA` | body text |
-| `muted-foreground` | `#A1A1AA` | secondary text — metadata, helper lines, view count |
-| `muted` / `secondary` | `#27272A` | quiet chrome, secondary buttons |
-| `accent` / `accent-foreground` | `#27272A` | **hover surfaces only** — not the accent colour |
-| `primary` | `#F43F5E` | the one action that matters on a screen |
+| `muted-foreground` | `#9CA0C4` | secondary text — metadata, helper lines, view count |
+| `muted` / `secondary` | `#2A2F5C` | quiet chrome, secondary buttons |
+| `accent` / `accent-foreground` | `#2A2F5C` | **hover surfaces only** — not the accent colour |
+| `primary` | `#542C84` | the one action that matters on a screen — the logo's purple |
 | `primary-foreground` | `#FAFAFA` | text on `primary` |
-| `highlight` | `#F59E0B` | the amber counter-accent — gradient end, "pick" marks |
+| `highlight` | `#D0B070` | the gold counter-accent — gradient end, "pick" marks |
 | `success` | `#10B981` | confirmed / connected / saved. Never a button, never a score |
-| `border` | `#27272A` | borders, dividers |
-| `input` | `#3F3F46` | input outlines |
-| `ring` | `#F43F5E` | focus rings — aliased to `primary` |
+| `border` | `#262B54` | borders, dividers |
+| `input` | `#3A3E68` | input outlines |
+| `ring` | `#542C84` | focus rings — aliased to `primary` |
 | `destructive` | `#EF4444` | destructive actions only, never decoration |
 
 **Score tiers.** The only place score colour is defined. A score's band comes from

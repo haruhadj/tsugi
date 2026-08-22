@@ -62,18 +62,20 @@ export default function RootLayout({
       */}
       <body className="pb-14 md:pb-0">
         {/*
-          Colour scheme (D56): a `data-palette` attribute read from a plain
+          Colour scheme (D56/D57): a `data-palette` attribute read from a plain
           cookie, set before hydration so switching schemes in Settings never
           flashes the default on the next load. Render-blocking and inline on
-          purpose — anything deferred runs after first paint. "rose" needs no
-          attribute; it's what globals.css's unscoped block already renders.
+          purpose — anything deferred runs after first paint. "raiden" needs no
+          attribute; it's what globals.css's unscoped block already renders
+          (src/lib/palette.ts's DEFAULT_PALETTE — kept literal here since inline
+          script content can't import a module).
         */}
         <script
           dangerouslySetInnerHTML={{
             __html:
               '(function(){try{var m=document.cookie.match(/(?:^|; )tsugi-palette=([^;]+)/);' +
               'var p=m&&decodeURIComponent(m[1]);' +
-              'if(p&&p!=="rose")document.documentElement.setAttribute("data-palette",p);' +
+              'if(p&&p!=="raiden")document.documentElement.setAttribute("data-palette",p);' +
               "}catch(e){}})();",
           }}
         />

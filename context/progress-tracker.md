@@ -1378,6 +1378,50 @@ mean either accepting dynamic rendering for the whole app, or reading the cookie
 authenticated routes (`/settings`, `/dashboard`) and leaving `/r/[slug]` on the default, which
 is a different and more involved design than what shipped here.
 
+### D57 — Logo added; its palette (Raiden Shogun-derived) becomes the default, demoting D45's "Curation Desk" to a colour scheme
+
+*Owner request, 2026-08-22: use `public/logo.png` (a 次 mark on a navy field, purple glyph,
+gold outline — colours the owner describes as based on Genshin Impact's Raiden Shogun) as the
+project's logo, and make its palette the default theme.*
+
+**Logo.** `image-removebg-preview.png` renamed to `public/logo.png` and wired into
+`Wordmark.tsx` via `next/image`, replacing the generated `次`-in-a-gradient-box mark that
+component built itself. `src/app/icon.svg` (the favicon) keeps its own vector `次` — regenerating
+a crisp small favicon from a 500×500 raster wasn't worth doing — but its gradient stops were
+recoloured to match: `#542C84` → `#D0B070`.
+
+**Palette.** Ground and accent hex sampled directly from the logo's pixels (`#101434` navy,
+`#542C84` purple, `#D0B070` gold; conversions to `oklch()` computed, not eyeballed, since
+`globals.css` authors in `oklch()`). This becomes the new unscoped default in `globals.css`,
+reversing D56's own choice of `rose` as the implicit no-attribute default: `raiden` now needs no
+`data-palette` attribute, and the old D45 zinc/rose "Curation Desk" values move into a new
+`[data-palette="rose"]` block, preserved byte-for-byte as a selectable scheme rather than
+deleted. `src/lib/palette.ts`'s `PALETTES` gained a `raiden` entry (first in the list) and
+`DEFAULT_PALETTE` flipped from `"rose"` to `"raiden"`; the inline no-flash script in
+`RootLayout` (D56) has its literal `"rose"` check changed to `"raiden"` to match — it can't
+import the module's constant, being raw script text, so the two must be kept in step by hand.
+
+**What this reopens from D56/D57's own design.** Rule 1 was "the ground is neutral, so the
+content is not" — a navy ground has its own chroma, so that rule's wording changed to "the
+ground is a colour, not a neutral — but still just the ground" rather than being preserved
+verbatim over a ground that no longer fits it. The four accent-only schemes (`indigo`,
+`emerald`, `violet`, `sky`) were unaffected in mechanism — they still only override
+`--primary`/`--highlight` — but now render against the navy ground instead of zinc, since that's
+what the unscoped block underneath them provides. Their `--highlight-foreground` (used for dark
+text on a light highlight chip) was repointed from the old zinc-950 hex to the new navy one for
+the same reason.
+
+**What did not change.** The score-tier ramp, `success`, `destructive`, `upvote`/`downvote`, and
+`anilist`/`mal` are untouched — same values, same reasoning as D56 (invariant 6; a score's
+colour must mean the same thing regardless of which scheme is active). The OG card
+(`opengraph-image.tsx`) and canvas export (`canvasExport.ts`) hardcoded hex blocks were updated
+to the new default (D45's carve-out: neither Satori nor canvas can parse `oklch()`), the same
+way they were updated for D45 itself and left alone for D56's per-browser schemes.
+
+**Revisit if:** the four accent-only schemes' pairing with a navy (rather than zinc) ground
+reads as accidental rather than intentional once seen in a browser — no live pass has been done
+since this landed.
+
 ## External prerequisites
 
 | Needed by | Service | Status |

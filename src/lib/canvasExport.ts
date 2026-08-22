@@ -8,13 +8,13 @@
  * literal colours, not oklch).
  */
 const COLOR = {
-  background: "#09090B",
-  card: "#18181B",
-  border: "#27272A",
+  background: "#101434",
+  card: "#181C40",
+  border: "#262B54",
   foreground: "#FAFAFA",
-  mutedForeground: "#A1A1AA",
-  primary: "#F43F5E",
-  highlight: "#F59E0B",
+  mutedForeground: "#9CA0C4",
+  primary: "#542C84",
+  highlight: "#D0B070",
 };
 
 const MIN_WIDTH = 700;

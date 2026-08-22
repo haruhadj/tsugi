@@ -15,13 +15,13 @@ export const contentType = "image/png";
 // the two can be checked against each other. If the palette changes there, change it
 // here too: nothing will fail to build, the card will just stop matching the site.
 const COLOR = {
-  background: "#09090B", // --background, oklch(0.141 0.005 285.823)
-  card: "#18181B", // --card, oklch(0.21 0.006 285.885)
-  border: "#27272A", // --border, oklch(0.274 0.006 286.033)
+  background: "#101434", // --background, oklch(0.209 0.062 274.305)
+  card: "#181C40", // --card, oklch(0.245 0.068 275.454)
+  border: "#262B54", // --border, oklch(0.307 0.073 275.948)
   foreground: "#FAFAFA", // --foreground, oklch(0.985 0 0)
-  mutedForeground: "#A1A1AA", // --muted-foreground, oklch(0.705 0.015 286.067)
-  primary: "#F43F5E", // --primary, oklch(0.645 0.246 16.439)
-  highlight: "#F59E0B", // --highlight, oklch(0.769 0.188 70.08)
+  mutedForeground: "#9CA0C4", // --muted-foreground, oklch(0.715 0.052 280.003)
+  primary: "#542C84", // --primary, oklch(0.393 0.142 300.959)
+  highlight: "#D0B070", // --highlight, oklch(0.771 0.09 83.857)
 };
 
 type Params = Promise<{ slug: string }>;

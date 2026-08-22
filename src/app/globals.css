@@ -2,22 +2,25 @@
 @import "tw-animate-css";
 
 /*
-  Tsugi's visual direction is "Curation Desk" — a near-black zinc workspace with a rose
-  accent, soft-rounded panels, and colour-coded score tiers. The full rationale and the
-  token contract live in context/ui-tokens.md; this file is the only place the values
-  themselves exist.
+  Tsugi's visual direction, as of D57, is built around the logo (public/logo.png) and its
+  Raiden Shogun-derived palette: a deep indigo-navy ground with a violet-purple accent and
+  a warm gold counter-accent. The full rationale and the token contract live in
+  context/ui-tokens.md; this file is the only place the values themselves exist.
 
-  This replaced the earlier violet "Eyecatch" palette (D45). If you find `#0B0A14`,
-  `#6C63FF`, `bloom`, or a 2px `--radius` anywhere, it is a leftover from that system.
+  This replaced "Curation Desk" (D45's near-black zinc/rose direction, itself a
+  replacement for the earlier violet "Eyecatch" palette). Curation Desk survives as the
+  `rose` colour scheme below, not as the default. If you find `#0B0A14`, `#6C63FF`,
+  `bloom`, or a 2px `--radius` anywhere, it is a leftover from the Eyecatch era.
 
   Tsugi ships one theme. The palette below is defined on :root so it applies with or
   without the `dark` class, and repeated under `.dark` (which <html> carries) so that
   shadcn components' own `dark:` variants resolve against the same values instead of
   falling through to a light palette that does not exist here.
 
-  D56 layers five selectable colour schemes on top of this one theme (`[data-palette]`
-  blocks further down) — see context/ui-tokens.md for the full contract. Only the two
-  accent tokens move between schemes; everything above still applies to all of them.
+  D56 layered selectable colour schemes on top of this one theme (`[data-palette]` blocks
+  further down) — see context/ui-tokens.md for the full contract. D57 added a sixth
+  scheme, `raiden`, and — reversing D56's own "rose is the unscoped default" — made it the
+  new unscoped default, demoting the old zinc/rose block to `[data-palette="rose"]`.
 */
 
 @custom-variant dark (&:is(.dark *));
@@ -124,38 +127,39 @@
     recomputing its comment, the card silently stops matching the site and nothing will
     fail to build.
 
-    The greys are Tailwind's zinc ramp and the accents its rose/amber/emerald/indigo, so
-    a value can always be checked against the published palette rather than guessed at.
+    D57: ground and accents are both sampled from public/logo.png (the Raiden
+    Shogun-derived mark) — a deep indigo-navy ground with a violet-purple accent and a
+    warm gold counter-accent, rather than Tailwind's published ramps.
   */
-  --background: oklch(0.141 0.005 285.823); /* #09090B — zinc-950, the desk */
-  --foreground: oklch(0.985 0 0); /* #FAFAFA — zinc-50 */
+  --background: oklch(0.209 0.062 274.305); /* #101434 — logo ground */
+  --foreground: oklch(0.985 0 0); /* #FAFAFA */
 
-  --card: oklch(0.21 0.006 285.885); /* #18181B — zinc-900, the panel */
+  --card: oklch(0.245 0.068 275.454); /* #181C40 — the panel, one step up */
   --card-foreground: var(--foreground);
-  --popover: oklch(0.21 0.006 285.885); /* #18181B — zinc-900 */
+  --popover: oklch(0.245 0.068 275.454); /* #181C40 */
   --popover-foreground: var(--foreground);
 
-  --primary: oklch(0.645 0.246 16.439); /* #F43F5E — rose-500, the accent */
+  --primary: oklch(0.393 0.142 300.959); /* #542C84 — the logo's purple, the accent */
   --primary-foreground: oklch(0.985 0 0); /* #FAFAFA */
 
-  --secondary: oklch(0.274 0.006 286.033); /* #27272A — zinc-800 */
+  --secondary: oklch(0.325 0.079 276.281); /* #2A2F5C */
   --secondary-foreground: var(--foreground);
 
-  --muted: oklch(0.274 0.006 286.033); /* #27272A — zinc-800 */
-  --muted-foreground: oklch(0.705 0.015 286.067); /* #A1A1AA — zinc-400 */
+  --muted: oklch(0.325 0.079 276.281); /* #2A2F5C */
+  --muted-foreground: oklch(0.715 0.052 280.003); /* #9CA0C4 */
 
   /* Hover surfaces only. Not "the accent" — that is `primary`. */
-  --accent: oklch(0.274 0.006 286.033); /* #27272A — zinc-800 */
+  --accent: oklch(0.325 0.079 276.281); /* #2A2F5C */
   --accent-foreground: var(--foreground);
 
   --destructive: oklch(0.637 0.237 25.331); /* #EF4444 — red-500 */
 
-  --border: oklch(0.274 0.006 286.033); /* #27272A — zinc-800 */
-  --input: oklch(0.37 0.013 285.805); /* #3F3F46 — zinc-700 */
-  --ring: oklch(0.645 0.246 16.439); /* #F43F5E — rose-500 */
+  --border: oklch(0.307 0.073 275.948); /* #262B54 */
+  --input: oklch(0.381 0.072 278.284); /* #3A3E68 */
+  --ring: oklch(0.393 0.142 300.959); /* #542C84 */
 
-  --highlight: oklch(0.769 0.188 70.08); /* #F59E0B — amber-500 */
-  --highlight-foreground: oklch(0.141 0.005 285.823); /* #09090B */
+  --highlight: oklch(0.771 0.09 83.857); /* #D0B070 — the logo's gold outline */
+  --highlight-foreground: oklch(0.209 0.062 274.305); /* #101434 */
 
   --success: oklch(0.696 0.17 162.48); /* #10B981 — emerald-500 */
 
@@ -174,18 +178,48 @@
 
 /*
   Colour schemes (D56, in `context/progress-tracker.md`) — user-selectable in
-  Settings, applied by `data-palette` on <html>. Reverses D45's "Tsugi ships one
-  theme" line, but keeps its mechanism: everything still resolves through the
-  same semantic tokens, so this is five value sets, not five component trees.
+  Settings, applied by `data-palette` on <html>. D56 reversed D45's "Tsugi ships one
+  theme" line while keeping its mechanism: everything still resolves through the
+  same semantic tokens, so this is several value sets, not several component trees.
+  D57 made the logo-derived palette the unscoped default (see the comment at the
+  top of this file) and demoted the old zinc/rose "Curation Desk" direction to the
+  `rose` scheme below — the one scheme that, for that reason, overrides the ground
+  tokens too, not just the two accents.
 
-  Deliberately narrow — only `--primary`/`--highlight` (and their foregrounds and
-  `--ring`, which aliases `--primary`) move. The neutral zinc ground
-  (`--background`/`--card`/`--border`) and the score-tier ramp stay fixed across
-  every scheme: rule 1 ("the ground is neutral") and invariant 6 (a score's
-  colour means something) both depend on values that don't shift under the user.
-  "rose" is the default and matches the unscoped block above exactly, so it needs
-  no override.
+  The other four schemes stay deliberately narrow — only `--primary`/`--highlight`
+  (and their foregrounds and `--ring`, which aliases `--primary`) move. Score-tier
+  colours (invariant 6) never move in any scheme, `rose` included.
 */
+:root[data-palette="rose"],
+.dark[data-palette="rose"] {
+  --background: oklch(0.141 0.005 285.823); /* #09090B — zinc-950, the old desk */
+  --foreground: oklch(0.985 0 0); /* #FAFAFA — zinc-50 */
+
+  --card: oklch(0.21 0.006 285.885); /* #18181B — zinc-900 */
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.21 0.006 285.885); /* #18181B — zinc-900 */
+  --popover-foreground: var(--foreground);
+
+  --primary: oklch(0.645 0.246 16.439); /* #F43F5E — rose-500 */
+  --primary-foreground: oklch(0.985 0 0); /* #FAFAFA */
+
+  --secondary: oklch(0.274 0.006 286.033); /* #27272A — zinc-800 */
+  --secondary-foreground: var(--foreground);
+
+  --muted: oklch(0.274 0.006 286.033); /* #27272A — zinc-800 */
+  --muted-foreground: oklch(0.705 0.015 286.067); /* #A1A1AA — zinc-400 */
+
+  --accent: oklch(0.274 0.006 286.033); /* #27272A — zinc-800 */
+  --accent-foreground: var(--foreground);
+
+  --border: oklch(0.274 0.006 286.033); /* #27272A — zinc-800 */
+  --input: oklch(0.37 0.013 285.805); /* #3F3F46 — zinc-700 */
+  --ring: oklch(0.645 0.246 16.439); /* #F43F5E — rose-500 */
+
+  --highlight: oklch(0.769 0.188 70.08); /* #F59E0B — amber-500 */
+  --highlight-foreground: oklch(0.141 0.005 285.823); /* #09090B */
+}
+
 :root[data-palette="indigo"],
 .dark[data-palette="indigo"] {
   --primary: oklch(0.585 0.233 277.117); /* #6366F1 — indigo-500 */
@@ -201,7 +235,7 @@
   --primary-foreground: oklch(0.985 0 0); /* #FAFAFA */
   --ring: oklch(0.696 0.17 162.48); /* #10B981 — emerald-500 */
   --highlight: oklch(0.841 0.238 128.85); /* #A3E635 — lime-400 */
-  --highlight-foreground: oklch(0.141 0.005 285.823); /* #09090B */
+  --highlight-foreground: oklch(0.209 0.062 274.305); /* #101434 */
 }
 
 :root[data-palette="violet"],
@@ -210,7 +244,7 @@
   --primary-foreground: oklch(0.985 0 0); /* #FAFAFA */
   --ring: oklch(0.606 0.25 292.717); /* #8B5CF6 — violet-500 */
   --highlight: oklch(0.712 0.194 13.428); /* #FB7185 — rose-400 */
-  --highlight-foreground: oklch(0.141 0.005 285.823); /* #09090B */
+  --highlight-foreground: oklch(0.209 0.062 274.305); /* #101434 */
 }
 
 :root[data-palette="sky"],
@@ -219,7 +253,7 @@
   --primary-foreground: oklch(0.985 0 0); /* #FAFAFA */
   --ring: oklch(0.685 0.169 237.323); /* #0EA5E9 — sky-500 */
   --highlight: oklch(0.769 0.188 70.08); /* #F59E0B — amber-500 */
-  --highlight-foreground: oklch(0.141 0.005 285.823); /* #09090B */
+  --highlight-foreground: oklch(0.209 0.062 274.305); /* #101434 */
 }
 
 @layer base {
