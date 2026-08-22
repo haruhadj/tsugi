@@ -79,11 +79,20 @@ function previewGenres(items: TrayItem[]): { name: string; count: number }[] {
 
 export function ListBuilder() {
   const searchParams = useSearchParams();
-  const initialMode: Mode = searchParams.get("from") === "mylist" ? "mylist" : "search";
+  const fromParam = searchParams.get("from");
+  const initialMode: Mode = fromParam === "mylist" ? "mylist" : "search";
 
   const [provider, setProvider] = useState<Provider>("anilist");
   const [mediaType, setMediaType] = useState<MediaType>("anime");
   const [mode, setMode] = useState<Mode>(initialMode);
+
+  // The Import nav link points at `/?from=mylist`. When the user is already on
+  // this page, that navigation only changes the query string — the component
+  // never remounts, so the initial `useState(initialMode)` alone would leave
+  // the builder stuck in whatever mode it was in. Sync mode to the param.
+  useEffect(() => {
+    setMode(fromParam === "mylist" ? "mylist" : "search");
+  }, [fromParam]);
   const [items, setItems] = useState<TrayItem[]>([]);
   const [name, setName] = useState("");
   const [category, setCategory] = useState<ListCategory>(FALLBACK_LIST_CATEGORY);

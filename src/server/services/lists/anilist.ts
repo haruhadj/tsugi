@@ -184,6 +184,16 @@ export async function fetchAniListList(
   const lists = listBody.data?.MediaListCollection?.lists;
   if (!lists) return { ok: false, reason: "unavailable" };
 
+  // A media can appear in several of AniList's lists at once (its status list
+  // plus any custom lists), so flatMap yields duplicate entries for the same
+  // media id. Dedupe by media id — first occurrence wins — so downstream React
+  // keys (`provider-externalId`) stay unique.
   const entries = lists.flatMap((list) => list.entries ?? []);
-  return { ok: true, data: entries.map((entry) => toListEntry(entry, scoreFormat)) };
+  const seen = new Set<number>();
+  const unique = entries.filter((entry) => {
+    if (seen.has(entry.media.id)) return false;
+    seen.add(entry.media.id);
+    return true;
+  });
+  return { ok: true, data: unique.map((entry) => toListEntry(entry, scoreFormat)) };
 }

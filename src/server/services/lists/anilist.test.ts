@@ -201,4 +201,30 @@ describe("fetchAniListList", () => {
     expect(result.data[0]!.status).toBeNull();
     expect(result.data[0]!.genres).toEqual([]);
   });
+
+  test("dedupes a media that appears in multiple lists by media id", async () => {
+    // AniList returns the same media in its status list and any custom lists;
+    // flatMap would otherwise yield duplicate externalIds and collide React keys.
+    const duped = {
+      data: {
+        MediaListCollection: {
+          lists: [
+            { entries: [aniListEntry({ id: 110277 }), aniListEntry({ id: 190704 })] },
+            { entries: [aniListEntry({ id: 110277 })] },
+          ],
+        },
+      },
+    };
+
+    const result = await fetchAniListList(
+      "user-1",
+      "token",
+      "anime",
+      mockSequence([{ body: viewerBody() }, { body: duped }]),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.map((e) => e.externalId)).toEqual([110277, 190704]);
+  });
 });
