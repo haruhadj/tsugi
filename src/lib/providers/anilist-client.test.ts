@@ -3,7 +3,20 @@ import berserkFixture from "./__fixtures__/anilist-search-berserk-manga.json";
 import frierenSearchFixture from "./__fixtures__/anilist-search-frieren-anime.json";
 import frierenResolveFixture from "./__fixtures__/anilist-resolve-154587.json";
 import { countCalls, mockFetchHang, mockFetchJSON, mockFetchReject } from "./__fixtures__/mock-fetch";
-import { resolveAniList, searchAniList } from "./anilist-client";
+import { resolveAniList, fetchAniListGenres, searchAniList } from "./anilist-client";
+
+/**
+ * Captures the request the adapter sends so genre-browse variables can be
+ * asserted, while still returning a valid empty page.
+ */
+function mockFetchCapturing(): { fetchImpl: typeof fetch; body: () => Record<string, unknown> } {
+  let captured: Record<string, unknown> = {};
+  const fetchImpl = (async (_url: string, init?: RequestInit) => {
+    captured = JSON.parse(String(init?.body ?? "{}"));
+    return new Response(JSON.stringify({ data: { Page: { media: [] } } }), { status: 200 });
+  }) as unknown as typeof fetch;
+  return { fetchImpl, body: () => captured };
+}
 
 const ALL_KEYS = [
   "provider",
@@ -194,5 +207,57 @@ describe("searchAniList genres", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.data[0]!.genres).toEqual([]);
+  });
+});
+
+// D-genre-browse — the Search panel can browse by genre with no title typed.
+describe("searchAniList genre browse", () => {
+  test("passes a chosen genre as genre_in and, with no query, a popularity sort", async () => {
+    const mock = mockFetchCapturing();
+    await searchAniList("", "anime", new AbortController().signal, mock.fetchImpl, "Romance");
+
+    const vars = mock.body().variables as Record<string, unknown>;
+    expect(vars.genre_in).toEqual(["Romance"]);
+    // A null search is "no title constraint" — browse, not an empty search.
+    expect(vars.search).toBeNull();
+    expect(vars.sort).toEqual(["POPULARITY_DESC"]);
+  });
+
+  test("with a query typed, keeps genre_in but drops the popularity sort", async () => {
+    const mock = mockFetchCapturing();
+    await searchAniList("frieren", "anime", new AbortController().signal, mock.fetchImpl, "Fantasy");
+
+    const vars = mock.body().variables as Record<string, unknown>;
+    expect(vars.genre_in).toEqual(["Fantasy"]);
+    expect(vars.search).toBe("frieren");
+    expect(vars.sort).toBeNull();
+  });
+
+  test("no genre leaves genre_in null", async () => {
+    const mock = mockFetchCapturing();
+    await searchAniList("frieren", "anime", new AbortController().signal, mock.fetchImpl);
+    expect((mock.body().variables as Record<string, unknown>).genre_in).toBeNull();
+  });
+});
+
+describe("fetchAniListGenres", () => {
+  test("returns the collection, with Hentai stripped for a SFW product", async () => {
+    const result = await fetchAniListGenres(
+      new AbortController().signal,
+      mockFetchJSON({ data: { GenreCollection: ["Action", "Hentai", "Romance"] } }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data).toEqual(["Action", "Romance"]);
+  });
+
+  test("a missing collection is an unavailable failure, not an empty list", async () => {
+    const result = await fetchAniListGenres(
+      new AbortController().signal,
+      mockFetchJSON({ data: {} }),
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("unavailable");
   });
 });

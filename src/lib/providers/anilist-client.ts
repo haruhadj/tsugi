@@ -7,10 +7,17 @@ const ENDPOINT = "https://graphql.anilist.co";
 // dropdown shows.
 const SEARCH_RESULT_COUNT = 8;
 
+// AniList's `genre_in` takes the genre *name* as a string. The genre browse
+// (empty search + a genre) sorts by popularity so the panel opens on titles a
+// user is likely to recognise — verified live 2026-08-22. `Hentai` is stripped
+// from the offered list: this is a SFW recommendation product.
+const GENRE_SORT = "POPULARITY_DESC";
+const EXCLUDED_GENRES = new Set(["Hentai"]);
+
 const SEARCH_QUERY = `
-  query ($search: String, $type: MediaType, $perPage: Int) {
+  query ($search: String, $type: MediaType, $perPage: Int, $genre_in: [String], $sort: [MediaSort]) {
     Page(perPage: $perPage) {
-      media(search: $search, type: $type) {
+      media(search: $search, type: $type, genre_in: $genre_in, sort: $sort) {
         id
         type
         title { english romaji native }
@@ -22,6 +29,10 @@ const SEARCH_QUERY = `
     }
   }
 `;
+
+// AniList exposes its whole genre vocabulary as a flat scalar list, shared
+// across anime and manga — verified live 2026-08-22.
+const GENRE_QUERY = `query { GenreCollection }`;
 
 const RESOLVE_QUERY = `
   query ($id: Int, $type: MediaType) {
@@ -140,14 +151,22 @@ export async function searchAniList(
   mediaType: MediaType,
   signal: AbortSignal,
   fetchImpl: typeof fetch = fetch,
+  genre?: string,
 ): Promise<ProviderResult<UnifiedMediaResult[]>> {
   const result = await postGraphQL(
     {
       query: SEARCH_QUERY,
       variables: {
-        search: query,
+        // AniList treats a null `search` as "no title constraint", which is
+        // exactly genre browse — an empty query with a genre returns that
+        // genre's titles rather than nothing.
+        search: query || null,
         type: toGraphQLMediaType(mediaType),
         perPage: SEARCH_RESULT_COUNT,
+        genre_in: genre ? [genre] : null,
+        // Only impose the popularity sort when browsing (no query). With a
+        // title typed, AniList's own search relevance is the better order.
+        sort: query ? null : genre ? [GENRE_SORT] : null,
       },
     },
     withTimeout(signal, 3_000),
@@ -160,6 +179,29 @@ export async function searchAniList(
   if (!media) return { ok: false, reason: "unavailable" };
 
   return { ok: true, data: media.map(toUnifiedMediaResult) };
+}
+
+/**
+ * The genre vocabulary offered in the Search panel's browse dropdown
+ * (D-genre-browse). Returns bare names; the caller pairs each with itself as
+ * the `id`, since AniList's browse query takes the name directly.
+ */
+export async function fetchAniListGenres(
+  signal: AbortSignal,
+  fetchImpl: typeof fetch = fetch,
+): Promise<ProviderResult<string[]>> {
+  const result = await postGraphQL(
+    { query: GENRE_QUERY },
+    withTimeout(signal, 3_000),
+    fetchImpl,
+  );
+  if (!result.ok) return result;
+
+  const body = result.data as { data?: { GenreCollection?: string[] } };
+  const genres = body.data?.GenreCollection;
+  if (!genres) return { ok: false, reason: "unavailable" };
+
+  return { ok: true, data: genres.filter((g) => !EXCLUDED_GENRES.has(g)) };
 }
 
 export async function resolveAniList(

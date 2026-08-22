@@ -27,6 +27,15 @@ export type UnifiedMediaResult = {
 };
 
 /**
+ * A genre offered for browsing, unified across providers (D-genre-browse). The
+ * `label` is what the user reads; the `id` is what the provider's browse query
+ * wants — for AniList that is the genre name itself (`genre_in: [String]`), for
+ * MAL the numeric `mal_id` stringified (`?genres=<id>`). Kept as a pair so the
+ * UI never has to know which provider's vocabulary it is showing.
+ */
+export type ProviderGenre = { id: string; label: string };
+
+/**
  * Adapters return this instead of throwing for expected failures (a Jikan 504,
  * a timeout). Throwing here means every caller needs a try/catch, and one
  * missing catch takes down the create flow — see code-standards.md.

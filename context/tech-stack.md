@@ -324,6 +324,13 @@ and status codes, not from documentation.
 - Cover images are served from `s4.anilist.co`.
 - Returns **`idMal`** on media objects — the only sanctioned bridge between the two id
   spaces. See below.
+- **Genre browse (verified live 2026-08-22, D-genre-browse).** `query { GenreCollection }`
+  returns a flat `string[]` shared across anime and manga (`["Action","Adventure",…,"Hentai",
+  …,"Thriller"]` — `Hentai` is present and stripped by the adapter for a SFW product). The
+  `Page.media` query accepts `genre_in: [String]` (genre *name*, not an id) and `sort:
+  [MediaSort]`; `genre_in: ["Romance"], sort: [POPULARITY_DESC]` with a null `search` browses
+  that genre by popularity. A title typed alongside drops the sort (AniList's own relevance
+  wins).
 
 ### Jikan v4 — `https://api.jikan.moe/v4`
 - **`Access-Control-Allow-Origin: *`** — also callable directly from the browser, including
@@ -356,6 +363,13 @@ and status codes, not from documentation.
 - Documented limits are roughly 3 req/sec and 60 req/min; the API returns no rate-limit
   headers, so this cannot be verified from a response and must be respected client-side.
 - Cover images are served from `cdn.myanimelist.net`.
+- **Genre browse (verified live 2026-08-22, D-genre-browse).** `GET /genres/anime` and
+  `GET /genres/manga` return `{ data: [{ mal_id, name, url, count }] }` — the per-media-type
+  vocabulary (unlike AniList's shared list). Browse by numeric id via
+  `GET /{anime|manga}?genres=<mal_id>`; add `order_by=popularity` when no `q` is typed. The
+  adapter carries `mal_id` as the `ProviderGenre.id` (stringified) and `name` as the label.
+  `/genres/*` answered live where the search endpoints were 504ing that day, consistent with
+  the intermittent-504 note above.
 
 ### AniList OAuth + user lists — verified 2026-08-09
 

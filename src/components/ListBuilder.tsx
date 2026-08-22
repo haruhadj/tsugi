@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircleIcon,
+  ArrowLeftIcon,
+  ArrowRightIcon,
   CheckIcon,
   EyeIcon,
   GlobeIcon,
@@ -26,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ItemTray, type TrayItem } from "@/components/ItemTray";
+import { MediaCover } from "@/components/MediaCover";
 import { MediaSearchInput } from "@/components/MediaSearchInput";
 import { MyListPicker } from "@/components/MyListPicker";
 import { SegmentedRadioGroup } from "@/components/SegmentedRadioGroup";
@@ -42,6 +45,21 @@ const CAPTION_LIMIT = 120;
 const COMMENT_LIMIT = 280;
 
 type Mode = "search" | "mylist";
+
+/**
+ * The builder is a three-step flow (D-create-steps): Details → Add titles →
+ * Arrange & publish. The import picker used to render its full tracker grid on
+ * the same screen as the tray being built, burying the tray below hundreds of
+ * covers. Splitting the flow gives the picker the whole width on step 2 and the
+ * tray the whole width on step 3, so neither fights the other for space.
+ */
+type Step = 1 | 2 | 3;
+
+const STEPS: { n: Step; label: string }[] = [
+  { n: 1, label: "Details" },
+  { n: 2, label: "Add titles" },
+  { n: 3, label: "Arrange" },
+];
 
 function toWireItem(item: TrayItem): CreateListItem {
   return {
@@ -85,14 +103,27 @@ export function ListBuilder() {
   const [provider, setProvider] = useState<Provider>("anilist");
   const [mediaType, setMediaType] = useState<MediaType>("anime");
   const [mode, setMode] = useState<Mode>(initialMode);
+  // Arriving via the Import nav link lands the user straight on the add step so
+  // the tracker picker is what they see; a plain visit starts at Details.
+  const [step, setStep] = useState<Step>(fromParam === "mylist" ? 2 : 1);
 
   // The Import nav link points at `/?from=mylist`. When the user is already on
   // this page, that navigation only changes the query string — the component
-  // never remounts, so the initial `useState(initialMode)` alone would leave
-  // the builder stuck in whatever mode it was in. Sync mode to the param.
-  useEffect(() => {
-    setMode(fromParam === "mylist" ? "mylist" : "search");
-  }, [fromParam]);
+  // never remounts, so the initial `useState` alone would leave the builder
+  // stuck in whatever mode it was in. Sync during render (React's recommended
+  // "adjust state when a prop changes" pattern) rather than in an effect, which
+  // would cascade an extra render.
+  const [prevFrom, setPrevFrom] = useState(fromParam);
+  if (fromParam !== prevFrom) {
+    setPrevFrom(fromParam);
+    if (fromParam === "mylist") {
+      setMode("mylist");
+      setStep(2);
+    } else {
+      setMode("search");
+    }
+  }
+
   const [items, setItems] = useState<TrayItem[]>([]);
   const [name, setName] = useState("");
   const [category, setCategory] = useState<ListCategory>(FALLBACK_LIST_CATEGORY);
@@ -159,14 +190,17 @@ export function ListBuilder() {
 
     if (!name.trim()) {
       setError("Give your list a title.");
+      setStep(1);
       return;
     }
     if (publish && items.length === 0) {
       setError("Add at least one title before publishing.");
+      setStep(2);
       return;
     }
     if (items.length === 0) {
       setError("Add at least one title.");
+      setStep(2);
       return;
     }
     // Invariant 8, checked here only so the message is friendly — the server
@@ -214,14 +248,37 @@ export function ListBuilder() {
     }
   };
 
+  const goNext = () => {
+    if (step === 1) {
+      if (!name.trim()) {
+        setError("Give your list a title.");
+        return;
+      }
+      setError(null);
+      setStep(2);
+    } else if (step === 2) {
+      if (items.length === 0) {
+        setError("Add at least one title.");
+        return;
+      }
+      setError(null);
+      setStep(3);
+    }
+  };
+
+  const goBack = () => {
+    setError(null);
+    setStep((s) => (s === 3 ? 2 : 1));
+  };
+
   return (
     <div className="flex flex-col gap-6">
       {/*
-        The toolbar. Publish is the one `bg-primary` action on this screen —
-        Save draft sits beside it as an outline button, because two primaries
-        means neither is (ui-tokens.md).
+        The step rail. Each step is a button so a user can jump straight back to
+        one they have already passed; forward moves go through `goNext` so the
+        title/at-least-one-title gates still apply.
       */}
-      <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card/60 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card/60 p-4">
         <div className="flex items-center gap-3">
           <span
             className="brand-gradient flex size-10 shrink-0 items-center justify-center rounded-xl font-mono text-lg font-bold text-primary-foreground"
@@ -239,51 +296,59 @@ export function ListBuilder() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant={showCard ? "secondary" : "outline"}
-            size="sm"
-            aria-pressed={showCard}
-            onClick={() => setShowCard(!showCard)}
-          >
-            <EyeIcon aria-hidden="true" />
-            Social card
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={pending !== null}
-            onClick={() => submit(false)}
-          >
-            {pending === "draft" ? (
-              <Loader2Icon className="animate-spin" aria-hidden="true" />
-            ) : (
-              <SaveIcon aria-hidden="true" />
-            )}
-            Save draft
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            disabled={pending !== null}
-            onClick={() => submit(true)}
-          >
-            {pending === "publish" ? (
-              <Loader2Icon className="animate-spin" aria-hidden="true" />
-            ) : (
-              <GlobeIcon aria-hidden="true" />
-            )}
-            Publish list
-          </Button>
-        </div>
+        <ol className="flex items-center gap-2">
+          {STEPS.map(({ n, label }, i) => {
+            const isCurrent = step === n;
+            const isDone = step > n;
+            return (
+              <li key={n} className="flex flex-1 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Backward is always free; forward is gated by goNext.
+                    if (n <= step) {
+                      setError(null);
+                      setStep(n);
+                    } else {
+                      goNext();
+                    }
+                  }}
+                  aria-current={isCurrent ? "step" : undefined}
+                  className={cn(
+                    "flex min-h-11 flex-1 items-center gap-2 rounded-xl border px-3 py-2 text-left transition-colors",
+                    isCurrent
+                      ? "border-primary bg-primary/15 text-foreground"
+                      : "border-border text-muted-foreground hover:bg-accent",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex size-6 shrink-0 items-center justify-center rounded-lg font-mono text-xs font-bold",
+                      isCurrent
+                        ? "bg-primary text-primary-foreground"
+                        : isDone
+                          ? "bg-success/20 text-success"
+                          : "bg-secondary text-muted-foreground",
+                    )}
+                    aria-hidden="true"
+                  >
+                    {isDone ? <CheckIcon className="size-3.5" /> : n}
+                  </span>
+                  <span className="truncate text-xs font-semibold sm:text-sm">{label}</span>
+                </button>
+                {i < STEPS.length - 1 && (
+                  <span className="hidden h-px w-4 shrink-0 bg-border sm:block" aria-hidden="true" />
+                )}
+              </li>
+            );
+          })}
+        </ol>
       </div>
 
       {/*
         A recoverable failure, so this is an `Alert` inside the form with every
         field preserved — not a field-level line and not a toast (ui-rules.md's
-        error tiers). This is the primitive's first real use in the product.
+        error tiers).
       */}
       {error && (
         <Alert variant="destructive">
@@ -302,157 +367,93 @@ export function ListBuilder() {
         </div>
       )}
 
-      {showCard && (
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <span className="font-mono text-[0.65rem] tracking-[0.24em] text-primary uppercase">
-              Social card preview
-            </span>
-            <button
-              type="button"
-              onClick={() => setShowCard(false)}
-              className="min-h-11 text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
-            >
-              Hide
-            </button>
+      {step === 1 && (
+        <section className="flex flex-col gap-4 rounded-2xl border border-border bg-card/60 p-5">
+          <h2 className="flex items-center gap-1.5 font-mono text-[0.65rem] font-semibold tracking-[0.24em] text-muted-foreground uppercase">
+            <LayersIcon className="size-3.5 text-primary" aria-hidden="true" />
+            List details
+          </h2>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="list-name">Title</Label>
+            <Input
+              id="list-name"
+              value={name}
+              maxLength={80}
+              placeholder="Ten romances that actually end"
+              onChange={(event) => {
+                setName(event.target.value);
+                setError(null);
+              }}
+            />
           </div>
-          <SocialCardPreview
-            title={caption || name || "Untitled list"}
-            subtitle={caption ? name : null}
-            comment={comment || null}
-            category={category}
-            items={items}
-          />
-        </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="list-category">Category</Label>
+            <Select value={category} onValueChange={(next) => setCategory(next as ListCategory)}>
+              <SelectTrigger id="list-category" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LIST_CATEGORIES.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              This is how the list is filed on the rundown. The title above is free text.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="list-caption">Caption (optional)</Label>
+              <span className="font-mono text-[10px] text-muted-foreground">
+                {caption.length}/{CAPTION_LIMIT}
+              </span>
+            </div>
+            <Textarea
+              id="list-caption"
+              rows={2}
+              maxLength={CAPTION_LIMIT}
+              value={caption}
+              placeholder="A short line about this list"
+              className="resize-none text-sm"
+              onChange={(event) => setCaption(event.target.value)}
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="list-comment">Note (optional)</Label>
+              <span
+                className={cn(
+                  "font-mono text-[10px]",
+                  comment.length >= COMMENT_LIMIT
+                    ? "font-bold text-destructive"
+                    : "text-muted-foreground",
+                )}
+              >
+                {comment.length}/{COMMENT_LIMIT}
+              </span>
+            </div>
+            <Textarea
+              id="list-comment"
+              rows={3}
+              maxLength={COMMENT_LIMIT}
+              value={comment}
+              placeholder="Why you're sharing this"
+              className="resize-none text-sm"
+              onChange={(event) => setComment(event.target.value)}
+            />
+          </div>
+        </section>
       )}
 
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
-        {/* Left: what the list is */}
-        <div className="flex flex-col gap-5 lg:col-span-5">
-          <section className="flex flex-col gap-4 rounded-2xl border border-border bg-card/60 p-5">
-            <h2 className="flex items-center gap-1.5 font-mono text-[0.65rem] font-semibold tracking-[0.24em] text-muted-foreground uppercase">
-              <LayersIcon className="size-3.5 text-primary" aria-hidden="true" />
-              List details
-            </h2>
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="list-name">Title</Label>
-              <Input
-                id="list-name"
-                value={name}
-                maxLength={80}
-                placeholder="Ten romances that actually end"
-                onChange={(event) => {
-                  setName(event.target.value);
-                  setError(null);
-                }}
-              />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="list-category">Category</Label>
-              <Select
-                value={category}
-                onValueChange={(next) => setCategory(next as ListCategory)}
-              >
-                <SelectTrigger id="list-category" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {LIST_CATEGORIES.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {option}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                This is how the list is filed on the rundown. The title above is free text.
-              </p>
-            </div>
-
-            {/* The auto-aggregated genre cloud */}
-            <div className="flex flex-col gap-2 rounded-xl border border-border bg-background/60 p-3">
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 font-mono text-[10px] font-semibold tracking-[0.18em] text-foreground uppercase">
-                  <TagIcon className="size-3 text-primary" aria-hidden="true" />
-                  Genres ({genres.length})
-                </span>
-              </div>
-
-              {genres.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {genres.map((genre) => (
-                    <span
-                      key={genre.name}
-                      className="rounded-md border border-primary/30 bg-primary/15 px-2 py-0.5 text-[11px] font-medium text-primary"
-                    >
-                      {genre.name}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-[11px] text-muted-foreground italic">
-                  Add titles and their genres collect here automatically.
-                </p>
-              )}
-
-              <p className="flex items-start gap-1.5 border-t border-border pt-2 text-[10px] leading-relaxed text-muted-foreground">
-                <InfoIcon className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
-                <span>
-                  Titles bring their own genres, and readers can filter the rundown by any of
-                  them. Imported titles fill theirs in once the list is saved.
-                </span>
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="list-caption">Caption (optional)</Label>
-                <span className="font-mono text-[10px] text-muted-foreground">
-                  {caption.length}/{CAPTION_LIMIT}
-                </span>
-              </div>
-              <Textarea
-                id="list-caption"
-                rows={2}
-                maxLength={CAPTION_LIMIT}
-                value={caption}
-                placeholder="A short line about this list"
-                className="resize-none text-sm"
-                onChange={(event) => setCaption(event.target.value)}
-              />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="list-comment">Note (optional)</Label>
-                <span
-                  className={cn(
-                    "font-mono text-[10px]",
-                    comment.length >= COMMENT_LIMIT
-                      ? "font-bold text-destructive"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  {comment.length}/{COMMENT_LIMIT}
-                </span>
-              </div>
-              <Textarea
-                id="list-comment"
-                rows={3}
-                maxLength={COMMENT_LIMIT}
-                value={comment}
-                placeholder="Why you're sharing this"
-                className="resize-none text-sm"
-                onChange={(event) => setComment(event.target.value)}
-              />
-            </div>
-          </section>
-        </div>
-
-        {/* Right: what is on it */}
-        <div className="flex flex-col gap-4 lg:col-span-7">
+      {step === 2 && (
+        <div className="flex flex-col gap-4">
           {hasTrackerLinked && (
             <SegmentedRadioGroup
               label="Add from"
@@ -490,6 +491,54 @@ export function ListBuilder() {
             </section>
           )}
 
+          {/*
+            A slim, read-only strip of what has been added so far. The full
+            scoring/reordering tray lives on step 3 — here it is just a running
+            confirmation so the picker keeps the whole width.
+          */}
+          <div className="sticky bottom-0 flex flex-col gap-2 rounded-2xl border border-border bg-card/95 p-3 backdrop-blur">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-foreground">Added</span>
+              <span className="rounded-full border border-primary/30 bg-primary/15 px-2 py-0.5 font-mono text-xs font-bold text-primary">
+                {items.length}
+              </span>
+              {items.length > 0 && (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="ml-auto"
+                  onClick={goNext}
+                >
+                  Next: Arrange
+                  <ArrowRightIcon aria-hidden="true" />
+                </Button>
+              )}
+            </div>
+            {items.length > 0 ? (
+              <ul className="flex gap-1.5 overflow-x-auto pb-1">
+                {items.map((item) => (
+                  <li key={`${item.provider}-${item.externalId}`} className="shrink-0">
+                    <MediaCover
+                      src={item.coverImage}
+                      title={item.title}
+                      width={32}
+                      height={44}
+                      className="rounded-md"
+                    />
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Nothing added yet — search or import above to start filling the list.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {step === 3 && (
+        <div className="flex flex-col gap-5">
           <div className="flex items-center justify-between px-1">
             <h2 className="flex items-center gap-2 text-sm font-bold text-foreground">
               Titles
@@ -497,10 +546,107 @@ export function ListBuilder() {
                 {items.length}
               </span>
             </h2>
+            <Button
+              type="button"
+              variant={showCard ? "secondary" : "outline"}
+              size="sm"
+              aria-pressed={showCard}
+              onClick={() => setShowCard(!showCard)}
+            >
+              <EyeIcon aria-hidden="true" />
+              Social card
+            </Button>
+          </div>
+
+          {showCard && (
+            <SocialCardPreview
+              title={caption || name || "Untitled list"}
+              subtitle={caption ? name : null}
+              comment={comment || null}
+              category={category}
+              items={items}
+            />
+          )}
+
+          {/* The auto-aggregated genre cloud */}
+          <div className="flex flex-col gap-2 rounded-xl border border-border bg-background/60 p-3">
+            <span className="flex items-center gap-1.5 font-mono text-[10px] font-semibold tracking-[0.18em] text-foreground uppercase">
+              <TagIcon className="size-3 text-primary" aria-hidden="true" />
+              Genres ({genres.length})
+            </span>
+            {genres.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {genres.map((genre) => (
+                  <span
+                    key={genre.name}
+                    className="rounded-md border border-primary/30 bg-primary/15 px-2 py-0.5 text-[11px] font-medium text-primary"
+                  >
+                    {genre.name}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px] text-muted-foreground italic">
+                Add titles and their genres collect here automatically.
+              </p>
+            )}
+            <p className="flex items-start gap-1.5 border-t border-border pt-2 text-[10px] leading-relaxed text-muted-foreground">
+              <InfoIcon className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
+              <span>
+                Titles bring their own genres, and readers can filter the rundown by any of
+                them. Imported titles fill theirs in once the list is saved.
+              </span>
+            </p>
           </div>
 
           <ItemTray items={items} onChange={setItems} />
         </div>
+      )}
+
+      {/* Step footer: Back / Next, or the save + publish actions on the last step. */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card/60 p-4">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={step === 1}
+          onClick={goBack}
+        >
+          <ArrowLeftIcon aria-hidden="true" />
+          Back
+        </Button>
+
+        {step < 3 ? (
+          <Button type="button" size="sm" onClick={goNext}>
+            {step === 1 ? "Next: Add titles" : "Next: Arrange"}
+            <ArrowRightIcon aria-hidden="true" />
+          </Button>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={pending !== null}
+              onClick={() => submit(false)}
+            >
+              {pending === "draft" ? (
+                <Loader2Icon className="animate-spin" aria-hidden="true" />
+              ) : (
+                <SaveIcon aria-hidden="true" />
+              )}
+              Save draft
+            </Button>
+            <Button type="button" size="sm" disabled={pending !== null} onClick={() => submit(true)}>
+              {pending === "publish" ? (
+                <Loader2Icon className="animate-spin" aria-hidden="true" />
+              ) : (
+                <GlobeIcon aria-hidden="true" />
+              )}
+              Publish list
+            </Button>
+          </div>
+        )}
       </div>
 
       <ShareModal

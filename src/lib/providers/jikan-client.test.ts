@@ -2,7 +2,17 @@ import { describe, expect, test } from "bun:test";
 import frierenFixture from "./__fixtures__/jikan-search-frieren-anime.json";
 import notFoundFixture from "./__fixtures__/jikan-resolve-154587-not-found.json";
 import { countCalls, mockFetchFailThenSucceed, mockFetchHang, mockFetchJSON, mockFetchReject } from "./__fixtures__/mock-fetch";
-import { resolveJikan, searchJikan } from "./jikan-client";
+import { resolveJikan, fetchJikanGenres, searchJikan } from "./jikan-client";
+
+/** Captures the request URL so genre-browse query params can be asserted. */
+function mockFetchCapturingUrl(): { fetchImpl: typeof fetch; url: () => string } {
+  let captured = "";
+  const fetchImpl = (async (url: string) => {
+    captured = url;
+    return new Response(JSON.stringify({ data: [] }), { status: 200 });
+  }) as unknown as typeof fetch;
+  return { fetchImpl, url: () => captured };
+}
 
 describe("searchJikan", () => {
   // Criterion 2 — a different externalId for the same show, which is the whole point.
@@ -132,5 +142,56 @@ describe("searchJikan genres", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.data[0]!.genres).toEqual([]);
+  });
+});
+
+// D-genre-browse — MAL browses by numeric genre id in the `genres` query param.
+describe("searchJikan genre browse", () => {
+  test("appends the genre id and, with no query, orders by popularity", async () => {
+    const mock = mockFetchCapturingUrl();
+    await searchJikan("", "anime", new AbortController().signal, mock.fetchImpl, "22");
+    const url = new URL(mock.url());
+    expect(url.searchParams.get("genres")).toBe("22");
+    expect(url.searchParams.get("order_by")).toBe("popularity");
+    expect(url.searchParams.get("q")).toBeNull();
+  });
+
+  test("with a query typed, keeps the genre but drops the popularity ordering", async () => {
+    const mock = mockFetchCapturingUrl();
+    await searchJikan("frieren", "anime", new AbortController().signal, mock.fetchImpl, "22");
+    const url = new URL(mock.url());
+    expect(url.searchParams.get("genres")).toBe("22");
+    expect(url.searchParams.get("q")).toBe("frieren");
+    expect(url.searchParams.get("order_by")).toBeNull();
+  });
+
+  test("no genre omits the genres param entirely", async () => {
+    const mock = mockFetchCapturingUrl();
+    await searchJikan("frieren", "anime", new AbortController().signal, mock.fetchImpl);
+    expect(new URL(mock.url()).searchParams.get("genres")).toBeNull();
+  });
+});
+
+describe("fetchJikanGenres", () => {
+  test("maps mal_id and name out of Jikan's genre list", async () => {
+    const result = await fetchJikanGenres(
+      "anime",
+      new AbortController().signal,
+      mockFetchJSON({ data: [{ mal_id: 22, name: "Romance", url: "x", count: 5 }] }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data).toEqual([{ mal_id: 22, name: "Romance" }]);
+  });
+
+  test("a missing data array is an unavailable failure", async () => {
+    const result = await fetchJikanGenres(
+      "manga",
+      new AbortController().signal,
+      mockFetchJSON({}),
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("unavailable");
   });
 });

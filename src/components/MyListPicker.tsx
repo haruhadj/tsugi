@@ -392,7 +392,7 @@ export function MyListPicker({
       {filtered.length === 0 ? (
         <p className="py-4 text-sm text-muted-foreground">No titles match.</p>
       ) : (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+        <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5">
           {filtered.map((entry) => {
             const selected = isSelected(entry);
             return (

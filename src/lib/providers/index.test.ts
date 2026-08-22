@@ -3,7 +3,21 @@ import berserkFixture from "./__fixtures__/anilist-search-berserk-manga.json";
 import frierenAniListFixture from "./__fixtures__/anilist-search-frieren-anime.json";
 import frierenJikanFixture from "./__fixtures__/jikan-search-frieren-anime.json";
 import { mockFetchJSON, mockFetchReject } from "./__fixtures__/mock-fetch";
-import { searchMedia } from "./index";
+import { fetchGenres, searchMedia } from "./index";
+
+/** Captures the outbound request so the dispatched genre token can be asserted. */
+function mockFetchCapturing(
+  payload: unknown = { data: { Page: { media: [] } } },
+): { fetchImpl: typeof fetch; url: () => string; body: () => string } {
+  let capturedUrl = "";
+  let capturedBody = "";
+  const fetchImpl = (async (url: string, init?: RequestInit) => {
+    capturedUrl = url;
+    capturedBody = String(init?.body ?? "");
+    return new Response(JSON.stringify(payload), { status: 200 });
+  }) as unknown as typeof fetch;
+  return { fetchImpl, url: () => capturedUrl, body: () => capturedBody };
+}
 
 const ANILIST_KEYS = ["provider", "externalId", "mediaType", "title", "titleNative", "coverImage", "year", "averageScore", "genres"].sort();
 
@@ -112,5 +126,61 @@ describe("searchMedia (dispatch)", () => {
         warn.mockRestore();
       }
     });
+  });
+
+  // D-genre-browse — the dispatcher forwards the opaque genre token to the
+  // chosen adapter without interpreting it.
+  describe("genre forwarding", () => {
+    test("an AniList genre reaches the adapter as genre_in", async () => {
+      const mock = mockFetchCapturing();
+      await searchMedia("anilist", "", "anime", new AbortController().signal, mock.fetchImpl, "Romance");
+      const vars = (JSON.parse(mock.body()).variables as Record<string, unknown>);
+      expect(vars.genre_in).toEqual(["Romance"]);
+    });
+
+    test("a MAL genre id reaches the adapter as the genres query param", async () => {
+      const mock = mockFetchCapturing({ data: [] });
+      await searchMedia("mal", "", "anime", new AbortController().signal, mock.fetchImpl, "22");
+      expect(new URL(mock.url()).searchParams.get("genres")).toBe("22");
+    });
+  });
+});
+
+describe("fetchGenres (dispatch)", () => {
+  test("AniList names become {id,label} pairs with id === label", async () => {
+    const result = await fetchGenres(
+      "anilist",
+      "anime",
+      new AbortController().signal,
+      mockFetchJSON({ data: { GenreCollection: ["Action", "Romance"] } }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data).toEqual([
+      { id: "Action", label: "Action" },
+      { id: "Romance", label: "Romance" },
+    ]);
+  });
+
+  test("MAL genres map mal_id to a stringified id and name to the label", async () => {
+    const result = await fetchGenres(
+      "mal",
+      "anime",
+      new AbortController().signal,
+      mockFetchJSON({ data: [{ mal_id: 22, name: "Romance", url: "x", count: 5 }] }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data).toEqual([{ id: "22", label: "Romance" }]);
+  });
+
+  test("a provider failure propagates as ok:false", async () => {
+    const result = await fetchGenres(
+      "anilist",
+      "anime",
+      new AbortController().signal,
+      mockFetchReject("TypeError"),
+    );
+    expect(result.ok).toBe(false);
   });
 });

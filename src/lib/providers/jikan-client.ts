@@ -103,8 +103,18 @@ export async function searchJikan(
   mediaType: MediaType,
   signal: AbortSignal,
   fetchImpl: typeof fetch = fetch,
+  genre?: string,
 ): Promise<ProviderResult<UnifiedMediaResult[]>> {
-  const url = `${BASE_URL}/${toPath(mediaType)}?q=${encodeURIComponent(query)}&limit=${SEARCH_RESULT_COUNT}`;
+  const params = new URLSearchParams();
+  if (query) params.set("q", query);
+  params.set("limit", String(SEARCH_RESULT_COUNT));
+  if (genre) params.set("genres", genre);
+  // Browse (a genre, no title) opens on the most popular titles — Jikan's
+  // relevance ordering only means something when a `q` is present. Verified
+  // live 2026-08-22.
+  if (genre && !query) params.set("order_by", "popularity");
+
+  const url = `${BASE_URL}/${toPath(mediaType)}?${params.toString()}`;
   const result = await withRetry(() => getJSON(url, withTimeout(signal, 3_000), fetchImpl));
   if (!result.ok) return result;
 
@@ -112,6 +122,29 @@ export async function searchJikan(
   if (!body.data) return { ok: false, reason: "unavailable" };
 
   return { ok: true, data: body.data.map((entry) => toUnifiedMediaResult(entry, mediaType)) };
+}
+
+type JikanGenre = { mal_id: number; name: string };
+
+/**
+ * MAL's genre vocabulary for the Search panel's browse dropdown
+ * (D-genre-browse). Unlike AniList's shared list, MAL's genres are numeric ids
+ * that differ between the anime and manga endpoints, so this is media-type
+ * scoped. The caller stringifies `mal_id` into the browse query's `genres` param.
+ */
+export async function fetchJikanGenres(
+  mediaType: MediaType,
+  signal: AbortSignal,
+  fetchImpl: typeof fetch = fetch,
+): Promise<ProviderResult<JikanGenre[]>> {
+  const url = `${BASE_URL}/genres/${toPath(mediaType)}`;
+  const result = await withRetry(() => getJSON(url, withTimeout(signal, 3_000), fetchImpl));
+  if (!result.ok) return result;
+
+  const body = result.data as { data?: JikanGenre[] };
+  if (!body.data) return { ok: false, reason: "unavailable" };
+
+  return { ok: true, data: body.data.map((g) => ({ mal_id: g.mal_id, name: g.name })) };
 }
 
 export async function resolveJikan(

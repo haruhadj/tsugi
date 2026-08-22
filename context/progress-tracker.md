@@ -1262,6 +1262,28 @@ honest version of the original idea, and the better page once the feed has conte
 It needs a query on the marketing front and an empty state for a cold database, which is why it is
 not this change.
 
+### D-genre-browse — Search browses by genre with per-provider vocabularies (Search panel only)
+
+**2026-08-22, Phase-8-era, scoped by owner request.** `MediaSearchInput` gained a genre
+`Select` that lets an author *discover* titles by genre with no title typed — distinct from
+`MyListPicker`'s existing genre filter, which only narrows an already-loaded corpus. Genre is
+sent as a provider query parameter, not applied client-side: AniList via `genre_in: [name]`
+(+ `sort: POPULARITY_DESC` when the search box is empty), MAL via `?genres=<mal_id>` (+
+`order_by=popularity` when empty). Each provider's real vocabulary is fetched live
+(`fetchAniListGenres` / `fetchJikanGenres`, dispatched through `fetchGenres` → unified
+`ProviderGenre {id,label}`) and cached client-side keyed `provider:mediaType` to respect the
+30/min budget (D3). AniList's list is shared across media types; MAL's is per media type.
+`Hentai` is stripped from the offered AniList list (SFW product). No cross-provider fallback
+was introduced (D15 preserved) — the genre token is opaque to the dispatcher, interpreted only
+by each adapter. A genre pick is *derived-valid*: it counts only while the current provider's
+loaded list still offers that id, so switching provider/media type reads as "Any genre" until
+re-chosen rather than sending an AniList name to MAL. Live API facts verified 2026-08-22, see
+tech-stack.md.
+
+**Revisit if:** a curated, shared genre list (one vocabulary spanning both providers) is
+later wanted — that trades the two live vocabularies for a hand-maintained mapping, and is the
+opposite direction from this per-provider choice.
+
 ## External prerequisites
 
 | Needed by | Service | Status |

@@ -9,12 +9,19 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { MediaCover } from "@/components/MediaCover";
 import { MediaTypeChip } from "@/components/MediaTypeChip";
 import { SegmentedRadioGroup } from "@/components/SegmentedRadioGroup";
 import { cn } from "@/lib/utils";
-import { searchMedia } from "@/lib/providers";
-import type { MediaType, Provider, UnifiedMediaResult } from "@/lib/types/media";
+import { fetchGenres, searchMedia } from "@/lib/providers";
+import type { MediaType, Provider, ProviderGenre, UnifiedMediaResult } from "@/lib/types/media";
 
 const DEBOUNCE_MS = 250;
 const MIN_QUERY_LENGTH = 2;
@@ -81,20 +88,28 @@ export function MediaSearchInput({
 }) {
   const [query, setQuery] = useState("");
   const [state, setState] = useState<SearchState>({ status: "idle" });
+  // Genre browse (D-genre-browse). `genre` is the provider's own browse token
+  // (AniList name / MAL id) so it can be passed straight to searchMedia; the
+  // label for display rides alongside in `genres`.
+  const [genre, setGenre] = useState<string | null>(null);
+  const [genres, setGenres] = useState<ProviderGenre[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Genre lists are re-usable across a session and spend the same 30/min budget
+  // (D3) — cache per provider:mediaType, exactly as MyListPicker caches lists.
+  const genreCacheRef = useRef<Map<string, ProviderGenre[]>>(new Map());
   // Incremented on every search to track which request is current.
   // Prevents stale responses from a previous query overwriting newer results.
   const searchIdRef = useRef(0);
 
-  const runSearch = (q: string, forProvider: Provider, forMediaType: MediaType) => {
+  const runSearch = (q: string, forProvider: Provider, forMediaType: MediaType, forGenre: string | null) => {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
     // Bump the search ID so any in-flight response from an older search is ignored.
     const currentSearchId = ++searchIdRef.current;
     setState({ status: "loading" });
-    searchMedia(forProvider, q, forMediaType, controller.signal).then((result) => {
+    searchMedia(forProvider, q, forMediaType, controller.signal, fetch, forGenre ?? undefined).then((result) => {
       // Ignore responses from stale searches (e.g. user kept typing, or switched provider/media).
       if (currentSearchId !== searchIdRef.current) return;
       if (controller.signal.aborted) return;
@@ -106,15 +121,46 @@ export function MediaSearchInput({
     });
   };
 
+  // A genre selection only counts while the current provider's list still
+  // offers it — deriving this (rather than clearing `genre` in an effect) keeps
+  // a switch back to the original provider from losing the choice, and avoids a
+  // cascading setState. AniList's list is shared across media types; MAL's ids
+  // are not, so a stale pick simply reads as "Any genre" until re-chosen.
+  const activeGenre = genre !== null && genres.some((g) => g.id === genre) ? genre : null;
+
+  // A search runs on a typed title OR a chosen genre — genre alone is browse.
+  const shouldSearch = query.length >= MIN_QUERY_LENGTH || activeGenre !== null;
+
   useEffect(() => {
-    if (query.length < MIN_QUERY_LENGTH) {
+    if (!shouldSearch) {
+      // Cancel any in-flight request; `effectiveState` already renders idle, so
+      // no setState is needed here.
       abortRef.current?.abort();
-      setState({ status: "idle" });
       return;
     }
-    const timer = setTimeout(() => runSearch(query, provider, mediaType), DEBOUNCE_MS);
+    const timer = setTimeout(() => runSearch(query, provider, mediaType, activeGenre), DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [query, provider, mediaType]);
+  }, [query, provider, mediaType, activeGenre, shouldSearch]);
+
+  // Load the provider's genre vocabulary; changing provider (or, for MAL, media
+  // type) reloads it.
+  useEffect(() => {
+    const key = `${provider}:${mediaType}`;
+    const cached = genreCacheRef.current.get(key);
+    if (cached) {
+      setGenres(cached);
+      return;
+    }
+    const controller = new AbortController();
+    fetchGenres(provider, mediaType, controller.signal).then((result) => {
+      if (controller.signal.aborted) return;
+      if (result.ok) {
+        genreCacheRef.current.set(key, result.data);
+        setGenres(result.data);
+      }
+    });
+    return () => controller.abort();
+  }, [provider, mediaType]);
 
   /*
     "/" focuses the search box, the way the prototype does — but only when the
@@ -139,12 +185,15 @@ export function MediaSearchInput({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const effectiveState: SearchState = query.length < MIN_QUERY_LENGTH ? { status: "idle" } : state;
+  const effectiveState: SearchState = shouldSearch ? state : { status: "idle" };
 
   const handleSwitchOffer = () => {
     const next = otherProvider(provider);
     onSwitchProvider(next);
-    runSearch(query, next, mediaType);
+    // The genre token belongs to the old provider's vocabulary; drop it rather
+    // than send an AniList name to MAL (or vice versa).
+    setGenre(null);
+    runSearch(query, next, mediaType, null);
   };
 
   /*
@@ -227,6 +276,27 @@ export function MediaSearchInput({
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5">
+            {genres.length > 0 && (
+              <Select
+                value={activeGenre ?? "__all__"}
+                onValueChange={(v) => setGenre(v === "__all__" ? null : v)}
+              >
+                <SelectTrigger
+                  className="h-9 w-36"
+                  aria-label="Browse by genre"
+                >
+                  <SelectValue placeholder="Any genre" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Any genre</SelectItem>
+                  {genres.map((g) => (
+                    <SelectItem key={g.id} value={g.id}>
+                      {g.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <SegmentedRadioGroup
               label="Search source"
               value={provider}
@@ -246,7 +316,9 @@ export function MediaSearchInput({
           <div className="mt-2 overflow-hidden rounded-xl border border-border bg-popover">
             <div className="flex items-center justify-between border-b border-border bg-secondary/40 px-3 py-2">
               <span className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground uppercase">
-                Results for “{query}”
+                {query
+                  ? `Results for “${query}”`
+                  : `Browsing ${genres.find((g) => g.id === activeGenre)?.label ?? "genre"}`}
               </span>
               <span className="font-mono text-[10px] text-muted-foreground">
                 {PROVIDER_LABELS[provider]}
