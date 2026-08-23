@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createListSchema, updateListSchema } from "@/lib/validators/list";
+import { createListSchema, editListSchema } from "@/lib/validators/list";
 
 const validItem = { provider: "anilist", externalId: 154587, mediaType: "anime" } as const;
 
@@ -67,16 +67,33 @@ describe("createListSchema — the pair invariant still holds (D47)", () => {
   });
 });
 
-describe("updateListSchema (D48)", () => {
-  test("accepts a name alone, a category alone, or both", () => {
-    expect(updateListSchema.safeParse({ name: "New title" }).success).toBe(true);
-    expect(updateListSchema.safeParse({ category: "Horror" }).success).toBe(true);
-    expect(updateListSchema.safeParse({ name: "New title", category: "Horror" }).success).toBe(true);
+describe("editListSchema (D59)", () => {
+  test("accepts the same body a create takes, minus publish", () => {
+    expect(editListSchema.safeParse(input()).success).toBe(true);
   });
 
-  // An empty PATCH would reach Drizzle as an empty `set`, which throws at
-  // runtime rather than no-oping — so it has to be refused here.
-  test("rejects an empty edit", () => {
-    expect(updateListSchema.safeParse({}).success).toBe(false);
+  // The edit body is a whole-list replacement, not a patch — a partial body has
+  // no defined meaning here, so a rename-only PATCH is a client bug, not a
+  // shortcut the schema should quietly accept.
+  test("rejects a partial body", () => {
+    expect(editListSchema.safeParse({ name: "New title" }).success).toBe(false);
+    expect(editListSchema.safeParse({}).success).toBe(false);
+  });
+
+  test("rejects an edit that would empty the list", () => {
+    expect(editListSchema.safeParse(input({ items: [] })).success).toBe(false);
+  });
+
+  // Invariant 8 has to survive an edit as well as a create: stripping every
+  // score and note would otherwise reach a state creating a list cannot.
+  test("rejects an edit that removes every score and comment", () => {
+    expect(
+      editListSchema.safeParse(input({ items: [{ ...validItem }], comment: undefined })).success,
+    ).toBe(false);
+  });
+
+  test("has no publish field of its own", () => {
+    const parsed = editListSchema.parse(input({ publish: true }));
+    expect("publish" in parsed).toBe(false);
   });
 });

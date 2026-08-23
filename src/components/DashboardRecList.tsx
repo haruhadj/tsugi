@@ -1,6 +1,6 @@
 "use client";
 
-import { CopyPlusIcon, ExternalLinkIcon, Loader2Icon } from "lucide-react";
+import { CopyPlusIcon, ExternalLinkIcon, Loader2Icon, PencilIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -218,6 +218,22 @@ export function DashboardRecList({ initialRecs }: { initialRecs: ListView[] }) {
                     ) : (
                       "Publish"
                     )}
+                  </Button>
+
+                  {/*
+                    Edit (D59). A link, not a button: it navigates rather than
+                    acting, so middle-click and open-in-new-tab work and it is
+                    unaffected by `busySlug`.
+                  */}
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="sm"
+                    className="rounded-full text-muted-foreground"
+                  >
+                    <Link href={`/r/${rec.slug}/edit`} aria-label={`Edit ${rec.name}`}>
+                      <PencilIcon aria-hidden />
+                    </Link>
                   </Button>
 
                   <Button

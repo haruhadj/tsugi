@@ -14,7 +14,7 @@ happened last time.
 | **Upstash** | Provisioned 2026-08-11 — `fit-hyena-107044.upstash.io`, credentials in `.env`. Backs both rate limiting (D9) and the media resolve cache (Phase 4). |
 | **Prototype adaptation** | **2026-08-18.** The AI Studio prototype's builder page and UI system adapted into the app — see **D47**/**D48**/**D49** (pass 1; its tracker's two open boxes are folded into pass 2's, and the file itself is awaiting deletion). Data layer: `list.category` (fixed enum), `list_item.genres` (`text[]` + GIN), genres fetched from both providers, the author's handle joined into the feed and the artifact, publish-on-create. UI: `ListBuilder` rewritten to the two-column workspace, `MediaSearchInput` rebuilt as an inline multi-add panel (`Command` without the `Popover`), `ItemTray` to the prototype's row card, plus the rundown, artifact, dashboard, settings, and sign-in. New: `SegmentedRadioGroup`, `SocialCardPreview`, `ChooseHandle`, `/handle`. Migration `0006` applied to production (hand-edited from drizzle-kit's unsafe `ADD COLUMN NOT NULL`). Gate green: `tsc`, `eslint`, 152 tests.<br><br>**Pass 2 — 2026-08-20, the reading surfaces.** See **D50**/**D51**/**D52** and `planning/TEMP-prototype-adaptation-2.md` (the one live tracker; deleted once the owner has walked the result in a browser). The feed gained a text search, an anime/manga format panel with live-filtered counts, icon'd sort tabs, and a mobile filter toggle; its cards became fully clickable in compact and grid via a link overlay and lost the decorative rank number. `MyListPicker` was rewritten into the import workspace (status pills, genre, sort, search-within, add-all) over `ListEntry`'s new `status`/`genres`/`year`, with `list_cache` versioned rather than migrated. A closing sweep of the remaining prototype files found five defects in our own work — including a `"use client"` on `RecView` that broke `/r/[slug]` on hydration while SSR and curl stayed green. New: `ListQuickActions`, `MediaTypeChip`, `FeedControls`. Gate green: `tsc`, `eslint`, 170 tests. **No browser walkthrough yet.** |
 | **Database contents** | **Empty, deliberately — 2026-08-20 (D54).** All 20 lists (17 `Untitled`, 2 `Phase 5 verification run`, 1 draft `test`) were leaked `schema.db.test.ts` fixtures being served as the public feed; cleared with the 5 users and, by cascade, 2 accounts / 43 sessions / 2 `list_cache` rows. Every table is at zero. **Sign-in is a fresh account** — AniList/MAL need reconnecting from `/settings`. A full suite run leaves it at zero, which is the standing check that the live-DB tier cleans up after itself. |
-| **Last updated** | 2026-08-20 |
+| **Last updated** | 2026-08-23 |
 | **UI library** | **shadcn/ui + Radix** — replaced HeroUI on 2026-08-11 (**D41**). Custom "Eyecatch" palette, authored by us. Anything referencing `@heroui/*`, `onPress`, `isPending`, or `data-theme="dark"` is a leftover. |
 | **Application code** | Phase 0 scaffold, Phase 1's full data layer, and Phase 2's auth wiring: Hono catch-all at `/api`, `genericOAuth` for AniList + MAL (Google not yet configured), `/sign-in` and `/settings`, session helper. Frontend redesigned on shadcn with a real landing page. |
 | **Repository** | `main` pushed to `github.com/haruhadj/tsugi` (private). CI green. |
@@ -1473,6 +1473,66 @@ clutter, and the compact card *is* the mobile answer to what `compact` density w
 **Revisit if:** the sticky rail's `top-16` drifts from `Header`'s actual height — the two are
 coupled by a literal, not a token, and nothing fails loudly if the header changes.
 
+### D59 — Lists are editable in full, published ones in place. Reverses "editing is out of scope"
+
+*Owner request, 2026-08-23: "have users the ability to edit existing published or created lists
+that they created." Scoped in conversation to **everything** (metadata, the item set, order, and
+per-item scores and notes) and to **published lists edited in place**, both chosen over the
+narrower options offered.*
+
+**What this reverses.** `functionality.md` listed "Editing a recommendation" among the things
+considered and rejected, with a real argument: *a shared link is a public claim, and quietly
+changing the title or score behind a link a friend already posted is a small betrayal of the
+person who shared it — delete removes the claim honestly instead.* `user-flow.md` repeated it
+("Delete is here; edit is not"). The owner was shown that reasoning, and the alternatives it
+implies — drafts-only editing, or an "edited on {date}" marker on the artifact — and chose
+in-place editing of published lists anyway. That is the decision; the argument above is not
+wrong, it is outweighed.
+
+**The mitigation is disclosure, not restriction.** `/r/[slug]/edit` says, once and only for a
+published list, that saving changes what anyone holding the link already sees, including the
+social card. No `updatedAt` column and no "edited" line on the artifact — that was offered as
+the middle option and not taken, and adding it later needs a migration, not a rewrite.
+
+**One builder, not an editor.** `ListBuilder` takes an optional `existing: BuilderList`; its
+presence *is* edit mode, so there is no `mode` flag to keep in sync. The point is that a field
+added to the create flow cannot go missing from the edit flow, which is exactly what a second
+component would eventually do. Its state is seeded once from the prop, with no syncing effect —
+`existing` comes from a server component that only re-renders on navigation, and an effect would
+fight the user's own typing.
+
+**The edit body is a whole-list replacement, not a patch.** `editListSchema` is
+`createListSchema` minus `publish`, sharing one `listBodyFields` object so the two cannot drift
+about what a list is. An absent `caption` therefore *clears* the caption. This replaced the
+metadata-only `updateListSchema` (name + category, D48) and its `updateList` service function,
+which existed but had never been wired to any UI — it was the whole edit surface back when
+editing was out of scope. Partial bodies are refused: the editor always holds every title, so a
+partial body would mean inventing merge rules for a client with no partial state to send.
+
+**Only genuinely new titles are re-resolved.** `editList` keys stored items by the identity
+triple (invariant 2) and reuses their resolved title, cover and genres. Reordering a list or
+fixing a typo in a note must not be able to fail because AniList is down, and a second
+resolution of the same id returns the same answer anyway. D13 still holds for items that *are*
+new. A live-DB test asserts this by passing a `fetch` that throws.
+
+**Items are replaced, not diffed.** Delete-then-insert inside one transaction: `position_per_list`
+is a unique constraint, so shuffling positions in place collides mid-update against rows that
+have not moved yet. The delete clears the field first.
+
+**PATCH shares the create rate limiter.** An edit can add titles — the same provider resolution a
+create pays for — and rewrites every item row either way. Five a minute is far above any human
+editing pace.
+
+**`ListView` gained `isOwner`.** Derived from the `viewerId` passed into the read, so it is a
+fact about *this* request rather than about the row; it gates the Edit button on `/r/[slug]`.
+Invariant 1 is untouched — a boolean is not an identifier. The access check itself is
+`getOwnedListBySlug`, which answers null for someone else's list *including a published one*,
+where `getListBySlug` would rightly return it.
+
+**Revisit if:** anyone asks who changed what, or a reader reports being misled by a list that
+changed under a link — that is the point at which the `updatedAt` column and the "edited" line
+stop being optional.
+
 ## External prerequisites
 
 | Needed by | Service | Status |
@@ -1510,6 +1570,40 @@ the one you forgot. `scripts/check-db-reachable.sh` warns if a second file appea
 ## Session log
 
 Newest first. One entry per session: what changed, what was decided, what to pick up next.
+
+### 2026-08-23 — Editing comes back into scope: one builder, two modes
+
+The owner asked for "the ability to edit existing published or created lists that they created."
+The first job was not code: `functionality.md` listed editing among the things *considered and
+rejected*, with a genuine argument about shared links being public claims. That was surfaced
+before anything was built, along with the two narrower shapes it implies — drafts-only editing,
+or an "edited on {date}" marker on the artifact. The owner chose the widest option on both axes:
+full editing, published lists in place. **D59** records the reversal and the reasoning it
+outweighed, and `functionality.md` now strikes the row through rather than deleting it.
+
+**Server.** `updateListSchema` / `updateList` (name + category, D48, never wired to any UI) were
+replaced by `editListSchema` / `editList`: a whole-list replacement sharing `createListSchema`'s
+field definitions, so create and edit cannot drift about what a list is. `editList` reuses the
+stored resolution for any item already present under its identity triple and only resolves
+genuinely new ones — a reorder must not be able to fail because AniList is down — and replaces the
+item set with delete-then-insert in one transaction, because `position_per_list` is unique and an
+in-place shuffle collides mid-update. `PATCH /api/lists/:slug` now takes the full body and shares
+the create limiter. `ListView` gained `isOwner`, and `getOwnedListBySlug` is the access check for
+the editor, since `getListBySlug` rightly returns a stranger's published list.
+
+**UI.** No new component. `ListBuilder` takes an optional `existing: BuilderList`, whose presence
+is edit mode; `/r/[slug]/edit` is a thin server page around it, gated by `requireHandledSession`
+plus `getOwnedListBySlug`, `noindex`, and carrying the published-list warning. Entry points: a
+pencil on each dashboard row, and an Edit button on `/r/[slug]` shown when `rec.isOwner`.
+
+**Gate.** `tsc --noEmit` and `eslint .` clean; `bun test --conditions=react-server` 198 → 203
+pass, 0 fail, with five new live-DB cases (replace/reorder/rescore, no-provider-call on a pure
+reorder — asserted with a `fetch` that throws — caption clearing, stranger gets `not_found` and
+changes nothing, and `isOwner` / `getOwnedListBySlug`) and the validator suite rewritten from
+`updateListSchema` to `editListSchema`.
+
+**Next:** none of this has been walked in a browser — the edit form, the published-list warning,
+and the save-then-navigate path are all verified by types and tests only.
 
 ### 2026-08-20 — The dummy data comes out: an empty database and a hero card that invents nothing
 

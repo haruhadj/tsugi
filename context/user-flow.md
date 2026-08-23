@@ -215,9 +215,24 @@ to item count — a single hero cover for one title, a composed set for a group.
 
 ## `/dashboard` (Phase 8)
 
-Your recommendations, newest first, each showing its items and view count. Delete is here;
-edit is not (see `functionality.md`). It sits beside `/settings`, which gains unlinking in
-the same phase — that is where someone goes to ask why *My list* is missing.
+Your recommendations, newest first, each showing its items and view count. Delete is here,
+and since **D59** so is edit — a pencil on each row, linking to `/r/[slug]/edit`. It sits
+beside `/settings`, which gains unlinking in the same phase — that is where someone goes to
+ask why *My list* is missing.
+
+## `/r/[slug]/edit` (D59)
+
+The same builder that creates a list, handed the list being edited — one component, so a
+field added to the create flow cannot go missing from the edit flow. Reached from the
+dashboard's pencil or from an **Edit** button on `/r/[slug]` that only the owner is shown.
+
+Signed out it redirects to `/sign-in`; for anyone but the owner it is a 404, including on a
+*published* list, which `/r/[slug]` itself would happily render. Drafts and published lists
+are both editable and behave identically — publishing is still its own control on the
+dashboard, and is not part of the edit form. A published list carries a one-line warning that
+saving changes what everyone holding the link already sees, the social card included.
+
+Saving lands on `/r/[slug]`: the point of editing a live list is to see what readers now see.
 
 ## `/terms` and `/privacy` (no phase assigned yet)
 

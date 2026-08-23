@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircleIcon,
@@ -13,6 +14,7 @@ import {
   Loader2Icon,
   SaveIcon,
   TagIcon,
+  XIcon,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -36,8 +38,10 @@ import { SocialCardPreview } from "@/components/SocialCardPreview";
 import { authClient } from "@/lib/auth-client";
 import { FALLBACK_LIST_CATEGORY, LIST_CATEGORIES, type ListCategory } from "@/lib/categories";
 import { cn } from "@/lib/utils";
+import type { ScoreFormat } from "@/lib/score";
 import type { CreateListItem } from "@/lib/validators/list";
 import type { ListEntry, MediaType, Provider, UnifiedMediaResult } from "@/lib/types/media";
+import type { ListView } from "@/server/services/lists";
 
 const TRACKER_PROVIDER_IDS: Provider[] = ["anilist", "mal"];
 const CAPTION_LIMIT = 120;
@@ -59,6 +63,49 @@ const STEPS: { n: Step; label: string }[] = [
   { n: 2, label: "Add titles" },
   { n: 3, label: "Arrange" },
 ];
+
+/**
+ * The list an edit session starts from (**D59**). Absent for the create path,
+ * which starts from nothing — the presence of this prop is what puts the
+ * builder in edit mode, so there is no separate `mode` flag to keep in sync.
+ */
+export type BuilderList = {
+  slug: string;
+  name: string;
+  category: ListCategory;
+  caption: string | null;
+  comment: string | null;
+  items: TrayItem[];
+};
+
+/**
+ * Stored items back into tray items.
+ *
+ * The casts are the database's enums being re-asserted in TypeScript: `provider`,
+ * `mediaType` and `scoreFormat` are Postgres enum columns whose values are exactly
+ * these unions, but Drizzle hands them back as `string` through `ListView`. Nothing
+ * else could be in those columns.
+ *
+ * `titleNative`, `year` and `averageScore` are null because we never stored them —
+ * they are search-result decoration, not part of a list. Nothing is lost by it:
+ * `toWireItem` sends only the identity triple, the score pair, and the note.
+ */
+export function toTrayItems(items: ListView["items"]): TrayItem[] {
+  return items.map((item) => ({
+    provider: item.provider as Provider,
+    externalId: item.externalId,
+    mediaType: item.mediaType as MediaType,
+    title: item.title,
+    titleNative: null,
+    coverImage: item.coverImage,
+    year: null,
+    averageScore: null,
+    genres: item.genres,
+    scoreRaw: item.scoreRaw,
+    scoreFormat: item.scoreFormat as ScoreFormat | null,
+    comment: item.comment ?? "",
+  }));
+}
 
 function toWireItem(item: TrayItem): CreateListItem {
   return {
@@ -94,19 +141,27 @@ function previewGenres(items: TrayItem[]): { name: string; count: number }[] {
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 }
 
-export function ListBuilder() {
+export function ListBuilder({ existing }: { existing?: BuilderList } = {}) {
+  const router = useRouter();
+  const isEdit = existing !== undefined;
+
   const [provider, setProvider] = useState<Provider>("anilist");
   const [mediaType, setMediaType] = useState<MediaType>("anime");
   const [mode, setMode] = useState<Mode>("search");
   const [step, setStep] = useState<Step>(1);
 
-  const [items, setItems] = useState<TrayItem[]>([]);
-  const [name, setName] = useState("");
-  const [category, setCategory] = useState<ListCategory>(FALLBACK_LIST_CATEGORY);
-  const [caption, setCaption] = useState("");
-  const [comment, setComment] = useState("");
+  // Seeded once from the server-rendered list. `existing` is a prop of a page
+  // that re-renders only on navigation, so there is no effect syncing the two —
+  // one would fight the user's own typing on every refresh.
+  const [items, setItems] = useState<TrayItem[]>(existing?.items ?? []);
+  const [name, setName] = useState(existing?.name ?? "");
+  const [category, setCategory] = useState<ListCategory>(
+    existing?.category ?? FALLBACK_LIST_CATEGORY,
+  );
+  const [caption, setCaption] = useState(existing?.caption ?? "");
+  const [comment, setComment] = useState(existing?.comment ?? "");
   const [showCard, setShowCard] = useState(false);
-  const [pending, setPending] = useState<"draft" | "publish" | null>(null);
+  const [pending, setPending] = useState<"draft" | "publish" | "save" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [savedNotice, setSavedNotice] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -160,46 +215,95 @@ export function ListBuilder() {
     setError(null);
   };
 
-  const submit = async (publish: boolean) => {
-    setError(null);
-    setSavedNotice(null);
+  /** Everything both paths send. Edit adds no `publish` — that stays its own endpoint. */
+  const body = () => ({
+    name,
+    category,
+    caption: caption || undefined,
+    comment: comment || undefined,
+    items: items.map(toWireItem),
+  });
 
+  /**
+   * The gates the server would apply anyway, checked here only so the message is
+   * friendly and lands on the step that can fix it. Returns false having already
+   * set the error.
+   */
+  const validate = (): boolean => {
     if (!name.trim()) {
       setError("Give your list a title.");
       setStep(1);
-      return;
-    }
-    if (publish && items.length === 0) {
-      setError("Add at least one title before publishing.");
-      setStep(2);
-      return;
+      return false;
     }
     if (items.length === 0) {
       setError("Add at least one title.");
       setStep(2);
-      return;
+      return false;
     }
-    // Invariant 8, checked here only so the message is friendly — the server
-    // enforces it regardless and would answer 400.
-    const hasSignal = Boolean(comment) || items.some((item) => item.scoreRaw !== null || item.comment);
+    // Invariant 8 — the server enforces it regardless and would answer 400.
+    const hasSignal =
+      Boolean(comment) || items.some((item) => item.scoreRaw !== null || item.comment);
     if (!hasSignal) {
       setError("Add a score or a note somewhere before saving.");
-      return;
+      return false;
     }
+    return true;
+  };
+
+  /**
+   * Saving an edit (D59). A whole-list replacement, so this sends the same body a
+   * create does — see `editListSchema`. On success it navigates to the artifact
+   * rather than staying put: the point of editing a published list is to see the
+   * thing readers now see.
+   */
+  const saveEdit = async () => {
+    if (!existing) return;
+    setError(null);
+    setSavedNotice(null);
+    if (!validate()) return;
+
+    setPending("save");
+    try {
+      const res = await fetch(`/api/lists/${existing.slug}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body()),
+      });
+
+      if (res.status === 204) {
+        // refresh() first so the artifact page re-reads rather than serving the
+        // router cache's copy of the list as it was before this save.
+        router.refresh();
+        router.push(`/r/${existing.slug}`);
+        return;
+      }
+      if (res.status === 429) {
+        const { retryAfter } = (await res.json()) as { retryAfter: number };
+        setError(`Saving too fast. Try again in ${retryAfter}s.`);
+      } else if (res.status === 401) {
+        setError("Sign in to edit this list.");
+      } else if (res.status === 404) {
+        setError("This list no longer exists, or is not yours to edit.");
+      } else {
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        setError(data?.error ?? "Could not save these changes.");
+      }
+    } finally {
+      setPending(null);
+    }
+  };
+
+  const submit = async (publish: boolean) => {
+    setError(null);
+    setSavedNotice(null);
+    if (!validate()) return;
 
     setPending(publish ? "publish" : "draft");
     try {
       const res = await fetch("/api/lists", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          category,
-          caption: caption || undefined,
-          comment: comment || undefined,
-          publish,
-          items: items.map(toWireItem),
-        }),
+        body: JSON.stringify({ ...body(), publish }),
       });
 
       if (res.status === 201) {
@@ -264,10 +368,12 @@ export function ListBuilder() {
           </span>
           <div className="min-w-0">
             <h1 className="truncate text-base font-bold text-foreground sm:text-lg">
-              {name.trim() || "Build a list"}
+              {name.trim() || (isEdit ? "Edit list" : "Build a list")}
             </h1>
             <p className="text-xs text-muted-foreground">
-              Add titles, score them, publish a link.
+              {isEdit
+                ? "Changes go live at the link you already shared."
+                : "Add titles, score them, publish a link."}
             </p>
           </div>
         </div>
@@ -600,7 +706,35 @@ export function ListBuilder() {
           Back
         </Button>
 
-        {step < 3 ? (
+        {isEdit ? (
+          /*
+            One save button on every step, not just the last: an edit is often a
+            one-word fix to the title, and making that person walk to step 3 to
+            commit it is the kind of friction the create flow at least earns by
+            being a flow. Cancel is a link back to the artifact, which is also
+            where a successful save lands.
+          */
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={pending !== null}
+              onClick={() => router.push(`/r/${existing.slug}`)}
+            >
+              <XIcon aria-hidden="true" />
+              Cancel
+            </Button>
+            <Button type="button" size="sm" disabled={pending !== null} onClick={saveEdit}>
+              {pending === "save" ? (
+                <Loader2Icon className="animate-spin" aria-hidden="true" />
+              ) : (
+                <SaveIcon aria-hidden="true" />
+              )}
+              Save changes
+            </Button>
+          </div>
+        ) : step < 3 ? (
           <Button type="button" size="sm" onClick={goNext}>
             {step === 1 ? "Next: Add titles" : "Next: Arrange"}
             <ArrowRightIcon aria-hidden="true" />

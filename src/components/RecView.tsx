@@ -1,6 +1,8 @@
-import { EyeIcon } from "lucide-react";
+import { EyeIcon, PencilIcon } from "lucide-react";
+import Link from "next/link";
 import { ListItemViews } from "@/components/ListItemViews";
 import { ListQuickActions } from "@/components/ListQuickActions";
+import { Button } from "@/components/ui/button";
 import { ShareListButton } from "@/components/ShareListButton";
 import { getEnv } from "@/lib/env";
 import { buildMarkdownExport } from "@/lib/markdown";
@@ -100,6 +102,20 @@ export function RecView({ rec }: { rec: ListView }) {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
+                {/*
+                  The owner's way in to editing (D59). `isOwner` is computed against
+                  the viewer who asked for this read, so an anonymous visitor and a
+                  signed-in stranger both get nothing here — this is an affordance,
+                  not the access check, which lives on /r/[slug]/edit itself.
+                */}
+                {rec.isOwner && (
+                  <Button asChild variant="outline" size="sm" className="rounded-full">
+                    <Link href={`/r/${rec.slug}/edit`}>
+                      <PencilIcon aria-hidden />
+                      Edit
+                    </Link>
+                  </Button>
+                )}
                 <ListQuickActions url={shareUrl} card={card} />
                 <ShareListButton
                   url={shareUrl}

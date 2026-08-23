@@ -81,48 +81,71 @@ function itemSaysSomething(item: z.infer<typeof itemSchema>): boolean {
   return item.scoreRaw !== undefined || Boolean(item.comment);
 }
 
+/**
+ * The fields that make up a list, shared by create and edit so the two can never
+ * drift into disagreeing about what a list is. `publish` is create-only: on an
+ * existing list, publishing is its own endpoint with its own `publishedAt`
+ * bookkeeping.
+ */
+const listBodyFields = {
+  name: z.string().trim().min(1).max(80),
+  // The rundown's filing vocabulary, split from `name` by D48. Required —
+  // there is no "uncategorised" state, because a list nobody can find on the
+  // rundown is a link with no distribution. The builder defaults the picker
+  // to FALLBACK_LIST_CATEGORY so this never blocks publishing.
+  category: listCategorySchema,
+  caption: z.string().max(120).optional(),
+  comment: z.string().max(280).optional(),
+  // Phase A/D36 — the old 10-item product cap is gone (lists are now
+  // unlimited); this is a DoS ceiling only, sized well above any
+  // legitimate list, resolved 4-at-a-time under an 8s deadline downstream
+  // (see resolveAllItems's FLAG comment in lists.ts for the scaling risk).
+  items: z.array(itemSchema).min(1).max(500),
+} as const;
+
+/**
+ * Invariant 8, D27 — spans the group and its items, so it lives only in Zod
+ * (documented exception to the three-layer rule, PHASE-1.md). Shared by create
+ * and edit: an edit that empties a list of every score and note would otherwise
+ * be a way to reach a state creating one cannot.
+ */
+function saysSomething(rec: {
+  comment?: string | undefined;
+  items: z.infer<typeof itemSchema>[];
+}): boolean {
+  return Boolean(rec.comment) || rec.items.some(itemSaysSomething);
+}
+
+const SAYS_SOMETHING_MESSAGE = {
+  message: "A list must include at least one score or comment, at group or item level",
+  path: ["comment"],
+};
+
 export const createListSchema = z
   .object({
-    name: z.string().trim().min(1).max(80),
-    // The rundown's filing vocabulary, split from `name` by D48. Required —
-    // there is no "uncategorised" state, because a list nobody can find on the
-    // rundown is a link with no distribution. The builder defaults the picker
-    // to FALLBACK_LIST_CATEGORY so this never blocks publishing.
-    category: listCategorySchema,
-    caption: z.string().max(120).optional(),
-    comment: z.string().max(280).optional(),
+    ...listBodyFields,
     // Publish in the same request that creates the list, rather than a second
     // round-trip to /publish that can fail on its own and strand the list as a
     // draft the author thinks is live. Defaults to false — "Save draft".
     publish: z.boolean().optional(),
-    // Phase A/D36 — the old 10-item product cap is gone (lists are now
-    // unlimited); this is a DoS ceiling only, sized well above any
-    // legitimate list, resolved 4-at-a-time under an 8s deadline downstream
-    // (see resolveAllItems's FLAG comment in lists.ts for the scaling risk).
-    items: z.array(itemSchema).min(1).max(500),
   })
-  // Invariant 8, D27 — spans the group and its items, so it lives only in
-  // Zod (documented exception to the three-layer rule, PHASE-1.md).
-  .refine((rec) => Boolean(rec.comment) || rec.items.some(itemSaysSomething), {
-    message: "A list must include at least one score or comment, at group or item level",
-    path: ["comment"],
-  });
+  .refine(saysSomething, SAYS_SOMETHING_MESSAGE);
 
 /**
- * Editing a list's metadata. Both fields optional, at least one required — this
- * is one endpoint for "edit the list's filing", not a rename endpoint that grew
- * a sibling. Renamed from `renameListSchema` when `category` arrived (D48).
+ * Editing an existing list, in full (**D59**). Same shape as creating one, and
+ * deliberately a **whole-list replacement** rather than a patch of individual
+ * fields: the editor always holds every title, so a partial body would mean
+ * inventing merge rules for a client that has no partial state to send.
+ * Anything absent is cleared — an omitted `caption` means "remove the caption",
+ * not "leave it alone".
+ *
+ * This replaced the metadata-only `updateListSchema` (name + category, D48),
+ * which was the entire edit surface back when editing was out of scope.
  */
-export const updateListSchema = z
-  .object({
-    name: z.string().trim().min(1).max(80).optional(),
-    category: listCategorySchema.optional(),
-  })
-  .refine((input) => input.name !== undefined || input.category !== undefined, {
-    message: "Provide a name, a category, or both",
-    path: ["name"],
-  });
+export const editListSchema = z
+  .object(listBodyFields)
+  .refine(saysSomething, SAYS_SOMETHING_MESSAGE);
 
 export type CreateListInput = z.infer<typeof createListSchema>;
 export type CreateListItem = z.infer<typeof itemSchema>;
-export type UpdateListInput = z.infer<typeof updateListSchema>;
+export type EditListInput = z.infer<typeof editListSchema>;

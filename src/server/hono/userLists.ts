@@ -2,17 +2,17 @@ import "server-only";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { auth } from "@/lib/auth";
-import { createListSchema, updateListSchema } from "@/lib/validators/list";
+import { createListSchema, editListSchema } from "@/lib/validators/list";
 import { checkListCreateLimit } from "@/server/hono/middleware";
 import {
   createList,
   deleteList,
   duplicateList,
+  editList,
   getListBySlug,
   listListsForUser,
   publishList,
   unpublishList,
-  updateList,
 } from "@/server/services/lists";
 
 export const userListsRouter = new Hono()
@@ -55,19 +55,39 @@ export const userListsRouter = new Hono()
     }
     return c.json(list);
   })
-  .patch("/lists/:slug", zValidator("json", updateListSchema), async (c) => {
+  /*
+    A full edit (D59) — metadata and the whole item set in one body. It shares
+    the *create* limiter rather than getting one of its own: an edit can add
+    titles, which costs the same provider resolution a create does, and rewrites
+    every item row either way. Five a minute is far above any human editing pace
+    and well below a useful way to hammer AniList.
+  */
+  .patch("/lists/:slug", zValidator("json", editListSchema), async (c) => {
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
     if (!session) {
       return c.json({ error: "Sign in to edit a list." }, 401);
     }
 
-    const result = await updateList(
+    const limit = await checkListCreateLimit(session.user.id);
+    if (!limit.allowed) {
+      return c.json({ retryAfter: limit.retryAfterSeconds }, 429);
+    }
+
+    const result = await editList(
       c.req.param("slug"),
       session.user.id,
       c.req.valid("json"),
+      fetch,
     );
-    if (result === "not_found") {
-      return c.json({ error: "Not found" }, 404);
+
+    if (!result.ok) {
+      if (result.reason === "not_found") {
+        return c.json({ error: "Not found" }, 404);
+      }
+      return c.json(
+        { error: "Could not resolve one or more titles. Nothing was changed." },
+        502,
+      );
     }
     return c.body(null, 204);
   })

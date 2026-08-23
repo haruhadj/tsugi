@@ -354,6 +354,141 @@ if (hasDb) {
       TIMEOUT,
     );
 
+    /*
+      editList (D59). The interesting cases are the ones a metadata-only PATCH
+      never had: replacing the item set, keeping already-resolved items off the
+      provider, clearing an optional field, and refusing a stranger.
+    */
+    test(
+      "an edit replaces the item set, reorders it, and rescores it",
+      async () => {
+        const slug = await makeList();
+        const { editList, getListBySlug } = await service();
+
+        const result = await editList(slug, testUserId, {
+          name: "Edited title",
+          category: "Horror",
+          comment: "edited by lists.db.test.ts",
+          // Berserk first, Frieren dropped, one new score.
+          items: [
+            {
+              provider: "anilist",
+              externalId: BERSERK,
+              mediaType: "manga",
+              scoreRaw: 10,
+              scoreFormat: "POINT_10",
+              comment: "moved to the top",
+            },
+          ],
+        } as never);
+
+        expect(result.ok).toBe(true);
+        const view = await getListBySlug(slug, testUserId);
+        expect(view!.name).toBe("Edited title");
+        expect(view!.category).toBe("Horror");
+        expect(view!.items).toHaveLength(1);
+        expect(view!.items[0]!.externalId).toBe(BERSERK);
+        expect(view!.items[0]!.position).toBe(0);
+        expect(view!.items[0]!.scoreRaw).toBe(10);
+        expect(view!.items[0]!.comment).toBe("moved to the top");
+        // Kept from the stored row rather than re-resolved, so the genres that
+        // were never in the request body survive the edit.
+        expect(view!.items[0]!.genres.length).toBeGreaterThan(0);
+      },
+      TIMEOUT,
+    );
+
+    test(
+      "an edit that only reorders never calls a provider",
+      async () => {
+        const slug = await makeList();
+        const { editList, getListBySlug } = await service();
+
+        // A fetch that throws on any call: if the edit path tries to resolve an
+        // item it already has stored, this fails loudly instead of silently
+        // making network calls on a path that must not need them.
+        const noFetch = (() => {
+          throw new Error("editList resolved an item it should have reused");
+        }) as unknown as typeof fetch;
+
+        const result = await editList(
+          slug,
+          testUserId,
+          {
+            name: "Genre and publish check",
+            category: "Fantasy",
+            comment: "created by lists.db.test.ts",
+            items: [
+              { provider: "anilist", externalId: BERSERK, mediaType: "manga", scoreRaw: 87, scoreFormat: "POINT_100" },
+              { provider: "anilist", externalId: FRIEREN, mediaType: "anime", scoreRaw: 9, scoreFormat: "POINT_10" },
+            ],
+          } as never,
+          noFetch,
+        );
+
+        expect(result.ok).toBe(true);
+        const view = await getListBySlug(slug, testUserId);
+        expect(view!.items.map((item) => item.externalId)).toEqual([BERSERK, FRIEREN]);
+      },
+      TIMEOUT,
+    );
+
+    test(
+      "an omitted caption is cleared, not left alone",
+      async () => {
+        const slug = await makeList({ caption: "the original caption" });
+        const { editList, getListBySlug } = await service();
+
+        expect((await getListBySlug(slug, testUserId))!.caption).toBe("the original caption");
+
+        await editList(slug, testUserId, {
+          name: "Genre and publish check",
+          category: "Fantasy",
+          comment: "still says something",
+          items: [{ provider: "anilist", externalId: FRIEREN, mediaType: "anime" }],
+        } as never);
+
+        expect((await getListBySlug(slug, testUserId))!.caption).toBeNull();
+      },
+      TIMEOUT,
+    );
+
+    test(
+      "editing someone else's list is not_found, and changes nothing",
+      async () => {
+        const slug = await makeList();
+        const { editList, getListBySlug } = await service();
+
+        const result = await editList(slug, `${testUserId}-impostor`, {
+          name: "Hijacked",
+          category: "Horror",
+          comment: "should never land",
+          items: [{ provider: "anilist", externalId: FRIEREN, mediaType: "anime" }],
+        } as never);
+
+        expect(result).toEqual({ ok: false, reason: "not_found" });
+        expect((await getListBySlug(slug, testUserId))!.name).toBe("Genre and publish check");
+      },
+      TIMEOUT,
+    );
+
+    test(
+      "isOwner is true for the owner and false for everyone else",
+      async () => {
+        const slug = await makeList({ publish: true });
+        const { getListBySlug, getOwnedListBySlug } = await service();
+
+        expect((await getListBySlug(slug, testUserId))!.isOwner).toBe(true);
+        expect((await getListBySlug(slug, "somebody-else"))!.isOwner).toBe(false);
+        expect((await getListBySlug(slug, null))!.isOwner).toBe(false);
+
+        // The edit route's read refuses a published list that is not the caller's.
+        expect(await getOwnedListBySlug(slug, testUserId)).not.toBeNull();
+        expect(await getOwnedListBySlug(slug, "somebody-else")).toBeNull();
+      },
+      TIMEOUT,
+    );
+
     test(
       "a search containing a wildcard is matched literally",
       async () => {
