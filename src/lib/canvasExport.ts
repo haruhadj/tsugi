@@ -13,7 +13,7 @@ const COLOR = {
   border: "#262B54",
   foreground: "#FAFAFA",
   mutedForeground: "#9CA0C4",
-  primary: "#542C84",
+  primary: "#9A66E0",
   highlight: "#D0B070",
 };
 
