@@ -72,10 +72,13 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen">
-      <Header username={null} />
-
-      <main className="mx-auto max-w-6xl px-4 sm:px-6">
-        <section className="flex flex-col items-center gap-10 py-14 text-center sm:gap-14 sm:py-28">
+      {/*
+        The signed-out landing page carries no header, so the hero owns the whole
+        viewport and centres in it. `svh` rather than `vh` so a phone's collapsing
+        address bar does not push the block off-centre mid-scroll.
+      */}
+      <main className="mx-auto flex min-h-svh max-w-6xl items-center px-4 sm:px-6">
+        <section className="flex w-full flex-col items-center gap-10 py-14 text-center sm:gap-14 sm:py-28">
           <div className="flex flex-col items-center">
             <p
               className="animate-card-in font-mono text-xs tracking-[0.28em] text-muted-foreground uppercase"
