@@ -10,8 +10,13 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { FeedBrowseDrawer } from "@/components/FeedBrowseDrawer";
-import { FeedMediaTypeFilter, FeedPanel, FeedSearch } from "@/components/FeedControls";
+import {
+  FeedMediaTypeFilter,
+  FeedPanel,
+  FeedSearch,
+} from "@/components/FeedControls";
 import { FeedList } from "@/components/FeedList";
+import { FeedSortDrawer } from "@/components/FeedSortDrawer";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { getServerSession } from "@/lib/auth";
@@ -53,10 +58,16 @@ const SORTS: Record<FeedSort, { label: string; icon: LucideIcon }> = {
 };
 
 function isFeedSort(value: string | undefined): value is FeedSort {
-  return value !== undefined && (FEED_SORTS as readonly string[]).includes(value);
+  return (
+    value !== undefined && (FEED_SORTS as readonly string[]).includes(value)
+  );
 }
 
-export default async function FeedPage({ searchParams }: { searchParams: SearchParams }) {
+export default async function FeedPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
   const params = await searchParams;
   const sort: FeedSort = isFeedSort(params.sort) ? params.sort : "top";
   const pageParam = Number(params.page ?? "1");
@@ -65,7 +76,9 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
   // empty page — a bookmarked chip from before D48's vocabulary should still
   // show something to read.
   const category =
-    params.category && isListCategory(params.category) ? params.category : undefined;
+    params.category && isListCategory(params.category)
+      ? params.category
+      : undefined;
   const genre = params.genre || undefined;
   const mediaType = normalizeMediaType(params.mediaType);
   const q = normalizeFeedQuery(params.q);
@@ -118,7 +131,10 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
       <FeedMediaTypeFilter urlState={urlState} counts={mediaTypeCounts} />
 
       {categories.length > 0 && (
-        <nav aria-label="Categories" className="rounded-2xl border border-border bg-card/60 p-4">
+        <nav
+          aria-label="Categories"
+          className="rounded-2xl border border-border bg-card/60 p-4"
+        >
           <h2 className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
             Categories
           </h2>
@@ -139,7 +155,9 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
                 {/* The other filters still apply, so this is how many the reader
                     would see with the category cleared — not the global total
                     the account panel below quotes. */}
-                <span className="font-mono text-[11px] tabular-nums">{matchingLists}</span>
+                <span className="font-mono text-[11px] tabular-nums">
+                  {matchingLists}
+                </span>
               </Link>
             </li>
             {categories.map((entry) => (
@@ -156,7 +174,9 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
                   )}
                 >
                   <span className="truncate">{entry.name}</span>
-                  <span className="font-mono text-[11px] tabular-nums">{entry.count}</span>
+                  <span className="font-mono text-[11px] tabular-nums">
+                    {entry.count}
+                  </span>
                 </Link>
               </li>
             ))}
@@ -171,7 +191,10 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
         selection, matching the chips on the rows themselves.
       */}
       {genres.length > 0 && (
-        <nav aria-label="Genres" className="rounded-2xl border border-border bg-card/60 p-4">
+        <nav
+          aria-label="Genres"
+          className="rounded-2xl border border-border bg-card/60 p-4"
+        >
           <h2 className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
             Genres
           </h2>
@@ -179,7 +202,9 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
             {genres.map((entry) => (
               <li key={entry.name}>
                 <Link
-                  href={hrefFor({ genre: genre === entry.name ? undefined : entry.name })}
+                  href={hrefFor({
+                    genre: genre === entry.name ? undefined : entry.name,
+                  })}
                   aria-current={genre === entry.name ? "true" : undefined}
                   className={cn(
                     "flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
@@ -189,8 +214,12 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
                       : "text-muted-foreground hover:bg-accent hover:text-foreground",
                   )}
                 >
-                  <span className="truncate font-mono text-xs">#{entry.name}</span>
-                  <span className="font-mono text-[11px] tabular-nums">{entry.count}</span>
+                  <span className="truncate font-mono text-xs">
+                    #{entry.name}
+                  </span>
+                  <span className="font-mono text-[11px] tabular-nums">
+                    {entry.count}
+                  </span>
                 </Link>
               </li>
             ))}
@@ -221,8 +250,8 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
           </div>
         </dl>
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          Score the anime and manga you would hand to someone and yours joins them as a link
-          worth sending.
+          Score the anime and manga you would hand to someone and yours joins
+          them as a link worth sending.
         </p>
         <Button asChild size="sm" className="mt-4 w-full rounded-full">
           <Link href={session === null ? "/sign-in" : "/"}>
@@ -237,7 +266,7 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
   // Built here rather than inline below because FeedList lays them out around its own
   // density toggle: the sort tabs share the toggle's row, the filter bar sits under it.
   const sortNav = (
-    <nav aria-label="Sort" className="flex items-center gap-1">
+    <nav aria-label="Sort" className="hidden items-center gap-1 md:flex">
       {FEED_SORTS.map((option) => {
         const { label, icon: Icon } = SORTS[option];
         return (
@@ -264,6 +293,42 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
         );
       })}
     </nav>
+  );
+
+  // The phone form of the same sort control. FeedList shows this in the sticky band
+  // instead of the chips, which do not fit four abreast on a phone.
+  const sortDrawer = (
+    <FeedSortDrawer label={SORTS[sort].label}>
+      {/*
+        Wrapped in a fragment, not handed over as a bare array: `children`
+        crossing into a Client Component is serialized as a prop, and an array
+        prop arrives without the keys JSX gave it — which React then reports as
+        a missing-key warning inside FeedList. The same reason FeedBrowseDrawer
+        is given the directory as one fragment.
+      */}
+      <>
+        {FEED_SORTS.map((option) => {
+          const { label, icon: Icon } = SORTS[option];
+          return (
+            <Link
+              key={option}
+              href={hrefFor({ sort: option })}
+              aria-current={sort === option ? "true" : undefined}
+              className={cn(
+                "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                sort === option
+                  ? "bg-secondary text-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
+              )}
+            >
+              <Icon className="size-4" aria-hidden />
+              {label}
+            </Link>
+          );
+        })}
+      </>
+    </FeedSortDrawer>
   );
 
   // The active-filter bar. Only built when something is actually filtering — an
@@ -344,7 +409,9 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
       )}
       {entries.length === PAGE_SIZE ? (
         <Button asChild variant="ghost" size="sm" className="rounded-full">
-          <Link href={hrefFor({ page: page + 1 })}>Slot {firstSlot + PAGE_SIZE} onward</Link>
+          <Link href={hrefFor({ page: page + 1 })}>
+            Slot {firstSlot + PAGE_SIZE} onward
+          </Link>
         </Button>
       ) : null}
     </div>
@@ -352,7 +419,9 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
 
   return (
     <div className="min-h-screen">
-      <Header username={session ? (session.user.username ?? session.user.name) : null} />
+      <Header
+        username={session ? (session.user.username ?? session.user.name) : null}
+      />
 
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
         <div className="animate-card-in">
@@ -372,8 +441,8 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
                   The rundown
                 </h1>
                 <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground">
-                  Every list people have published, ranked by what the room thinks of them.
-                  Vote on the ones you have opinions about.
+                  Every list people have published, ranked by what the room
+                  thinks of them. Vote on the ones you have opinions about.
                 </p>
               </div>
               {/* Right-aligned from `md` up, under the copy below it — the eyebrow
@@ -392,16 +461,26 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
               {entries.length === 0 ? (
                 <>
                   <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
-                    {sortNav}
-                    <FeedBrowseDrawer filtered={hasFilter}>{directory}</FeedBrowseDrawer>
+                    <div className="flex items-center gap-2">
+                      {sortDrawer}
+                      {sortNav}
+                    </div>
+                    <FeedBrowseDrawer filtered={hasFilter}>
+                      {directory}
+                    </FeedBrowseDrawer>
                   </div>
                   {filterBar}
                   <div className="mt-6 flex flex-col items-center rounded-2xl border border-dashed border-border px-6 py-16 text-center">
                     <div className="flex size-12 items-center justify-center rounded-2xl bg-secondary">
-                      <CompassIcon className="size-6 text-muted-foreground" aria-hidden />
+                      <CompassIcon
+                        className="size-6 text-muted-foreground"
+                        aria-hidden
+                      />
                     </div>
                     <h2 className="mt-4 font-display text-lg font-bold">
-                      {hasFilter ? "Nothing matches that yet" : "The rundown is empty"}
+                      {hasFilter
+                        ? "Nothing matches that yet"
+                        : "The rundown is empty"}
                     </h2>
                     <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
                       {hasFilter
@@ -410,7 +489,11 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
                     </p>
                     <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
                       {hasFilter && (
-                        <Button asChild variant="outline" className="rounded-full">
+                        <Button
+                          asChild
+                          variant="outline"
+                          className="rounded-full"
+                        >
                           <Link
                             href={hrefFor({
                               category: undefined,
@@ -444,11 +527,14 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
                   key={hrefFor({ page })}
                   entries={entries}
                   sortNav={sortNav}
+                  sortDrawer={sortDrawer}
                   filterBar={filterBar}
                   pagination={pagination}
                   urlState={urlState}
                   browseDrawer={
-                    <FeedBrowseDrawer filtered={hasFilter}>{directory}</FeedBrowseDrawer>
+                    <FeedBrowseDrawer filtered={hasFilter}>
+                      {directory}
+                    </FeedBrowseDrawer>
                   }
                 />
               )}

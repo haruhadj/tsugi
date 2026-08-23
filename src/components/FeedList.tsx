@@ -53,8 +53,9 @@ const PULL_THRESHOLD = 64;
  * not change what a shared /feed link resolves to. Sort, category and page do all live
  * in the URL, and are owned by the server component above this one.
  *
- * `sortNav`, `filterBar`, `browseDrawer` and `pagination` are rendered by the server and
- * handed down rather than placed above this component: the sort chips share the density
+ * `sortNav`, `sortDrawer`, `filterBar`, `browseDrawer` and `pagination` are rendered by
+ * the server and
+ * handed down rather than placed above this component: the sort control shares the density
  * toggle's sticky rail, and the pagination links have to be able to disappear once
  * infinite scroll has taken over, which is client state.
  *
@@ -65,6 +66,7 @@ const PULL_THRESHOLD = 64;
 export function FeedList({
   entries,
   sortNav,
+  sortDrawer,
   filterBar,
   browseDrawer,
   pagination,
@@ -72,6 +74,7 @@ export function FeedList({
 }: {
   entries: FeedEntry[];
   sortNav: ReactNode;
+  sortDrawer?: ReactNode;
   filterBar?: ReactNode;
   browseDrawer?: ReactNode;
   pagination?: ReactNode;
@@ -104,14 +107,17 @@ export function FeedList({
       >
         <div className="flex items-center gap-2">
           {/*
-            The chips scroll sideways rather than wrapping. Wrapping is what a
-            sticky bar cannot afford: a second row of chips would change the
-            band's height as filters come and go, and every row below it would
-            jump. Scrollbar hidden because the row is short enough to be
-            obviously draggable and a visible bar under four chips reads as a
-            rendering fault.
+            Two forms of one control. On a phone the four sorts cannot sit in
+            this band beside the browse trigger, and a sideways-scrolling rail
+            hides the options it holds, so the drawer shows the current sort and
+            opens the rest over the feed. From `md` the chips fit outright and
+            are worth the glanceability; each half hides itself at the other's
+            breakpoint. `overflow-x-auto` stays as the chips' last resort at
+            narrow desktop widths — wrapping would change this band's height and
+            shift every row under it.
           */}
           <div className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {sortDrawer}
             {sortNav}
           </div>
           <div className="flex shrink-0 items-center gap-2">
