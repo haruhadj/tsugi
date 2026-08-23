@@ -45,7 +45,7 @@ export function RecView({ rec }: { rec: ListView }) {
         <div className="p-6 sm:p-10">
           <header className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-3">
-              <span className="rounded-full border border-primary/30 bg-primary/15 px-2.5 py-1 font-mono text-[11px] font-semibold tracking-wide text-primary">
+              <span className="max-w-full rounded-full border border-primary/30 bg-primary/15 px-2.5 py-1 font-mono text-[11px] font-semibold tracking-wide break-words text-primary">
                 {rec.category}
               </span>
               {/*
@@ -66,18 +66,18 @@ export function RecView({ rec }: { rec: ListView }) {
               )}
             </div>
 
-            <h1 className="font-display text-[clamp(1.75rem,5vw,2.5rem)] leading-[1.05] font-extrabold tracking-[-0.03em] text-foreground">
+            <h1 className="font-display text-[clamp(1.75rem,5vw,2.5rem)] leading-[1.05] font-extrabold tracking-[-0.03em] break-words text-foreground">
               {rec.name}
             </h1>
 
             {rec.caption && (
-              <p className="max-w-2xl text-base leading-relaxed text-muted-foreground">
+              <p className="max-w-2xl break-words text-base leading-relaxed text-muted-foreground">
                 {rec.caption}
               </p>
             )}
 
             {rec.comment && (
-              <p className="max-w-2xl text-sm leading-relaxed text-foreground/85">
+              <p className="max-w-2xl break-words text-sm leading-relaxed text-foreground/85">
                 {rec.comment}
               </p>
             )}

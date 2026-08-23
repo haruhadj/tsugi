@@ -84,7 +84,7 @@ export function ListItemViews({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <h2 className="font-mono text-xs tracking-[0.24em] text-muted-foreground uppercase">
           {visible.length} {visible.length === 1 ? "title" : "titles"}
           {activeGenre && <> of {items.length}</>}
@@ -93,7 +93,7 @@ export function ListItemViews({
         <div
           role="group"
           aria-label="List layout"
-          className="inline-flex items-center gap-0.5 rounded-full border border-border bg-secondary/40 p-0.5"
+          className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-border bg-secondary/40 p-0.5"
         >
           {MODES.map((option) => (
             <button
@@ -101,8 +101,9 @@ export function ListItemViews({
               type="button"
               onClick={() => setMode(option.id)}
               aria-pressed={mode === option.id}
+              title={option.label}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+                "inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors",
                 "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
                 mode === option.id
                   ? "bg-primary text-primary-foreground"
@@ -110,7 +111,13 @@ export function ListItemViews({
               )}
             >
               <option.icon className="size-3.5" aria-hidden />
-              {option.label}
+              {/* Icon-only below `md`. Three labelled pills plus the title count
+                  need ~374px on a row that has ~280px at 360px wide, and this is
+                  the toolbar for the artifact page — the one screen that must not
+                  look broken. The name survives for screen readers and as a
+                  tooltip. */}
+              <span className="hidden md:inline">{option.label}</span>
+              <span className="sr-only md:hidden">{option.label}</span>
             </button>
           ))}
         </div>
@@ -447,7 +454,18 @@ function RankedView({
               {item.position + 1}
             </span>
 
-            <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            {/*
+              `min-w-0` is load-bearing, not defensive. The title below carries
+              `truncate`, which sets `white-space: nowrap` — and a nowrap element's
+              min-content width is its *entire* string. That measurement propagates
+              up here, and a flex item defaults to `min-width: auto`, so without
+              this the row cannot shrink below the width of its longest title and
+              a 40-character name pushes the card past the article's edge (where
+              `overflow-hidden` clips it). The `min-w-0` on the two nested divs is
+              not enough on its own: those let the inner items shrink, but they do
+              not reduce the min-content contribution handed to this ancestor.
+            */}
+            <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 items-center gap-3">
                 <MediaCover
                   src={item.coverImage}
@@ -497,7 +515,7 @@ function RankedView({
                 )}
 
                 {item.comment && (
-                  <p className="max-w-xs text-right text-sm text-muted-foreground/80 italic">
+                  <p className="max-w-xs break-words text-right text-sm text-muted-foreground/80 italic">
                     &ldquo;{item.comment}&rdquo;
                   </p>
                 )}
