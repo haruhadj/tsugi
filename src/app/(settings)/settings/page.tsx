@@ -13,7 +13,7 @@ export default async function SettingsPage() {
     <div className="min-h-screen">
       <Header username={session.user.username ?? session.user.name} />
 
-      <main className="mx-auto max-w-6xl px-6 py-10">
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
         <div className="animate-card-in">
           <p className="font-mono text-xs tracking-[0.28em] text-muted-foreground uppercase">
             Settings

@@ -25,6 +25,20 @@ const envSchema = z.object({
   ANILIST_CLIENT_SECRET: z.string().min(1),
   MAL_CLIENT_ID: z.string().min(1),
   MAL_CLIENT_SECRET: z.string().min(1),
+  // Sends emailAndPassword's verification and reset-password emails
+  // (src/lib/auth.ts). Required, not optional-with-fallback like Upstash —
+  // there is no in-memory dev fallback for "send an email", so a missing key
+  // fails loudly at startup instead of silently dropping every reset link.
+  RESEND_API_KEY: z.string().min(1),
+  // Optional: falls back to Resend's shared `onboarding@resend.dev` sender,
+  // which works with zero setup but only from Resend's own domain. Set this
+  // once a sending domain is verified in the Resend dashboard.
+  EMAIL_FROM: z
+    .string()
+    .min(1)
+    .optional()
+    .or(z.literal(""))
+    .transform((value) => (value ? value : "Tsugi <onboarding@resend.dev>")),
   // Optional here on purpose (D9) — requiring an Upstash account to run the
   // homepage locally is friction with no benefit. Phase 0's in-memory
   // fallback covers dev. `src/server/hono/middleware.ts` is the module that

@@ -13,7 +13,6 @@ import {
   SparklesIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { type ReactNode, useState } from "react";
 import { MediaCover } from "@/components/MediaCover";
 import { ScoreBadge } from "@/components/ScoreBadge";
@@ -312,17 +311,19 @@ function Meta({ entry }: { entry: FeedEntry }) {
  * rather than taking the link overlay the other two densities use. It is the
  * density with the most of its own affordances inside it (per-cover art, genre
  * chips, a caption worth selecting), and a card-wide target would swallow them.
+ *
+ * The `<li>` used to carry an `onClick` that navigated when the click landed on
+ * the padding itself (`e.target === e.currentTarget`). That was the `div`-with-an-
+ * onClick the rules forbid, wearing a guard: no keyboard route, no middle-click,
+ * no open-in-new-tab, and a `cursor-pointer` claiming the whole card is a target
+ * when only its margins were. On touch it was worse than inert — a scroll that
+ * begins and ends on the card's padding is a tap, so flicking down the feed
+ * navigated into a random list. Removed rather than converted to a link overlay,
+ * because the doc comment above is right: this density has too much inside it.
  */
 function StreamCard({ entry }: { entry: FeedEntry }) {
-  const router = useRouter();
-
   return (
-    <li
-      onClick={(e) => {
-        if (e.target === e.currentTarget) router.push(`/r/${entry.slug}`);
-      }}
-      className="flex cursor-pointer gap-4 rounded-2xl border border-border bg-card/60 p-4 transition-colors hover:border-input sm:p-5"
-    >
+    <li className="flex gap-3 rounded-2xl border border-border bg-card/60 p-4 transition-colors hover:border-input sm:gap-4 sm:p-5">
       <div className="flex shrink-0 flex-col items-center gap-2">
         <VoteButtons slug={entry.slug} initialScore={entry.score} orientation="vertical" />
       </div>

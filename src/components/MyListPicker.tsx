@@ -388,11 +388,18 @@ export function MyListPicker({
         </button>
       )}
 
-      {/* Results grid */}
+      {/*
+        Results grid. Two-up on a phone, not three: this grid is nested two levels
+        inside padded panels, so at 360px `grid-cols-3` left each cell about 88px to
+        carry cover art, a title, a score badge and a tap target — the title
+        truncated to a couple of characters and the badge overlapped the art it
+        annotates. Two-up gives roughly 140px, the width the cell was designed
+        against. It rejoins the desktop ramp at `sm`.
+      */}
       {filtered.length === 0 ? (
         <p className="py-4 text-sm text-muted-foreground">No titles match.</p>
       ) : (
-        <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5">
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
           {filtered.map((entry) => {
             const selected = isSelected(entry);
             return (

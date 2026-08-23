@@ -11,7 +11,7 @@ import Link from "next/link";
 export function Footer() {
   return (
     <footer className="border-t border-border">
-      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-6 py-8 text-xs text-muted-foreground sm:flex-row">
+      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 py-8 sm:px-6 text-xs text-muted-foreground sm:flex-row">
         <nav aria-label="Legal" className="flex items-center gap-4">
           <Link href="/terms" className="transition-colors hover:text-foreground">
             Terms

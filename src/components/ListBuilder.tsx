@@ -472,7 +472,15 @@ export function ListBuilder() {
             scoring/reordering tray lives on step 3 — here it is just a running
             confirmation so the picker keeps the whole width.
           */}
-          <div className="sticky bottom-0 flex flex-col gap-2 rounded-2xl border border-border bg-card/95 p-3 backdrop-blur">
+          {/*
+            `bottom-rail`, not `bottom-0`: this pins to the bottom of the *available*
+            viewport, above Header's fixed tab bar. At bottom-0 it slid underneath
+            that bar on every phone, taking "Next: Arrange" with it — the one control
+            that moves the create path forward was unreachable on the device the
+            create path is designed for. The rail collapses to 0 at md, where there
+            is no tab bar, so this needs no breakpoint of its own.
+          */}
+          <div className="sticky bottom-rail z-10 flex flex-col gap-2 rounded-2xl border border-border bg-card/95 p-3 backdrop-blur">
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold text-foreground">Added</span>
               <span className="rounded-full border border-primary/30 bg-primary/15 px-2 py-0.5 font-mono text-xs font-bold text-primary">

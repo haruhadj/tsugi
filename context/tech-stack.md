@@ -40,6 +40,7 @@ peer-dependency warning. A version matrix without a date is a rumour.
 | `@upstash/redis` | 1.38.2 | |
 | `server-only` | 0.0.1 | **Not** a Next dependency — must be installed explicitly, or every `import "server-only"` fails to resolve |
 | `cmdk` | 1.1.1 | **Approved 2026-08-15 (D42).** Radix has no combobox primitive; shadcn's `Combobox` composes `Popover` + `Command`, and `Command` wraps `cmdk`. Needed for `MediaSearchInput` (Phase 5). Verified via `npm view cmdk version`. |
+| `resend` | 6.22.0 | **Approved 2026-08-23.** Sends better-auth's `emailAndPassword` verification and reset-password emails. Replaces nothing — no email sender existed. The platform (better-auth) only calls a `sendVerificationEmail`/`sendResetPassword` callback; it does not send email itself. `@react-email/render` is listed as a peer but is `optional: true` (verified via `npm view resend peerDependenciesMeta`) — not installed, since emails are sent as plain HTML strings, no JSX templates. Verified via `npm view resend version peerDependencies`. |
 
 **Local toolchain:** Bun 1.3.14, Node 24.14.0, linux/aarch64.
 

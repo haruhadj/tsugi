@@ -1,19 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { EmailPasswordForm } from "@/components/EmailPasswordForm";
-import { SignInButtons } from "@/components/SignInButtons";
-import { Separator } from "@/components/ui/separator";
 import { Wordmark } from "@/components/Wordmark";
 import { getServerSession } from "@/lib/auth";
 
-export default async function SignInPage() {
-  // The mirror of /settings' guard. Without this, an already-signed-in visitor
-  // who lands here — via the hero's "Make a list", a stale tab, or the browser
-  // back button — sees the sign-in form again with nothing telling them
-  // anything is different. That reads as a failed or forgotten login even
-  // though the session is fine; it was the reported symptom, not a real auth
-  // bug. There is nowhere better to send them yet — Phase 5 owns that — so `/`
-  // is the honest destination, and it now shows its signed-in header.
+export default async function SignUpPage() {
+  // Mirrors sign-in's guard (src/app/(auth)/sign-in/page.tsx) — same reasoning.
   const session = await getServerSession();
   if (session) {
     redirect("/");
@@ -22,44 +14,41 @@ export default async function SignInPage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-4 py-12 sm:px-6 sm:py-16">
       <div className="w-full max-w-md animate-card-in">
-        {/* Same card as the hero's example, at the other end of the flow. */}
         <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-xl">
           <div className="flex flex-col gap-8 p-8 sm:p-10">
             <div className="flex flex-col gap-5">
               <Wordmark size="lg" />
               <div className="flex flex-col gap-2">
                 <h1 className="font-display text-2xl leading-tight font-extrabold tracking-[-0.02em]">
-                  Sign in
+                  Create an account
                 </h1>
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  You only need an account to make a list. Opening one never asks for
-                  anything.
+                  Prefer AniList or MyAnimeList?{" "}
+                  <Link
+                    href="/sign-in"
+                    className="text-foreground underline underline-offset-2 hover:no-underline"
+                  >
+                    Sign in with a tracker
+                  </Link>{" "}
+                  instead.
                 </p>
               </div>
             </div>
 
-            <SignInButtons />
-
-            <div className="flex items-center gap-3">
-              <Separator className="flex-1" />
-              <span className="text-xs text-muted-foreground uppercase">or</span>
-              <Separator className="flex-1" />
-            </div>
-
-            <EmailPasswordForm mode="sign-in" />
+            <EmailPasswordForm mode="sign-up" />
 
             <p className="text-center text-sm text-muted-foreground">
-              No account?{" "}
+              Already have an account?{" "}
               <Link
-                href="/sign-up"
+                href="/sign-in"
                 className="text-foreground underline underline-offset-2 hover:no-underline"
               >
-                Create one
+                Sign in
               </Link>
             </p>
 
             <p className="text-center text-xs text-muted-foreground">
-              By signing in, you agree to the{" "}
+              By creating an account, you agree to the{" "}
               <Link href="/terms" className="underline underline-offset-2 hover:text-foreground">
                 Terms of Service
               </Link>{" "}

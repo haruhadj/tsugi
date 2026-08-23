@@ -44,7 +44,7 @@ export default async function Home() {
       <div className="min-h-screen">
         <Header username={session.user.username ?? session.user.name} />
 
-        <main className="mx-auto max-w-6xl px-6 py-16">
+        <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-16">
           <div className="animate-card-in">
             <p className="font-mono text-xs tracking-[0.28em] text-muted-foreground uppercase">
               New list
@@ -68,8 +68,8 @@ export default async function Home() {
     <div className="min-h-screen">
       <Header username={null} />
 
-      <main className="mx-auto max-w-6xl px-6">
-        <section className="grid items-center gap-14 py-20 sm:py-28 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
+      <main className="mx-auto max-w-6xl px-4 sm:px-6">
+        <section className="grid items-center gap-10 py-14 sm:gap-14 sm:py-28 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
           <div className="animate-card-in">
             <p className="font-mono text-xs tracking-[0.28em] text-muted-foreground uppercase">
               For anime and manga
@@ -134,9 +134,16 @@ export default async function Home() {
           </div>
         </section>
 
-        <section className="grid border-y border-border sm:grid-cols-3 sm:divide-x sm:divide-border">
+        {/*
+          The three steps are divided from each other in both directions. Above `sm`
+          that is the vertical rule between columns; below it, where they stack, it
+          has to be a horizontal one — without `divide-y` the section was a single
+          run of text with three orphaned eyebrows in it, and the sequence the
+          numbering encodes stopped being legible as a sequence.
+        */}
+        <section className="grid divide-y divide-border border-y border-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
           {STEPS.map((step) => (
-            <div key={step.marker} className="py-10 sm:px-8 sm:first:pl-0 sm:last:pr-0">
+            <div key={step.marker} className="py-8 sm:px-8 sm:py-10 sm:first:pl-0 sm:last:pr-0">
               <p className="font-mono text-xs tracking-[0.3em] text-primary">{step.marker}</p>
               <h2 className="mt-4 font-display text-lg font-semibold tracking-[-0.01em] text-foreground">
                 {step.title}
