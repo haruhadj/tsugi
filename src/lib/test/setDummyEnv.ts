@@ -10,6 +10,8 @@ const DUMMY_ENV: Env = {
   ANILIST_CLIENT_SECRET: "test-anilist-client-secret",
   MAL_CLIENT_ID: "test-mal-client-id",
   MAL_CLIENT_SECRET: "test-mal-client-secret",
+  RESEND_API_KEY: "test-resend-api-key",
+  EMAIL_FROM: "Tsugi <onboarding@resend.dev>",
   UPSTASH_REDIS_REST_URL: undefined,
   UPSTASH_REDIS_REST_TOKEN: undefined,
 };

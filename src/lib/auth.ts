@@ -7,6 +7,7 @@ import { genericOAuth } from "better-auth/plugins/generic-oauth";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { account, session, user, verification } from "@/db/auth-schema";
+import { sendResetPasswordEmail, sendVerificationEmail } from "@/lib/email";
 import { getEnv } from "@/lib/env";
 import { sha256Base64Url } from "@/lib/pkce";
 import { synthesizeTrackerEmail } from "@/lib/synthesize-tracker-email";
@@ -219,6 +220,23 @@ export const auth = betterAuth({
     accountLinking: {
       allowDifferentEmails: true,
     },
+  },
+  // Email + username sign-in, alongside the two tracker OAuth providers.
+  // `account.password` and the `verification` table already existed —
+  // they're part of better-auth's core schema, unused until now.
+  emailAndPassword: {
+    enabled: true,
+    requireEmailVerification: true,
+    sendResetPassword: async ({ user, url }) => {
+      await sendResetPasswordEmail(user.email, url);
+    },
+  },
+  emailVerification: {
+    sendVerificationEmail: async ({ user, url }) => {
+      await sendVerificationEmail(user.email, url);
+    },
+    sendOnSignUp: true,
+    autoSignInAfterVerification: true,
   },
   databaseHooks: {
     user: {
