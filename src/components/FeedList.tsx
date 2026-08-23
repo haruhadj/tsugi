@@ -737,7 +737,7 @@ function StreamCard({ entry }: { entry: FeedEntry }) {
 
       <div
         className={cn(
-          "flex flex-wrap items-center gap-2 md:justify-end",
+          "flex flex-wrap items-center gap-2 md:justify-start",
           OVER_LINK_OVERLAY,
         )}
       >
