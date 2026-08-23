@@ -1422,6 +1422,57 @@ way they were updated for D45 itself and left alone for D56's per-browser scheme
 reads as accidental rather than intentional once seen in a browser — no live pass has been done
 since this landed.
 
+### D58 — The rundown's mobile shape is borrowed from Reddit: compact card, sticky sort rail, infinite scroll
+
+*Owner request, 2026-08-23: "improve the mobile screen optimization responsiveness further,
+lets copy the reddit mobile ui design as inspiration to this project, specially in the /feed
+page." Scoped in conversation to `/feed` only, borrowing structure while keeping Tsugi's
+palette, fonts and radii.*
+
+**The problem.** The `stream` card was ~340px tall on a 390px screen — vote pillar, three chip
+rows, caption, ten-cover filmstrip, four-control footer — so roughly 1.5 rows fit a viewport.
+The rundown is a scanning surface and it did not fit enough to scan.
+
+**One card, shaped twice, not two cards.** `StreamCard` carries both shapes on responsive
+classes. The rejected alternative — a mobile card and a desktop card with one hidden — would
+mount `VoteButtons` twice for the same slug, giving two optimistic state machines that diverge
+on the first click. Hiding the filmstrip with `md:` is free because `next/image` lazy-loads and
+a `display: none` element never intersects the viewport, so a phone pays nothing for ten covers
+it is not shown; below `md` a single lead cover stands in as the thumbnail.
+
+**The card is link-overlaid below `md` only.** This reverses, at one breakpoint, the reasoning
+written into `FeedList.tsx` when the `<li>`'s `onClick` was removed: the stream density had too
+many affordances of its own to take a card-wide target. True of the desktop card, and no longer
+true of the compact one, which sheds the genre chips, the filmstrip and the copy button.
+`md:after:content-none` switches the overlay back off where those return. Everything in the
+action bar carries `OVER_LINK_OVERLAY`; without it the overlay eats all of it.
+
+**`VotePill` gains a `touch` size** rather than a wrapper — `p-2.5 md:p-1.5`, collapsing to
+exactly `md` from the breakpoint up. The arrows are the two most-tapped controls in the product
+and an accidental downvote is a write, so the 44px floor is not negotiable on a phone.
+
+**Infinite scroll appends to a server-rendered page 1.** `GET /api/feed` already existed and is
+reused unchanged; `FEED_PAGE_SIZE` moved into `lib/feed-params.ts` because the client decides it
+has reached the end by getting back fewer rows than it asked for, and a server using a different
+size would either stop the feed early or never stop it. Page 1 stays server-rendered — that is
+what keeps `/feed` shareable and indexable. The prev/next links stay too, and are dropped only
+once a page has actually been appended; they are the no-JS route and the "page 4 in my history"
+route. **Discarding appended pages on a filter change is a `key` on `FeedList`, not an effect** —
+an effect clears them one render late, which shows the new rundown stacked on the old one.
+
+**Pull-to-refresh costs the native gesture, everywhere.** `overscroll-behavior-y: contain` on
+`body` is what stops Chrome on Android running its own pull-to-refresh alongside ours. It is not
+scopeable to one route, so the browser's gesture is now gone on every page and `/feed` is the
+only one that can be pulled. Accepted deliberately; if the custom gesture regresses there is no
+fallback. The `touchmove` listener is attached by hand rather than as a React prop because React
+registers touch handlers passively and this one must be able to `preventDefault`.
+
+**The density toggle is desktop-only now.** Three densities in a sticky band on a phone is
+clutter, and the compact card *is* the mobile answer to what `compact` density was for.
+
+**Revisit if:** the sticky rail's `top-16` drifts from `Header`'s actual height — the two are
+coupled by a literal, not a token, and nothing fails loudly if the header changes.
+
 ## External prerequisites
 
 | Needed by | Service | Status |

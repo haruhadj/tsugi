@@ -112,8 +112,13 @@ is a sign a layout is being over-fitted.
 
 - Touch targets ≥44 px. The score picker is the risk, and its width depends on the user's
   format: `POINT_10` puts ten targets in a row, which will not fit a small screen. It wraps;
-  it does not shrink below 44 px and it does not scroll horizontally.
+  it does not shrink below 44 px and it does not scroll horizontally. `VotePill`'s `touch`
+  size (**D58**) is the same rule applied to the rundown's arrows, which are the most-tapped
+  controls in the product and where a mis-hit writes a vote.
 - The ShareModal is a bottom sheet under `md`, a centred dialog above it.
+- **`overscroll-behavior-y: contain` is set on `body`**, so the browser's own pull-to-refresh
+  is gone on every page (**D58**). `/feed` replaces it with its own gesture; nothing else does.
+  A new scrolling surface that wants pull-to-refresh has to build it — it will not inherit one.
 
 ## Accessibility
 
@@ -137,7 +142,8 @@ rule in miniature: the visual moved, the semantics did not. **Do not "restore" t
 prototype did and what this deliberately does not.
 
 **A card is made fully clickable with a link overlay, never a click handler** (2026-08-19).
-`FeedList`'s compact and grid densities put `relative` on the `<li>` and
+`FeedList`'s compact and grid densities — and, below `md` only, its stream density — put
+`relative` on the `<li>` and
 `after:absolute after:inset-0 after:content-['']` on the title's existing `<Link>`, so the
 whole card is a target while remaining one real anchor — keyboard focus, middle-click, and
 open-in-new-tab all keep working, and the accessible name is still the title rather than the
@@ -145,6 +151,11 @@ card's entire text. Anything interactive that sits over the overlay (vote pills,
 copy and share) needs `relative z-10`, which `OVER_LINK_OVERLAY` marks. **Do not "simplify"
 this into a `div` with an `onClick`** — it would look identical and silently lose all three
 behaviours, which is precisely what the rule at the end of this section forbids.
+
+The stream density is the one place this is *conditional* (**D58**): `md:after:content-none`
+turns the overlay off from `md` up. The overlay is only safe when the card has few enough of
+its own affordances not to swallow any, and the compact card below `md` — no genre links, no
+filmstrip, no copy button — clears that bar where the desktop card does not.
 
 A segmented control is a `RadioGroup` (`SegmentedRadioGroup`), never `Tabs`, whenever it
 selects a data source rather than a view — see the rule on the provider toggle below, which

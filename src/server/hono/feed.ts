@@ -6,7 +6,7 @@ import { list } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { checkVoteLimit } from "@/server/hono/middleware";
 import { isListCategory } from "@/lib/categories";
-import { normalizeFeedQuery, normalizeMediaType } from "@/lib/feed-params";
+import { FEED_PAGE_SIZE, normalizeFeedQuery, normalizeMediaType } from "@/lib/feed-params";
 import {
   FEED_SORTS,
   listFeedCategories,
@@ -56,7 +56,7 @@ export const feedRouter = new Hono()
 
     const entries = await listPublishedFeed({
       page,
-      pageSize: 20,
+      pageSize: FEED_PAGE_SIZE,
       sort,
       ...filtersFrom(c),
     });

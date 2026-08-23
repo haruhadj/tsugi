@@ -188,20 +188,38 @@ not carry it. Sort, category, and page all do live in the URL.
 
 | Density | Shape |
 |---|---|
-| `stream` | Large card: vertical vote pillar, category chip, title, cover filmstrip, stats row |
-| `compact` | One row: slot number, single thumbnail, title, inline meta, horizontal vote pill |
+| `stream` | The default, and the only one shaped twice — see below |
+| `compact` | One row: single thumbnail, title, inline meta, horizontal vote pill |
 | `grid` | Two-up cards with a fanned, overlapping cover stack |
 
-**The gutter.** Rows still open with a fixed-width mono column carrying the one datum true of
-every row on that screen that the row's own title cannot say:
+**The toggle is `md` and up only** (**D58**). On a phone the stream card already *is* the
+compact reading, so offering three densities there was offering the same thing twice.
 
-- `/feed` — the slot number (`01`, `02`, …), zero-padded, `tabular-nums`, continuing across
-  pages. It is the sort order made visible, so it must keep counting; page 2 opens at `21`.
-- `/dashboard` — `Live` / `Draft`, since dashboard rows are not ranked and inventing a rank
-  there would be a decoration pretending to be information.
+**`stream` is two shapes on one component.** Below `md` it is a Reddit-style compact card:
+edge-to-edge, divided by a hairline rather than boxed, one metadata line (category ·
+`u/handle` · relative age), a two-line title, a lead cover as a right-hand thumbnail, and a bar
+of 44px action pills. From `md` it opens back out into the original card — chip row, caption,
+genre links, the full filmstrip, and a bordered `bg-card/60` panel.
 
-Only put something in the gutter that is genuinely uniform and genuinely data. If neither is
-true for a new surface, leave the gutter out rather than filling it.
+Write this as responsive classes on one component, never as two components with one hidden:
+the card owns `VoteButtons`, and two mounted copies are two optimistic state machines that
+diverge on the first click. Hiding the filmstrip with `md:` is free — `next/image` lazy-loads,
+and a `display: none` element never intersects the viewport.
+
+**The card is link-overlaid below `md` only**, via `md:after:content-none`. The compact card
+sheds the genre chips, the filmstrip and the copy button, which is what makes a card-wide
+target safe there and not above it. See `ui-rules.md` § Accessibility, and note that everything
+in the action bar needs `OVER_LINK_OVERLAY`.
+
+**The gutter.** `/dashboard` rows open with a fixed-width mono column carrying `Live` / `Draft`
+— the one datum true of every row on that screen that the row's own title cannot say. Dashboard
+rows are not ranked, and inventing a rank there would be decoration pretending to be
+information.
+
+`/feed` no longer has one. It carried the slot number (`01`, `02`, …) until **D51** removed it;
+the pagination link's "Slot 41 onward" copy is the last trace of it. Only put something in the
+gutter that is genuinely uniform and genuinely data — if neither is true for a new surface,
+leave the gutter out rather than filling it.
 
 **The artifact still outranks the rundown.** `/r/[slug]` is the only surface that gets
 `rounded-3xl`, a real `shadow-xl`, and the `.brand-gradient` rule across its top. The rundown

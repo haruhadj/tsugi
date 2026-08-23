@@ -317,6 +317,17 @@
         transparent 70%
       );
     background-attachment: fixed;
+    /*
+      The rundown implements its own pull-to-refresh (`usePullToRefresh` in
+      FeedList.tsx). `contain` is what stops Chrome on Android from running its
+      native one at the same time — two refresh indicators for one gesture, and
+      the browser's fires first.
+
+      This is a real trade, not a tidy-up: the native gesture is now gone
+      everywhere, so `/feed` is the only page that can be pulled to refresh. If
+      the custom one ever regresses, nothing falls back.
+    */
+    overscroll-behavior-y: contain;
   }
 }
 

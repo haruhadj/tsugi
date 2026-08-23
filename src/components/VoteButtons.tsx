@@ -8,13 +8,14 @@ type Props = {
   slug: string;
   initialScore: number;
   orientation?: "horizontal" | "vertical";
+  size?: "sm" | "md" | "touch";
   className?: string;
 };
 
 // Direction is optimistic-only (no per-entry "your vote" field on FeedEntry,
 // so there is nothing authoritative to reconcile against on mount — this
 // button only knows what *this* browser has clicked this page load).
-export function VoteButtons({ slug, initialScore, orientation, className }: Props) {
+export function VoteButtons({ slug, initialScore, orientation, size, className }: Props) {
   const [score, setScore] = useState(initialScore);
   const [myDirection, setMyDirection] = useState<VoteDirection>(0);
   const [error, setError] = useState<string | null>(null);
@@ -86,7 +87,13 @@ export function VoteButtons({ slug, initialScore, orientation, className }: Prop
         className,
       )}
     >
-      <VotePill score={score} direction={myDirection} onVote={vote} orientation={orientation} />
+      <VotePill
+        score={score}
+        direction={myDirection}
+        onVote={vote}
+        orientation={orientation}
+        size={size}
+      />
       {error ? (
         <span className="max-w-28 text-center font-mono text-[10px] leading-tight text-destructive">
           {error}

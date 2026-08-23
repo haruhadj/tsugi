@@ -8,6 +8,18 @@ export type VoteDirection = 1 | -1 | 0;
 const SIZES = {
   sm: { pad: "p-1", icon: "size-3.5", score: "text-xs", span: "min-w-6" },
   md: { pad: "p-1.5", icon: "size-4", score: "text-sm", span: "min-w-8" },
+  // The rundown's card action bar. `md` renders a ~32px target, and the arrows
+  // are the two most-tapped controls in the product — under the 44px floor
+  // (ui-rules.md § Responsive) they sit close enough together to mis-hit, and
+  // an accidental downvote is a write. This is `md` with room around the icons
+  // on a phone, collapsing back to exactly `md` from the `md` breakpoint up,
+  // where the pointer is precise and the extra bulk would just be loud.
+  touch: {
+    pad: "p-2.5 md:p-1.5",
+    icon: "size-5 md:size-4",
+    score: "text-sm",
+    span: "min-w-9 md:min-w-8",
+  },
 } as const;
 
 /**

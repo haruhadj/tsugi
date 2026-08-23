@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { getServerSession } from "@/lib/auth";
 import { isListCategory } from "@/lib/categories";
 import {
+  FEED_PAGE_SIZE,
   buildFeedHref,
   normalizeFeedQuery,
   normalizeMediaType,
@@ -42,7 +43,7 @@ type SearchParams = Promise<{
   q?: string;
 }>;
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = FEED_PAGE_SIZE;
 
 const SORTS: Record<FeedSort, { label: string; icon: LucideIcon }> = {
   top: { label: "Top", icon: FlameIcon },
@@ -227,7 +228,7 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
   // Built here rather than inline below because FeedList lays them out around its own
   // density toggle: the sort tabs share the toggle's row, the filter bar sits under it.
   const sortNav = (
-    <nav aria-label="Sort" className="flex flex-wrap items-center gap-1">
+    <nav aria-label="Sort" className="flex items-center gap-1">
       {FEED_SORTS.map((option) => {
         const { label, icon: Icon } = SORTS[option];
         return (
@@ -237,19 +238,19 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
             aria-current={sort === option ? "true" : undefined}
             title={label}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+              // `shrink-0` and the always-visible label are what make this row
+              // scrollable rather than wrapping: FeedList puts it in a sticky
+              // band on a phone, and a band that grows a second row of chips
+              // would shift every row beneath it (see FeedList's toolbar).
+              "inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors",
               "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
               sort === option
                 ? "bg-secondary text-foreground"
                 : "text-muted-foreground hover:bg-accent hover:text-foreground",
             )}
           >
-            {/* Icon always renders, label hides under `sm` — the same rule the
-                density toggle beside this already follows, so the two halves of
-                the toolbar collapse together rather than one at a time. */}
             <Icon className="size-3.5" aria-hidden />
-            <span className="hidden sm:inline">{label}</span>
-            <span className="sr-only sm:hidden">{label}</span>
+            {label}
           </Link>
         );
       })}
@@ -316,6 +317,29 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
       </Link>
     </div>
   ) : null;
+
+  /*
+    Handed to FeedList rather than rendered after it: once infinite scroll has
+    appended a page, these links would navigate away from rows already on
+    screen, so FeedList drops them at that point. They stay for anyone whose JS
+    never ran, and for anyone who wants a page in their history.
+  */
+  const pagination = (
+    <div className="mt-8 flex items-center justify-between">
+      {page > 1 ? (
+        <Button asChild variant="ghost" size="sm" className="rounded-full">
+          <Link href={hrefFor({ page: page - 1 })}>Back</Link>
+        </Button>
+      ) : (
+        <span />
+      )}
+      {entries.length === PAGE_SIZE ? (
+        <Button asChild variant="ghost" size="sm" className="rounded-full">
+          <Link href={hrefFor({ page: page + 1 })}>Slot {firstSlot + PAGE_SIZE} onward</Link>
+        </Button>
+      ) : null}
+    </div>
+  );
 
   return (
     <div className="min-h-screen">
@@ -395,34 +419,30 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
                       </Button>
                     </div>
                   </div>
+                  {/* Only ever a "Back" here — an empty page still needs the way
+                      out of it if the reader paged past the end. */}
+                  {pagination}
                 </>
               ) : (
                 <FeedList
+                  /*
+                    Remount on any change of sort, filter or page. FeedList
+                    accumulates later pages in client state, and that state is
+                    only meaningful for the query it was fetched under — keying
+                    it here is what discards those pages, rather than an effect
+                    inside the component that would clear them a render late.
+                  */
+                  key={hrefFor({ page })}
                   entries={entries}
                   sortNav={sortNav}
                   filterBar={filterBar}
+                  pagination={pagination}
+                  urlState={urlState}
                   browseDrawer={
                     <FeedBrowseDrawer filtered={hasFilter}>{directory}</FeedBrowseDrawer>
                   }
                 />
               )}
-
-              <div className="mt-8 flex items-center justify-between">
-                {page > 1 ? (
-                  <Button asChild variant="ghost" size="sm" className="rounded-full">
-                    <Link href={hrefFor({ page: page - 1 })}>Back</Link>
-                  </Button>
-                ) : (
-                  <span />
-                )}
-                {entries.length === PAGE_SIZE ? (
-                  <Button asChild variant="ghost" size="sm" className="rounded-full">
-                    <Link href={hrefFor({ page: page + 1 })}>
-                      Slot {firstSlot + PAGE_SIZE} onward
-                    </Link>
-                  </Button>
-                ) : null}
-              </div>
             </div>
           </div>
         </div>

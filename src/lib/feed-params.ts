@@ -13,6 +13,15 @@ import type { MediaType } from "@/lib/types/media";
  * page.** A stale chip in someone's bookmark should show the whole rundown.
  */
 
+/**
+ * Rows per page, everywhere. The `/feed` page, `GET /api/feed` and the infinite
+ * scroll that consumes it all have to agree: the client decides it has reached
+ * the end by getting back fewer rows than it asked for, so a server that
+ * silently used a different size would either stop the feed early or never stop
+ * it at all.
+ */
+export const FEED_PAGE_SIZE = 20;
+
 /** Matches `MediaSearchInput`'s floor — below two characters a substring search
  *  matches most of the table, which is the same as not filtering but slower. */
 export const FEED_SEARCH_MIN_LENGTH = 2;
@@ -60,6 +69,23 @@ export function buildFeedHref(
   current: FeedUrlState,
   next: Partial<FeedUrlState> = {},
 ): string {
+  return `/feed?${buildFeedQuery(current, next)}`;
+}
+
+/**
+ * The query string on its own, without the `/feed` in front of it.
+ *
+ * Split out of `buildFeedHref` for the rundown's infinite scroll, which asks
+ * `GET /api/feed` for the next page and has to describe the *same* filters the
+ * page was rendered with. Sharing this is the point: the API and the page read
+ * their params through one narrowing (`filtersFrom` in `server/hono/feed.ts`
+ * and `FeedPage` respectively), so they must also be written by one builder, or
+ * page 2 of a filtered rundown can quietly differ from page 1.
+ */
+export function buildFeedQuery(
+  current: FeedUrlState,
+  next: Partial<FeedUrlState> = {},
+): string {
   const pick = <K extends keyof FeedUrlState>(key: K): FeedUrlState[K] | undefined =>
     key in next ? next[key] : current[key];
 
@@ -76,5 +102,5 @@ export function buildFeedHref(
   const page = "page" in next ? next.page : 1;
   if (page && page > 1) query.set("page", String(page));
 
-  return `/feed?${query}`;
+  return String(query);
 }
