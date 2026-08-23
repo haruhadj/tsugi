@@ -87,13 +87,13 @@ shared card just stops matching the site.
 | `muted-foreground` | `#9CA0C4` | secondary text — metadata, helper lines, view count |
 | `muted` / `secondary` | `#2A2F5C` | quiet chrome, secondary buttons |
 | `accent` / `accent-foreground` | `#2A2F5C` | **hover surfaces only** — not the accent colour |
-| `primary` | `#542C84` | the one action that matters on a screen — the logo's purple |
+| `primary` | `#9A66E0` | the one action that matters on a screen — the logo's purple |
 | `primary-foreground` | `#FAFAFA` | text on `primary` |
 | `highlight` | `#D0B070` | the gold counter-accent — gradient end, "pick" marks |
 | `success` | `#10B981` | confirmed / connected / saved. Never a button, never a score |
 | `border` | `#262B54` | borders, dividers |
 | `input` | `#3A3E68` | input outlines |
-| `ring` | `#542C84` | focus rings — aliased to `primary` |
+| `ring` | `#9A66E0` | focus rings — aliased to `primary` |
 | `destructive` | `#EF4444` | destructive actions only, never decoration |
 
 **Score tiers.** The only place score colour is defined. A score's band comes from

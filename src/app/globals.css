@@ -163,7 +163,16 @@
   --popover: oklch(0.245 0.068 275.454); /* #181C40 */
   --popover-foreground: var(--foreground);
 
-  --primary: oklch(0.393 0.142 300.959); /* #542C84 — the logo's purple, the accent */
+  /*
+    Lifted from the logo's own #542C84 (oklch L 0.393), which was sampled as a fill
+    and only ever worked as one: at full strength on the ground it measured 1.77:1,
+    so every `text-primary` and every `.tint` badge — the recipe uses the token as
+    its text colour — was effectively unreadable. Same hue, same fill role, raised
+    to the lightness the other five schemes already sit at (4.57:1 on `background`,
+    4.18:1 on `card`; white on it stays 3.76:1, which the button type is large
+    enough for).
+  */
+  --primary: oklch(0.62 0.18 300.959); /* #9A66E0 — the logo's purple, lifted to read as text */
   --primary-foreground: oklch(0.985 0 0); /* #FAFAFA */
 
   --secondary: oklch(0.325 0.079 276.281); /* #2A2F5C */
@@ -180,7 +189,7 @@
 
   --border: oklch(0.307 0.073 275.948); /* #262B54 */
   --input: oklch(0.381 0.072 278.284); /* #3A3E68 */
-  --ring: oklch(0.393 0.142 300.959); /* #542C84 */
+  --ring: oklch(0.62 0.18 300.959); /* #9A66E0 */
 
   --highlight: oklch(0.771 0.09 83.857); /* #D0B070 — the logo's gold outline */
   --highlight-foreground: oklch(0.209 0.062 274.305); /* #101434 */

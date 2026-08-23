@@ -20,7 +20,7 @@ const COLOR = {
   border: "#262B54", // --border, oklch(0.307 0.073 275.948)
   foreground: "#FAFAFA", // --foreground, oklch(0.985 0 0)
   mutedForeground: "#9CA0C4", // --muted-foreground, oklch(0.715 0.052 280.003)
-  primary: "#542C84", // --primary, oklch(0.393 0.142 300.959)
+  primary: "#9A66E0", // --primary, oklch(0.62 0.18 300.959)
   highlight: "#D0B070", // --highlight, oklch(0.771 0.09 83.857)
 };
 

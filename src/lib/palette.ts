@@ -7,7 +7,7 @@
 // the other four. "rose" is the old "Curation Desk" direction it replaced,
 // preserved as a selectable scheme with its own ground override.
 export const PALETTES = [
-  { id: "raiden", label: "Raiden", primary: "#542C84", highlight: "#D0B070" },
+  { id: "raiden", label: "Raiden", primary: "#9A66E0", highlight: "#D0B070" },
   { id: "rose", label: "Rose", primary: "#F43F5E", highlight: "#F59E0B" },
   { id: "indigo", label: "Indigo", primary: "#6366F1", highlight: "#D946EF" },
   { id: "emerald", label: "Emerald", primary: "#10B981", highlight: "#A3E635" },
