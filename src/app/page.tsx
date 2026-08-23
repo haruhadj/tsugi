@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
@@ -6,6 +7,24 @@ import { ArrowRightIcon, CompassIcon } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth";
 import { HANDLE_ROUTE } from "@/lib/require-handle";
+
+// The hero says the product's name before it says anything else, and it says it the
+// way the product is named: 次 — "next". Each letter is its own element so the run
+// can be staggered, and the kanji lands last, on the end of it. Splitting the string
+// here rather than at the call site keeps the markup one map and the name one word.
+const NAME = "Tsugi".split("");
+
+// Every entrance on this hero is one sequence, so the delays are written down once
+// and read in order instead of being scattered across the JSX as arbitrary values.
+// The wordmark is not in here: its timing is two animations deep and stays with the
+// `.hero-glyph` / `.hero-kanji` rules in globals.css, driven by --glyph-i alone.
+const ENTER = {
+  eyebrow: "0ms",
+  deck: "330ms",
+  blurb: "410ms",
+  action: "490ms",
+  card: "570ms",
+} as const;
 
 // The create flow really is ordered — you cannot score a title you have not picked,
 // and the link does not exist until both are done. That is why these carry step
@@ -70,18 +89,53 @@ export default async function Home() {
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6">
         <section className="grid items-center gap-10 py-14 sm:gap-14 sm:py-28 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
-          <div className="animate-card-in">
-            <p className="font-mono text-xs tracking-[0.28em] text-muted-foreground uppercase">
+          <div>
+            <p
+              className="animate-card-in font-mono text-xs tracking-[0.28em] text-muted-foreground uppercase"
+              style={{ animationDelay: ENTER.eyebrow }}
+            >
               For anime and manga
             </p>
-            <h1 className="mt-6 font-display text-[clamp(2.6rem,7vw,4.75rem)] leading-[0.92] font-extrabold tracking-[-0.035em] text-foreground">
-              One link.
-              <br />
-              Your whole
-              <br />
-              <span className="text-primary">taste.</span>
+
+            <h1 className="mt-6 font-display font-extrabold text-foreground">
+              {/*
+                The name is the headline. `aria-label` carries it as one word so a
+                screen reader is not read five separate letters and a kanji.
+              */}
+              <span
+                className="flex items-start text-[clamp(3.4rem,11vw,7rem)] leading-[0.86] tracking-[-0.045em]"
+                aria-label="Tsugi"
+              >
+                {NAME.map((letter, i) => (
+                  <span
+                    key={`${letter}-${i}`}
+                    className="hero-glyph"
+                    style={{ "--glyph-i": i } as CSSProperties}
+                    aria-hidden
+                  >
+                    {letter}
+                  </span>
+                ))}
+                <span
+                  className="hero-kanji ml-3 text-[0.28em] leading-none tracking-normal text-primary"
+                  aria-hidden
+                >
+                  次
+                </span>
+              </span>
+
+              <span
+                className="animate-card-in mt-5 block text-[clamp(1.5rem,3.4vw,2.25rem)] leading-[1.05] tracking-[-0.03em] text-muted-foreground"
+                style={{ animationDelay: ENTER.deck }}
+              >
+                One link. Your whole taste.
+              </span>
             </h1>
-            <p className="mt-7 max-w-md text-base leading-relaxed text-muted-foreground">
+
+            <p
+              className="animate-card-in mt-7 max-w-md text-base leading-relaxed text-muted-foreground"
+              style={{ animationDelay: ENTER.blurb }}
+            >
               Score the titles you would hand to someone, and Tsugi turns them into a link
               worth sending. Making one takes about ten seconds. Opening one takes no
               account at all.
@@ -92,7 +146,10 @@ export default async function Home() {
               action is named "Make a list" here and stays that name through
               sign-in and the builder.
             */}
-            <div className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-4">
+            <div
+              className="animate-card-in mt-9 flex flex-wrap items-center gap-x-6 gap-y-4"
+              style={{ animationDelay: ENTER.action }}
+            >
               <Button asChild size="lg">
                 <Link href="/sign-in">Make a list</Link>
               </Button>
@@ -108,7 +165,7 @@ export default async function Home() {
             which is dummy data on the product's own front door. This just
             points at the real thing, one click away.
           */}
-          <div className="animate-card-in [animation-delay:140ms]">
+          <div className="animate-card-in" style={{ animationDelay: ENTER.card }}>
             <Link
               href="/feed"
               className="group block rounded-2xl border border-border bg-card p-8 shadow-xl transition-colors hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-10"

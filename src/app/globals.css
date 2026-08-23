@@ -360,6 +360,88 @@
     border-color: color-mix(in oklab, var(--tint) 30%, transparent);
     color: var(--tint);
   }
+
+  /*
+    THE LANDING WORDMARK. The one place on the site that animates continuously, and
+    it earns it: the product is 次 — "next" — so a crest travels left to right
+    through the letters and hands off to the kanji at the end of the run, forever.
+
+    Two animations on one element, which is why these are real classes rather than
+    two `animate-*` utilities: a second utility would overwrite the first's
+    `animation` shorthand. The entrance runs once, then the loop takes over.
+
+    `--glyph-i` is the letter's index, set at the call site. Every delay on both
+    animations derives from it, so the stagger is written down once, here, and the
+    loop stays locked to the same rhythm as the entrance.
+  */
+  .hero-glyph {
+    --glyph-step: 90ms;
+    --glyph-delay: calc(var(--glyph-i) * var(--glyph-step));
+    display: inline-block;
+    animation:
+      glyph-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) var(--glyph-delay) both,
+      glyph-wave 3.6s ease-in-out calc(var(--glyph-delay) + 900ms) infinite;
+  }
+
+  /*
+    The kanji sits one step past the last letter, so the crest reaches it just after
+    it leaves the "i" and it answers with a tick rather than a lift.
+  */
+  .hero-kanji {
+    display: inline-block;
+    animation:
+      kanji-stamp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 470ms both,
+      kanji-tick 3.6s ease-in-out 1350ms infinite;
+  }
+}
+
+@keyframes glyph-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.36em) rotate(2.5deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
+@keyframes kanji-stamp {
+  from {
+    opacity: 0;
+    transform: scale(1.55) rotate(-9deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+/*
+  Flat for most of the cycle on purpose. The crest is ~10% of 3.6s, so what reads is
+  an occasional ripple passing through the word — not five letters bobbing, which is
+  what a sine wave across the whole duration would give.
+*/
+@keyframes glyph-wave {
+  0%,
+  68%,
+  100% {
+    transform: translateY(0);
+  }
+  78% {
+    transform: translateY(-0.075em);
+  }
+}
+
+@keyframes kanji-tick {
+  0%,
+  68%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  78% {
+    transform: scale(1.1) rotate(-4deg);
+  }
 }
 
 /*
@@ -369,7 +451,9 @@
 */
 @media (prefers-reduced-motion: reduce) {
   .animate-wipe-in,
-  .animate-card-in {
+  .animate-card-in,
+  .hero-glyph,
+  .hero-kanji {
     animation: none;
     opacity: 1;
     clip-path: none;
