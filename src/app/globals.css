@@ -84,6 +84,12 @@
   --font-sans: var(--font-inter-tight);
   --font-mono: var(--font-jetbrains-mono);
 
+  /*
+    The bottom rail, as a spacing utility: `pb-rail`, `bottom-rail`, `h-rail`.
+    See --rail below for what it measures.
+  */
+  --spacing-rail: var(--rail);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -119,6 +125,24 @@
 .dark {
   /* Soft panels — 12px. Cards step up to radius-2xl/3xl, pills use rounded-full. */
   --radius: 0.75rem;
+
+  /*
+    THE BOTTOM RAIL. How much of the viewport's bottom edge is already spoken for:
+    Header's fixed mobile tab bar (3.5rem, its min-h-14) plus whatever the device
+    reserves for a home indicator.
+
+    Everything that pins to the bottom measures from this, never from 0. Three
+    things independently wanted `bottom-0` — the tab bar, ListBuilder's step-2
+    progress bar, and the share sheet — and before this token they simply stacked
+    on top of each other, hiding the create path's primary action behind the nav
+    on every phone.
+
+    env() resolves to 0px on any browser that doesn't reserve an inset, and the
+    fallback covers browsers that don't know env() at all, so this is 3.5rem
+    everywhere it needs to be and larger only where the hardware asks. It requires
+    `viewportFit: "cover"` in the viewport export, or the inset always reports 0.
+  */
+  --rail: calc(3.5rem + env(safe-area-inset-bottom, 0px));
 
   /*
     Authored in oklch(); the hex beside each is the exact sRGB equivalent, not an
@@ -254,6 +278,19 @@
   --ring: oklch(0.685 0.169 237.323); /* #0EA5E9 — sky-500 */
   --highlight: oklch(0.769 0.188 70.08); /* #F59E0B — amber-500 */
   --highlight-foreground: oklch(0.209 0.062 274.305); /* #101434 */
+}
+
+/*
+  From `md` the tab bar is gone (Header renders it `md:hidden`) and the nav lives in
+  the top bar, so the rail collapses and every `bottom-rail` / `pb-rail` in the app
+  becomes `bottom-0` / `pb-0` without a single `md:` override at the call site.
+  This is the one place the breakpoint is written down.
+*/
+@media (width >= 48rem) {
+  :root,
+  .dark {
+    --rail: 0px;
+  }
 }
 
 @layer base {

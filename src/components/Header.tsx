@@ -59,8 +59,8 @@ export function Header({ username }: { username: string | null }) {
   return (
     <>
       <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-6">
-          <div className="flex items-center gap-8">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-8">
             <Link href="/" aria-label="Tsugi home" className="rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
               <Wordmark size="sm" />
             </Link>
@@ -160,7 +160,14 @@ export function Header({ username }: { username: string | null }) {
         aria-label="Main"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur-xl md:hidden"
       >
-        <div className="flex items-stretch justify-around">
+        {/*
+          The bar's own padding, not the page's: the row of targets stops above the
+          home indicator, and the blurred ground keeps painting behind it so the bar
+          still reaches the physical bottom edge instead of leaving a navy gap. The
+          `min-h-14` on each link is the 3.5rem half of --rail; this inset is the
+          other half, which is why the two are read together there.
+        */}
+        <div className="flex items-stretch justify-around pb-[env(safe-area-inset-bottom,0px)]">
           {items.map((item) => (
             <Link
               key={item.href}

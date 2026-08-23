@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter_Tight, JetBrains_Mono, Unbounded } from "next/font/google";
 import { Suspense } from "react";
 import { Footer } from "@/components/Footer";
@@ -33,6 +33,26 @@ export const metadata: Metadata = {
   description: "Score the anime and manga you would hand to someone, and share the list.",
 };
 
+/*
+  Next ships `width=device-width, initial-scale=1` by default; this adds the one
+  thing it does not.
+
+  `viewportFit: "cover"` lets the page paint into the display cutout and home-
+  indicator areas, and — the actual reason it is here — it is what makes
+  `env(safe-area-inset-bottom)` report a real number. Without it the inset is
+  always 0px and `--rail` (globals.css) silently under-measures on exactly the
+  phones that need it, putting the bottom row of tab labels under the gesture bar.
+
+  `themeColor` paints the browser chrome the ground colour, so the address bar
+  does not sit as a white band above a navy page. Hardcoded because this is a meta
+  tag, not CSS — it cannot read a token, and it tracks --background's D57 value
+  (#101434). It is the same class of exception as the OG card (ui-tokens.md).
+*/
+export const viewport: Viewport = {
+  viewportFit: "cover",
+  themeColor: "#101434",
+};
+
 export default function RootLayout({
   children,
 }: {
@@ -55,12 +75,17 @@ export default function RootLayout({
       className={`dark ${unbounded.variable} ${interTight.variable} ${jetbrainsMono.variable}`}
     >
       {/*
-        pb-14 under `md` keeps the end of every page clear of Header's fixed mobile
-        tab bar. It lives here rather than in Header because a fixed element is out
-        of flow — a spacer inside Header would sit at the top of the document, where
-        it clears nothing.
+        `pb-rail` keeps the end of every page clear of Header's fixed mobile tab bar
+        and of the home indicator below it. It lives here rather than in Header
+        because a fixed element is out of flow — a spacer inside Header would sit at
+        the top of the document, where it clears nothing.
+
+        This was `pb-14 md:pb-0`, which was right about the bar's height and wrong
+        about the hardware: on a phone with a gesture bar the last 34px of every page
+        sat under it. `--rail` carries both, and collapses to 0 at `md` on its own,
+        so the breakpoint no longer needs restating here.
       */}
-      <body className="pb-14 md:pb-0">
+      <body className="pb-rail">
         {/*
           Colour scheme (D56/D57): a `data-palette` attribute read from a plain
           cookie, set before hydration so switching schemes in Settings never

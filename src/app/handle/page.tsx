@@ -20,7 +20,7 @@ export default async function HandlePage() {
     <div className="min-h-screen">
       <Header username={null} />
 
-      <main className="mx-auto flex max-w-md flex-col px-6 py-16">
+      <main className="mx-auto flex max-w-md flex-col px-4 py-12 sm:px-6 sm:py-16">
         <div className="animate-card-in overflow-hidden rounded-3xl border border-border bg-card shadow-xl">
           <div className="flex flex-col gap-6 p-6 sm:p-8">
             <Wordmark size="lg" />

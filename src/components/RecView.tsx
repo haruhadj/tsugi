@@ -40,7 +40,7 @@ export function RecView({ rec }: { rec: ListView }) {
   };
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-10 sm:py-16">
+    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-16">
       <article className="animate-card-in overflow-hidden rounded-3xl border border-border bg-card/60 shadow-xl">
         <div className="p-6 sm:p-10">
           <header className="flex flex-col gap-3">
