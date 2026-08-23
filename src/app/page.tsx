@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { ListBuilder } from "@/components/ListBuilder";
-import { ArrowRightIcon, CompassIcon } from "lucide-react";
+import { ArrowRightIcon } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth";
 import { HANDLE_ROUTE } from "@/lib/require-handle";
@@ -30,22 +30,9 @@ const ENTER = {
 // and the link does not exist until both are done. That is why these carry step
 // markers; nothing else on the page does.
 const STEPS = [
-  {
-    marker: "01",
-    title: "Pick",
-    body: "Search AniList or MyAnimeList. Add one title, or a few hundred.",
-  },
-  {
-    marker: "02",
-    title: "Score",
-    body: "Rate on the scale you already use. A 5 out of 5 never turns into a 5 out of 100.",
-  },
-  {
-    marker: "03",
-    title: "Share",
-    body:
-      "Get a link that unfurls into a preview card. Publish it and it joins the rundown.",
-  },
+  { marker: "01", title: "Pick" },
+  { marker: "02", title: "Score" },
+  { marker: "03", title: "Share" },
 ] as const;
 
 export default async function Home() {
@@ -88,8 +75,8 @@ export default async function Home() {
       <Header username={null} />
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6">
-        <section className="grid items-center gap-10 py-14 sm:gap-14 sm:py-28 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
-          <div>
+        <section className="flex flex-col items-center gap-10 py-14 text-center sm:gap-14 sm:py-28">
+          <div className="flex flex-col items-center">
             <p
               className="animate-card-in font-mono text-xs tracking-[0.28em] text-muted-foreground uppercase"
               style={{ animationDelay: ENTER.eyebrow }}
@@ -103,7 +90,7 @@ export default async function Home() {
                 screen reader is not read five separate letters and a kanji.
               */}
               <span
-                className="flex items-start text-[clamp(3.4rem,11vw,7rem)] leading-[0.86] tracking-[-0.045em]"
+                className="flex items-start justify-center text-[clamp(3.4rem,11vw,7rem)] leading-[0.86] tracking-[-0.045em]"
                 aria-label="Tsugi"
               >
                 {NAME.map((letter, i) => (
@@ -133,7 +120,7 @@ export default async function Home() {
             </h1>
 
             <p
-              className="animate-card-in mt-7 max-w-md text-base leading-relaxed text-muted-foreground"
+              className="animate-card-in mt-7 max-w-md text-balance text-base leading-relaxed text-muted-foreground"
               style={{ animationDelay: ENTER.blurb }}
             >
               Score the titles you would hand to someone, and Tsugi turns them into a link
@@ -141,88 +128,48 @@ export default async function Home() {
               account at all.
             </p>
             {/*
-              One primary action per screen (ui-tokens.md), so "Browse the
-              rundown" is a quiet text link rather than a second button. The
-              action is named "Make a list" here and stays that name through
-              sign-in and the builder.
+              "Make a list" stays the one primary action — "See the feed" is an
+              outline button beside it so the pair reads as one row, without
+              competing for the filled treatment. The primary action keeps that
+              name through sign-in and the builder.
             */}
             <div
-              className="animate-card-in mt-9 flex flex-wrap items-center gap-x-6 gap-y-4"
+              className="animate-card-in mt-9 flex flex-wrap items-center justify-center gap-x-6 gap-y-4"
               style={{ animationDelay: ENTER.action }}
             >
               <Button asChild size="lg">
                 <Link href="/sign-in">Make a list</Link>
               </Button>
-              <p className="font-mono text-xs text-muted-foreground">
-                Sign in with AniList or MyAnimeList
-              </p>
+              <Button asChild size="lg" variant="outline">
+                <Link href="/feed" className="group">
+                  See the feed
+                  <ArrowRightIcon
+                    className="size-4 transition-transform group-hover:translate-x-0.5"
+                    aria-hidden
+                  />
+                </Link>
+              </Button>
             </div>
-          </div>
 
-          {/*
-            Descriptive rather than a filled-in example: a version of this
-            block once invented a title, a 92/100, and a quote nobody wrote,
-            which is dummy data on the product's own front door. This just
-            points at the real thing, one click away.
-          */}
-          <div className="animate-card-in" style={{ animationDelay: ENTER.card }}>
-            <Link
-              href="/feed"
-              className="group block rounded-2xl border border-border bg-card p-8 shadow-xl transition-colors hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-10"
+            {/*
+              The create flow is ordered — you cannot score a title you have not
+              picked — so the steps stay numbered, but as one quiet line under the
+              actions rather than a section of their own.
+            */}
+            <ol
+              className="animate-card-in mt-10 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 font-mono text-xs tracking-[0.28em] text-muted-foreground uppercase"
+              style={{ animationDelay: ENTER.action }}
             >
-              <div className="flex size-12 items-center justify-center rounded-2xl bg-secondary">
-                <CompassIcon className="size-6 text-primary" aria-hidden />
-              </div>
-              <h2 className="mt-6 font-display text-xl font-bold tracking-[-0.01em] text-foreground">
-                Browse the rundown
-              </h2>
-              <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted-foreground">
-                Every list people have published, ranked by what the room thinks of them.
-                See what a shared link actually looks like before you make your own.
-              </p>
-              <span className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
-                See the feed
-                <ArrowRightIcon
-                  className="size-4 transition-transform group-hover:translate-x-0.5"
-                  aria-hidden
-                />
-              </span>
-            </Link>
+              {STEPS.map((step) => (
+                <li key={step.marker} className="flex items-center gap-2">
+                  <span className="text-primary">{step.marker}</span>
+                  {step.title}
+                </li>
+              ))}
+            </ol>
           </div>
         </section>
 
-        {/*
-          The three steps are divided from each other in both directions. Above `sm`
-          that is the vertical rule between columns; below it, where they stack, it
-          has to be a horizontal one — without `divide-y` the section was a single
-          run of text with three orphaned eyebrows in it, and the sequence the
-          numbering encodes stopped being legible as a sequence.
-        */}
-        <section className="grid divide-y divide-border border-y border-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-          {STEPS.map((step) => (
-            <div key={step.marker} className="py-8 sm:px-8 sm:py-10 sm:first:pl-0 sm:last:pr-0">
-              <p className="font-mono text-xs tracking-[0.3em] text-primary">{step.marker}</p>
-              <h2 className="mt-4 font-display text-lg font-semibold tracking-[-0.01em] text-foreground">
-                {step.title}
-              </h2>
-              <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted-foreground">
-                {step.body}
-              </p>
-            </div>
-          ))}
-        </section>
-
-        <footer className="flex flex-wrap items-center justify-between gap-4 py-12">
-          <p className="font-mono text-xs text-muted-foreground">
-            次 — the next thing you should read or watch
-          </p>
-          <Link
-            href="/sign-in"
-            className="font-mono text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
-          >
-            Sign in
-          </Link>
-        </footer>
       </main>
     </div>
   );
