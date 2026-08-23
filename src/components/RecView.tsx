@@ -4,6 +4,7 @@ import { ListItemViews } from "@/components/ListItemViews";
 import { ListQuickActions } from "@/components/ListQuickActions";
 import { Button } from "@/components/ui/button";
 import { ShareListButton } from "@/components/ShareListButton";
+import { VoteButtons } from "@/components/VoteButtons";
 import { getEnv } from "@/lib/env";
 import { buildMarkdownExport } from "@/lib/markdown";
 import type { SocialCardInput } from "@/lib/canvasExport";
@@ -102,6 +103,20 @@ export function RecView({ rec }: { rec: ListView }) {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
+                {/*
+                  Drafts are not votable (D42 — the vote route checks `published`),
+                  so the control is absent rather than present-and-failing on one.
+                  Signed-out readers still see it: the score is public, and clicking
+                  is how they find out they need an account (the button says so).
+                */}
+                {rec.published && (
+                  <VoteButtons
+                    slug={rec.slug}
+                    initialScore={rec.score}
+                    initialDirection={rec.myDirection}
+                    size="touch"
+                  />
+                )}
                 {/*
                   The owner's way in to editing (D59). `isOwner` is computed against
                   the viewer who asked for this read, so an anonymous visitor and a

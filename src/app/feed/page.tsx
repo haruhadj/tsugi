@@ -72,10 +72,19 @@ export default async function FeedPage({ searchParams }: { searchParams: SearchP
 
   const filters = { category, genre, mediaType, q };
 
-  const [session, entries, categories, genres, mediaTypeCounts, totalPublished] =
+  // Awaited before the rest: the feed query needs the viewer's id to report
+  // their own vote on each row, so the arrows render already lit.
+  const session = await getServerSession();
+
+  const [entries, categories, genres, mediaTypeCounts, totalPublished] =
     await Promise.all([
-      getServerSession(),
-      listPublishedFeed({ page, pageSize: PAGE_SIZE, sort, ...filters }),
+      listPublishedFeed({
+        page,
+        pageSize: PAGE_SIZE,
+        sort,
+        viewerId: session?.user.id ?? null,
+        ...filters,
+      }),
       listFeedCategories(filters),
       listFeedGenres(filters),
       listFeedMediaTypeCounts(filters),

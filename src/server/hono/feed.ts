@@ -54,10 +54,14 @@ export const feedRouter = new Hono()
     const pageParam = Number(c.req.query("page") ?? "1");
     const page = Number.isInteger(pageParam) && pageParam > 0 ? pageParam : 1;
 
+    // Same reason as the /feed page: rows carry the reader's own vote so the
+    // pages fetched after the first come back with their arrows already lit.
+    const session = await auth.api.getSession({ headers: c.req.raw.headers });
     const entries = await listPublishedFeed({
       page,
       pageSize: FEED_PAGE_SIZE,
       sort,
+      viewerId: session?.user.id ?? null,
       ...filtersFrom(c),
     });
     return c.json({ entries });

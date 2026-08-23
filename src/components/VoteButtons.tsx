@@ -7,17 +7,25 @@ import { cn } from "@/lib/utils";
 type Props = {
   slug: string;
   initialScore: number;
+  /** The reader's stored vote, from the server. Persists across refreshes and devices. */
+  initialDirection?: VoteDirection;
   orientation?: "horizontal" | "vertical";
   size?: "sm" | "md" | "touch";
   className?: string;
 };
 
-// Direction is optimistic-only (no per-entry "your vote" field on FeedEntry,
-// so there is nothing authoritative to reconcile against on mount — this
-// button only knows what *this* browser has clicked this page load).
-export function VoteButtons({ slug, initialScore, orientation, size, className }: Props) {
+// Direction is seeded from the server (`FeedEntry.myDirection`) and then kept
+// optimistically, so a vote survives a refresh or a different device.
+export function VoteButtons({
+  slug,
+  initialScore,
+  initialDirection = 0,
+  orientation,
+  size,
+  className,
+}: Props) {
   const [score, setScore] = useState(initialScore);
-  const [myDirection, setMyDirection] = useState<VoteDirection>(0);
+  const [myDirection, setMyDirection] = useState<VoteDirection>(initialDirection);
   const [error, setError] = useState<string | null>(null);
 
   // Guards reconciliation, not clicks — clicks are never blocked, so voting stays
