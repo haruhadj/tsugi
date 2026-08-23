@@ -74,6 +74,13 @@ export function ListItemViews({
   const [mode, setMode] = useState<Mode>("ranked");
   const [activeGenre, setActiveGenre] = useState<string | null>(null);
 
+  /** The one media type shared by every item, or `null` if the list mixes them. */
+  const listMediaType = useMemo(() => {
+    const first = items[0]?.mediaType;
+    if (!first) return null;
+    return items.every((item) => item.mediaType === first) ? first : null;
+  }, [items]);
+
   const visible = activeGenre
     ? items.filter((item) => item.genres.includes(activeGenre))
     : items;
@@ -86,6 +93,14 @@ export function ListItemViews({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <h2 className="font-mono text-xs tracking-[0.24em] text-muted-foreground uppercase">
+          {/*
+            The media type lives here, not on each card: a list is built from a
+            single search scope, so every item repeats the same word. It only
+            earns a slot when it actually distinguishes something — a mixed list
+            (possible for hand-assembled ones) falls back to the bare count.
+          */}
+          {listMediaType && <span className="text-primary">{listMediaType}</span>}
+          {listMediaType && " · "}
           {visible.length} {visible.length === 1 ? "title" : "titles"}
           {activeGenre && <> of {items.length}</>}
         </h2>
@@ -403,9 +418,6 @@ function GalleryView({
 
           <div className="space-y-1 bg-card p-3">
             <h4 className="line-clamp-1 text-xs font-bold text-foreground">{item.title}</h4>
-            <p className="font-mono text-[10px] text-muted-foreground uppercase">
-              {item.mediaType}
-            </p>
             {item.genres.length > 0 && (
               <div className="flex flex-wrap gap-1 pt-0.5">
                 {item.genres.slice(0, 2).map((genre) => (
@@ -477,7 +489,6 @@ function RankedView({
                 <div className="flex min-w-0 flex-col gap-0.5">
                   <h3 className="truncate text-sm font-bold text-foreground">{item.title}</h3>
                   <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                    <span className="font-mono uppercase">{item.mediaType}</span>
                     {hasScore(item) && (
                       <ScoreBadge
                         scoreRaw={item.scoreRaw}

@@ -215,6 +215,13 @@ export type ListView = {
    * is untouched, since a boolean is not an identifier.
    */
   isOwner: boolean;
+  /** Net vote score, summed live from `list_vote` — the same number the feed row shows. */
+  score: number;
+  /**
+   * The signed-in reader's own vote on this list, so the arrows come back lit after
+   * a refresh or on another device. 0 for signed-out readers.
+   */
+  myDirection: 1 | -1 | 0;
   /**
    * The list's genre cloud, aggregated from its items at read time rather than
    * stored on the list — a stored copy is a second source of truth that drifts
@@ -301,6 +308,23 @@ export async function getListBySlug(
       createdAt: list.createdAt,
       userId: list.userId,
       authorUsername: user.username,
+      /*
+        Correlated subqueries rather than a leftJoin on list_vote: this select is
+        a single row and a join would have forced a GROUP BY over every column.
+        Cast to int for the reason listPublishedFeed documents — sum() comes back
+        from postgres.js as a string otherwise, and `=== 1` then silently fails.
+      */
+      score: sql<number>`(
+        select coalesce(sum(${listVote.direction}), 0)::int
+        from ${listVote} where ${listVote.listId} = ${list.id}
+      )`,
+      myDirection: viewerId
+        ? sql<1 | -1 | 0>`(
+            select coalesce(max(${listVote.direction}), 0)::int
+            from ${listVote}
+            where ${listVote.listId} = ${list.id} and ${listVote.userId} = ${viewerId}
+          )`
+        : sql<1 | -1 | 0>`0::int`,
     })
     .from(list)
     // Inner rather than left: `list.userId` is NOT NULL and references
@@ -384,6 +408,14 @@ export async function listListsForUser(userId: string): Promise<ListView[]> {
       // caller, so the author is already known and a join would be a
       // per-row lookup of a value the page has in its own session.
       authorUsername: sql<string | null>`null`,
+      score: sql<number>`(
+        select coalesce(sum(${listVote.direction}), 0)::int
+        from ${listVote} where ${listVote.listId} = ${list.id}
+      )`,
+      // The caller owns every row here, and an author's own vote on their own
+      // list is not something the dashboard shows — so this is a constant rather
+      // than a second correlated read.
+      myDirection: sql<1 | -1 | 0>`0::int`,
     })
     .from(list)
     .where(eq(list.userId, userId))
@@ -748,6 +780,9 @@ export type FeedEntry = {
   /** The row's genre chips, aggregated from its items. Capped — a feed row has
    *  no room for the full cloud, and the artifact page shows all of them. */
   genres: string[];
+  /** The signed-in reader's own vote on this list, so the arrows come back lit
+   *  after a refresh or on another device. 0 for signed-out readers. */
+  myDirection: 1 | -1 | 0;
 };
 
 /** Genre chips per feed row. The rest are on /r/[slug], which has the room. */
@@ -837,9 +872,11 @@ export async function listPublishedFeed(
     page: number;
     pageSize: number;
     sort: FeedSort;
+    /** The signed-in reader, so each row can carry their own vote back. */
+    viewerId?: string | null;
   },
 ): Promise<FeedEntry[]> {
-  const { page, pageSize, sort, ...filters } = params;
+  const { page, pageSize, sort, viewerId, ...filters } = params;
   /*
     Every aggregate here is cast to int. Postgres returns count() as bigint and sum()
     as numeric, both of which postgres.js hands back as *strings* to avoid precision
@@ -856,6 +893,14 @@ export async function listPublishedFeed(
   const itemCountExpr = sql<number>`(
     select count(*)::int from ${listItem} where ${listItem.listId} = ${list.id}
   )`;
+  /*
+    The viewer's own vote, read off the same leftJoin the score aggregates: at most
+    one list_vote row per (list, user), so max() over the group picks it out without
+    a second join. Signed-out readers skip the correlation entirely.
+  */
+  const myDirectionExpr = viewerId
+    ? sql<1 | -1 | 0>`coalesce(max(case when ${listVote.userId} = ${viewerId} then ${listVote.direction} end), 0)::int`
+    : sql<1 | -1 | 0>`0::int`;
   const whereExpr = feedWhere(filters);
 
   const orderBy = {
@@ -877,6 +922,7 @@ export async function listPublishedFeed(
       score: scoreExpr,
       itemCount: itemCountExpr,
       authorUsername: user.username,
+      myDirection: myDirectionExpr,
     })
     .from(list)
     .leftJoin(listVote, eq(listVote.listId, list.id))

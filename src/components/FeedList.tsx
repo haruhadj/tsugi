@@ -737,11 +737,16 @@ function StreamCard({ entry }: { entry: FeedEntry }) {
 
       <div
         className={cn(
-          "flex flex-wrap items-center gap-2 md:justify-end",
+          "flex flex-wrap items-center gap-2 md:justify-start",
           OVER_LINK_OVERLAY,
         )}
       >
-        <VoteButtons slug={entry.slug} initialScore={entry.score} size="touch" />
+        <VoteButtons
+          slug={entry.slug}
+          initialScore={entry.score}
+          initialDirection={entry.myDirection}
+          size="touch"
+        />
         <Link href={`/r/${entry.slug}`} className={cn(ACTION_PILL, "text-primary")}>
           Open
           <ArrowRightIcon className="size-3.5" aria-hidden />
@@ -793,6 +798,7 @@ function CompactRow({ entry }: { entry: FeedEntry }) {
       <VoteButtons
         slug={entry.slug}
         initialScore={entry.score}
+        initialDirection={entry.myDirection}
         size="touch"
         className={cn("shrink-0", OVER_LINK_OVERLAY)}
       />
@@ -865,6 +871,7 @@ function GridCard({ entry }: { entry: FeedEntry }) {
         <VoteButtons
           slug={entry.slug}
           initialScore={entry.score}
+          initialDirection={entry.myDirection}
           size="touch"
           className={OVER_LINK_OVERLAY}
         />
