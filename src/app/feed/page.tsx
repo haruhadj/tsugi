@@ -11,7 +11,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { FeedBrowseDrawer } from "@/components/FeedBrowseDrawer";
+import {
+  FeedBrowseProvider,
+  FeedBrowseSidebar,
+} from "@/components/FeedBrowseDrawer";
 import {
   FeedMediaTypeFilter,
   FeedPanel,
@@ -296,10 +299,15 @@ export default async function FeedPage({
           const { label, icon: Icon } = SORTS[option];
           return (
             <DropdownMenuItem key={option} asChild>
-              <Link href={hrefFor({ sort: option })} aria-current={sort === option ? "true" : undefined}>
+              <Link
+                href={hrefFor({ sort: option })}
+                aria-current={sort === option ? "true" : undefined}
+              >
                 <Icon className="size-3.5" aria-hidden />
                 {label}
-                {sort === option && <CheckIcon className="ml-auto size-3.5" aria-hidden />}
+                {sort === option && (
+                  <CheckIcon className="ml-auto size-3.5" aria-hidden />
+                )}
               </Link>
             </DropdownMenuItem>
           );
@@ -458,106 +466,104 @@ export default async function FeedPage({
         username={session ? (session.user.username ?? session.user.name) : null}
       />
 
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
-        <div className="animate-card-in">
-          <div className="mb-4 flex items-center justify-between gap-4">
-            <h1 className="font-display text-xl font-bold tracking-[-0.01em]">
-              The rundown
-            </h1>
-            <Button asChild size="sm" className="rounded-full">
-              <Link href={session === null ? "/sign-in" : "/"}>
-                <PlusIcon aria-hidden />
-                Create &amp; share a list
-              </Link>
-            </Button>
-          </div>
+      <FeedBrowseProvider>
+        <FeedBrowseSidebar filtered={hasFilter}>{directory}</FeedBrowseSidebar>
 
-          <div>
-            <div className="min-w-0">
-              {entries.length === 0 ? (
-                <>
-                  <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
-                    <div className="flex items-center gap-2">
-                      {sortDrawer}
-                      {sortNav}
-                    </div>
-                    <FeedBrowseDrawer filtered={hasFilter}>
-                      {directory}
-                    </FeedBrowseDrawer>
-                  </div>
-                  {filterBar}
-                  <div className="mt-6 flex flex-col items-center rounded-2xl border border-dashed border-border px-6 py-16 text-center">
-                    <div className="flex size-12 items-center justify-center rounded-2xl bg-secondary">
-                      <CompassIcon
-                        className="size-6 text-muted-foreground"
-                        aria-hidden
-                      />
-                    </div>
-                    <h2 className="mt-4 font-display text-lg font-bold">
-                      {hasFilter
-                        ? "Nothing matches that yet"
-                        : "The rundown is empty"}
-                    </h2>
-                    <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
-                      {hasFilter
-                        ? "Publish a list that fits and it opens this corner of the rundown."
-                        : "Publish a list and it takes slot 01."}
-                    </p>
-                    <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-                      {hasFilter && (
-                        <Button
-                          asChild
-                          variant="outline"
-                          className="rounded-full"
-                        >
-                          <Link
-                            href={hrefFor({
-                              category: undefined,
-                              genre: undefined,
-                              mediaType: undefined,
-                              q: undefined,
-                            })}
-                          >
-                            Clear filters
-                          </Link>
-                        </Button>
-                      )}
-                      <Button asChild className="rounded-full">
-                        <Link href="/">Make a list</Link>
-                      </Button>
-                    </div>
-                  </div>
-                  {/* Only ever a "Back" here — an empty page still needs the way
+        <main className="min-w-0">
+          <div className="mx-auto max-w-[850px] px-4 py-8 sm:px-6 sm:py-10">
+            <div className="animate-card-in">
+              <div className="mb-4 flex items-center justify-between gap-4">
+                <h1 className="font-display text-xl font-bold tracking-[-0.01em]">
+                  The rundown
+                </h1>
+                <Button asChild size="sm" className="rounded-full">
+                  <Link href={session === null ? "/sign-in" : "/"}>
+                    <PlusIcon aria-hidden />
+                    Create &amp; share a list
+                  </Link>
+                </Button>
+              </div>
+
+              <div>
+                <div className="min-w-0">
+                  {entries.length === 0 ? (
+                    <>
+                      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+                        <div className="flex items-center gap-2">
+                          {sortDrawer}
+                          {sortNav}
+                        </div>
+                      </div>
+                      {filterBar}
+                      <div className="mt-6 flex flex-col items-center rounded-2xl border border-dashed border-border px-6 py-16 text-center">
+                        <div className="flex size-12 items-center justify-center rounded-2xl bg-secondary">
+                          <CompassIcon
+                            className="size-6 text-muted-foreground"
+                            aria-hidden
+                          />
+                        </div>
+                        <h2 className="mt-4 font-display text-lg font-bold">
+                          {hasFilter
+                            ? "Nothing matches that yet"
+                            : "The rundown is empty"}
+                        </h2>
+                        <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
+                          {hasFilter
+                            ? "Publish a list that fits and it opens this corner of the rundown."
+                            : "Publish a list and it takes slot 01."}
+                        </p>
+                        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                          {hasFilter && (
+                            <Button
+                              asChild
+                              variant="outline"
+                              className="rounded-full"
+                            >
+                              <Link
+                                href={hrefFor({
+                                  category: undefined,
+                                  genre: undefined,
+                                  mediaType: undefined,
+                                  q: undefined,
+                                })}
+                              >
+                                Clear filters
+                              </Link>
+                            </Button>
+                          )}
+                          <Button asChild className="rounded-full">
+                            <Link href="/">Make a list</Link>
+                          </Button>
+                        </div>
+                      </div>
+                      {/* Only ever a "Back" here — an empty page still needs the way
                       out of it if the reader paged past the end. */}
-                  {pagination}
-                </>
-              ) : (
-                <FeedList
-                  /*
+                      {pagination}
+                    </>
+                  ) : (
+                    <FeedList
+                      /*
                     Remount on any change of sort, filter or page. FeedList
                     accumulates later pages in client state, and that state is
                     only meaningful for the query it was fetched under — keying
                     it here is what discards those pages, rather than an effect
                     inside the component that would clear them a render late.
                   */
-                  key={hrefFor({ page })}
-                  entries={entries}
-                  sortNav={sortNav}
-                  sortDrawer={sortDrawer}
-                  filterBar={filterBar}
-                  pagination={pagination}
-                  urlState={urlState}
-                  browseDrawer={
-                    <FeedBrowseDrawer key="browse-drawer" filtered={hasFilter}>
-                      {directory}
-                    </FeedBrowseDrawer>
-                  }
-                />
-              )}
+                      key={hrefFor({ page })}
+                      entries={entries}
+                      sortNav={sortNav}
+                      sortDrawer={sortDrawer}
+                      filterBar={filterBar}
+                      pagination={pagination}
+                      urlState={urlState}
+                    />
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </main>
+        </main>
+      </FeedBrowseProvider>
     </div>
   );
 }

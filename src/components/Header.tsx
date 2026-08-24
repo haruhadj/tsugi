@@ -59,7 +59,7 @@ export function Header({ username }: { username: string | null }) {
   return (
     <>
       <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+        <div className="flex h-16 w-full items-center justify-between gap-3 px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-8">
             <Link href="/" aria-label="Tsugi home" className="rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
               <Wordmark size="sm" />
