@@ -8,6 +8,10 @@ can open that link; only creating needs an account** (**D23**).
 
 ---
 
+When writing, reviewing, or refactoring code, follow the `/clean-code` skill.
+
+---
+
 ## 1. Read order
 
 Read these in order at the start of a session. Stop when you have what the task needs.

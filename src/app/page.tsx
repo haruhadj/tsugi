@@ -52,9 +52,6 @@ export default async function Home() {
 
         <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-16">
           <div className="animate-card-in">
-            <p className="font-mono text-xs tracking-[0.28em] text-muted-foreground uppercase">
-              New list
-            </p>
             <h1 className="mt-4 font-display text-[clamp(1.9rem,5vw,2.75rem)] leading-[0.95] font-extrabold tracking-[-0.03em]">
               Pick, score,
               <br />

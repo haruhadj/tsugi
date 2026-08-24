@@ -189,6 +189,14 @@ export function ListBuilder({ existing }: { existing?: BuilderList } = {}) {
     setError(null);
   };
 
+  const handleRemove = (candidate: { provider: Provider; externalId: number }) => {
+    setItems(
+      items.filter(
+        (item) => !(item.provider === candidate.provider && item.externalId === candidate.externalId),
+      ),
+    );
+  };
+
   const handleImport = (entry: ListEntry) => {
     if (isSelected(entry)) return;
     setItems([
@@ -554,6 +562,7 @@ export function ListBuilder({ existing }: { existing?: BuilderList } = {}) {
               provider={provider}
               mediaType={mediaType}
               onSelect={handleSelect}
+              onRemove={handleRemove}
               onSwitchProvider={setProvider}
               onMediaTypeChange={setMediaType}
               isSelected={isSelected}
@@ -608,13 +617,20 @@ export function ListBuilder({ existing }: { existing?: BuilderList } = {}) {
               <ul className="flex gap-1.5 overflow-x-auto pb-1">
                 {items.map((item) => (
                   <li key={`${item.provider}-${item.externalId}`} className="shrink-0">
-                    <MediaCover
-                      src={item.coverImage}
-                      title={item.title}
-                      width={32}
-                      height={44}
-                      className="rounded-md"
-                    />
+                    <button
+                      type="button"
+                      aria-label={`Remove ${item.title}`}
+                      className="rounded-md transition-opacity hover:opacity-70"
+                      onClick={() => handleRemove(item)}
+                    >
+                      <MediaCover
+                        src={item.coverImage}
+                        title={item.title}
+                        width={32}
+                        height={44}
+                        className="rounded-md"
+                      />
+                    </button>
                   </li>
                 ))}
               </ul>

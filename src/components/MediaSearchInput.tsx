@@ -74,6 +74,7 @@ export function MediaSearchInput({
   provider,
   mediaType,
   onSelect,
+  onRemove,
   onSwitchProvider,
   onMediaTypeChange,
   isSelected,
@@ -81,6 +82,8 @@ export function MediaSearchInput({
   provider: Provider;
   mediaType: MediaType;
   onSelect: (result: UnifiedMediaResult) => void;
+  /** Pressing an already-added result's cover asks to take it back out of the tray. */
+  onRemove: (result: UnifiedMediaResult) => void;
   onSwitchProvider: (provider: Provider) => void;
   onMediaTypeChange: (mediaType: MediaType) => void;
   /** Whether a result is already in the tray — the row shows "Added" instead of "Add". */
@@ -263,6 +266,18 @@ export function MediaSearchInput({
     onSelect(result);
   };
 
+  /*
+    An already-added result stays clickable rather than becoming `disabled` —
+    pressing its cover again is how a title comes back out mid-search.
+  */
+  const handleItemSelect = (result: UnifiedMediaResult) => {
+    if (isSelected(result)) {
+      onRemove(result);
+    } else {
+      handleSelect(result);
+    }
+  };
+
   return (
     <section className="flex flex-col gap-3 rounded-2xl border border-border bg-card/60 p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -395,8 +410,7 @@ export function MediaSearchInput({
                       <CommandItem
                         key={`${result.provider}-${result.externalId}`}
                         value={`${result.provider}-${result.externalId}`}
-                        onSelect={() => handleSelect(result)}
-                        disabled={added}
+                        onSelect={() => handleItemSelect(result)}
                         className="flex-col items-stretch gap-0 overflow-hidden rounded-xl border border-border bg-card p-0"
                       >
                         <div className="relative aspect-[2/3] w-full">
@@ -429,7 +443,7 @@ export function MediaSearchInput({
                                 ? "bg-success/90 text-success-foreground"
                                 : "bg-primary/90 text-primary-foreground",
                             )}
-                            aria-label={added ? "Added" : "Add to list"}
+                            aria-label={added ? "Added — press to remove" : "Add to list"}
                           >
                             {added ? (
                               <CheckIcon className="size-4" aria-hidden="true" />
