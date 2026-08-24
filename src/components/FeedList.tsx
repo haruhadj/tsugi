@@ -509,11 +509,19 @@ function Filmstrip({ covers }: { covers: FeedCover[] }) {
   if (covers.length === 0) return null;
 
   return (
-    <ul aria-label="Leading titles" className="flex items-start gap-2">
+    /*
+      Five to a row, two rows deep for a full ten-cover list — the card-view
+      grid Reddit uses. One row of ten squeezed each cover to about half a
+      thumbnail's width at this card's size, too narrow to recognise the art;
+      halving the count per row doubles it back. A short list simply leaves the
+      trailing cells empty rather than stretching to fill the row, so covers are
+      the same size on every card in the feed.
+    */
+    <ul aria-label="Leading titles" className="grid grid-cols-5 items-start gap-2">
       {covers.map((cover, index) => (
         <li
           key={`${cover.title}-${index}`}
-          className="flex min-w-0 flex-1 basis-0 flex-col items-center gap-1"
+          className="flex min-w-0 flex-col items-center gap-1"
         >
           <div className="relative w-full">
             <MediaCover

@@ -266,7 +266,11 @@ export default async function FeedPage({
   // Built here rather than inline below because FeedList lays them out around its own
   // density toggle: the sort tabs share the toggle's row, the filter bar sits under it.
   const sortNav = (
-    <nav aria-label="Sort" className="hidden items-center gap-1 md:flex">
+    <nav
+      key="sort-nav"
+      aria-label="Sort"
+      className="hidden items-center gap-1 md:flex"
+    >
       {FEED_SORTS.map((option) => {
         const { label, icon: Icon } = SORTS[option];
         return (
@@ -298,7 +302,7 @@ export default async function FeedPage({
   // The phone form of the same sort control. FeedList shows this in the sticky band
   // instead of the chips, which do not fit four abreast on a phone.
   const sortDrawer = (
-    <FeedSortDrawer label={SORTS[sort].label}>
+    <FeedSortDrawer key="sort-drawer" label={SORTS[sort].label}>
       {/*
         Wrapped in a fragment, not handed over as a bare array: `children`
         crossing into a Client Component is serialized as a prop, and an array
@@ -334,7 +338,10 @@ export default async function FeedPage({
   // The active-filter bar. Only built when something is actually filtering — an
   // always-present empty bar would be chrome that teaches nothing.
   const filterBar = hasFilter ? (
-    <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card/40 p-2.5">
+    <div
+      key="filter-bar"
+      className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card/40 p-2.5"
+    >
       <span className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground uppercase">
         Filtered
       </span>
@@ -399,14 +406,14 @@ export default async function FeedPage({
     never ran, and for anyone who wants a page in their history.
   */
   const pagination = (
-    <div className="mt-8 flex items-center justify-between">
-      {/*
-        Both halves carry an explicit key. This element is handed to FeedList as
-        a prop, and a prop crossing into a Client Component is serialized —
-        which drops the marker JSX puts on statically written children, leaving
-        React to re-check them as a dynamic list. Same reason the sort drawer's
-        links are wrapped in a fragment above.
-      */}
+    /*
+      The root element carries a key of its own. This element crosses into a
+      Client Component as a prop, and serialization drops the marker JSX puts
+      on statically written children — so React re-checks it as if it were an
+      entry in a dynamic list where FeedList renders it. The halves below are
+      keyed for the same reason.
+    */
+    <div key="pagination" className="mt-8 flex items-center justify-between">
       {page > 1 ? (
         <Button
           key="back"
@@ -551,7 +558,7 @@ export default async function FeedPage({
                   pagination={pagination}
                   urlState={urlState}
                   browseDrawer={
-                    <FeedBrowseDrawer filtered={hasFilter}>
+                    <FeedBrowseDrawer key="browse-drawer" filtered={hasFilter}>
                       {directory}
                     </FeedBrowseDrawer>
                   }
