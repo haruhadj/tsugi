@@ -1,9 +1,7 @@
+import { SEARCH_PAGE_SIZE } from "@/lib/providers/constants";
 import type { MediaType, ProviderResult, UnifiedMediaResult } from "@/lib/types/media";
 
 const BASE_URL = "https://api.jikan.moe/v4";
-
-// A typeahead result count, matching the AniList adapter's SEARCH_RESULT_COUNT.
-const SEARCH_RESULT_COUNT = 8;
 
 type JikanEntry = {
   mal_id: number;
@@ -104,10 +102,12 @@ export async function searchJikan(
   signal: AbortSignal,
   fetchImpl: typeof fetch = fetch,
   genre?: string,
+  page = 1,
 ): Promise<ProviderResult<UnifiedMediaResult[]>> {
   const params = new URLSearchParams();
   if (query) params.set("q", query);
-  params.set("limit", String(SEARCH_RESULT_COUNT));
+  params.set("limit", String(SEARCH_PAGE_SIZE));
+  params.set("page", String(page));
   if (genre) params.set("genres", genre);
   // Browse (a genre, no title) opens on the most popular titles — Jikan's
   // relevance ordering only means something when a `q` is present. Verified

@@ -20,7 +20,7 @@ import { MediaCover } from "@/components/MediaCover";
 import { MediaTypeChip } from "@/components/MediaTypeChip";
 import { SegmentedRadioGroup } from "@/components/SegmentedRadioGroup";
 import { cn } from "@/lib/utils";
-import { fetchGenres, searchMedia } from "@/lib/providers";
+import { fetchGenres, searchMedia, SEARCH_PAGE_SIZE } from "@/lib/providers";
 import type { MediaType, Provider, ProviderGenre, UnifiedMediaResult } from "@/lib/types/media";
 
 const DEBOUNCE_MS = 250;
@@ -38,7 +38,7 @@ function otherProvider(provider: Provider): Provider {
 type SearchState =
   | { status: "idle" }
   | { status: "loading" }
-  | { status: "results"; results: UnifiedMediaResult[] }
+  | { status: "results"; results: UnifiedMediaResult[]; hasMore: boolean; loadingMore: boolean }
   // "reauth_required" is a list-import (Phase 7) reason, never returned by
   // search — included only so the shared ProviderResult type checks.
   | {
@@ -101,6 +101,9 @@ export function MediaSearchInput({
   // Incremented on every search to track which request is current.
   // Prevents stale responses from a previous query overwriting newer results.
   const searchIdRef = useRef(0);
+  // The page a load-more should fetch next, for the currently active search.
+  // Reset to 1 whenever a fresh search starts (query/provider/media/genre change).
+  const pageRef = useRef(1);
 
   const runSearch = (q: string, forProvider: Provider, forMediaType: MediaType, forGenre: string | null) => {
     abortRef.current?.abort();
@@ -108,17 +111,72 @@ export function MediaSearchInput({
     abortRef.current = controller;
     // Bump the search ID so any in-flight response from an older search is ignored.
     const currentSearchId = ++searchIdRef.current;
+    pageRef.current = 1;
     setState({ status: "loading" });
-    searchMedia(forProvider, q, forMediaType, controller.signal, fetch, forGenre ?? undefined).then((result) => {
+    searchMedia(forProvider, q, forMediaType, controller.signal, fetch, forGenre ?? undefined, 1).then((result) => {
       // Ignore responses from stale searches (e.g. user kept typing, or switched provider/media).
       if (currentSearchId !== searchIdRef.current) return;
       if (controller.signal.aborted) return;
       if (result.ok) {
-        setState({ status: "results", results: result.data });
+        setState({
+          status: "results",
+          results: result.data,
+          // A full page suggests there may be more; a short one means we hit
+          // the end. Not exact (a total that's an exact multiple of the page
+          // size costs one extra empty fetch), but no provider here exposes a
+          // real total count to check against instead.
+          hasMore: result.data.length === SEARCH_PAGE_SIZE,
+          loadingMore: false,
+        });
       } else {
         setState({ status: "error", reason: result.reason });
       }
     });
+  };
+
+  /*
+    Fires when the results panel is scrolled near its bottom. Reuses the same
+    AbortController and searchId as the search currently on screen, so a fresh
+    keystroke (which aborts that controller and bumps searchIdRef) also cancels
+    any load-more in flight for the search it's replacing.
+  */
+  const loadMore = () => {
+    if (state.status !== "results" || !state.hasMore || state.loadingMore) return;
+    const controller = abortRef.current;
+    if (!controller) return;
+    const currentSearchId = searchIdRef.current;
+    const nextPage = pageRef.current + 1;
+    setState((s) => (s.status === "results" ? { ...s, loadingMore: true } : s));
+    searchMedia(provider, query, mediaType, controller.signal, fetch, activeGenre ?? undefined, nextPage).then(
+      (result) => {
+        if (currentSearchId !== searchIdRef.current) return;
+        if (controller.signal.aborted) return;
+        if (result.ok) {
+          pageRef.current = nextPage;
+          setState((s) =>
+            s.status === "results"
+              ? {
+                  status: "results",
+                  results: [...s.results, ...result.data],
+                  hasMore: result.data.length === SEARCH_PAGE_SIZE,
+                  loadingMore: false,
+                }
+              : s,
+          );
+        } else {
+          // Leave the results already on screen in place; just stop trying to
+          // page further rather than replacing a working list with an error.
+          setState((s) => (s.status === "results" ? { ...s, loadingMore: false, hasMore: false } : s));
+        }
+      },
+    );
+  };
+
+  const handleResultsScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    const el = event.currentTarget;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 160) {
+      loadMore();
+    }
   };
 
   // A genre selection only counts while the current provider's list still
@@ -325,7 +383,7 @@ export function MediaSearchInput({
               </span>
             </div>
 
-            <CommandList className="max-h-96">
+            <CommandList className="max-h-96" onScroll={handleResultsScroll}>
               {effectiveState.status === "results" && effectiveState.results.length === 0 && (
                 <CommandEmpty>No results on {PROVIDER_LABELS[provider]}.</CommandEmpty>
               )}
@@ -339,16 +397,48 @@ export function MediaSearchInput({
                         value={`${result.provider}-${result.externalId}`}
                         onSelect={() => handleSelect(result)}
                         disabled={added}
-                        className="items-start gap-3 py-2.5"
+                        className="flex-col items-stretch gap-0 overflow-hidden rounded-xl border border-border bg-card p-0"
                       >
-                        <MediaCover
-                          src={result.coverImage}
-                          title=""
-                          width={40}
-                          height={56}
-                          className="shrink-0 rounded-md"
-                        />
-                        <div className="flex min-w-0 flex-1 flex-col gap-1">
+                        <div className="relative aspect-[2/3] w-full">
+                          <MediaCover
+                            src={result.coverImage}
+                            title=""
+                            width={200}
+                            height={300}
+                            className="size-full object-cover"
+                          />
+                          {result.averageScore !== null && (
+                            <span className="absolute bottom-1 right-1 z-10 inline-flex items-center gap-1 rounded border border-highlight/30 bg-highlight/15 px-1.5 py-0.5 font-mono text-[10px] text-highlight">
+                              <StarIcon className="size-2.5" aria-hidden="true" />
+                              {/*
+                                Named for screen readers because this chip sits beside the
+                                author's own ScoreBadge elsewhere in the builder and looks
+                                like one — it is the provider's community aggregate, never
+                                the user's rating (D28).
+                              */}
+                              <span className="sr-only">
+                                {PROVIDER_LABELS[result.provider]} community score{" "}
+                              </span>
+                              {result.averageScore}%
+                            </span>
+                          )}
+                          <span
+                            className={cn(
+                              "absolute top-1 right-1 z-10 flex size-7 items-center justify-center rounded-full",
+                              added
+                                ? "bg-success/90 text-success-foreground"
+                                : "bg-primary/90 text-primary-foreground",
+                            )}
+                            aria-label={added ? "Added" : "Add to list"}
+                          >
+                            {added ? (
+                              <CheckIcon className="size-4" aria-hidden="true" />
+                            ) : (
+                              <PlusIcon className="size-4" aria-hidden="true" />
+                            )}
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-1 p-2">
                           <div className="flex flex-wrap items-center gap-1.5">
                             <MediaTypeChip mediaType={result.mediaType} />
                             {result.year !== null && (
@@ -356,54 +446,27 @@ export function MediaSearchInput({
                                 {result.year}
                               </span>
                             )}
-                            {result.averageScore !== null && (
-                              <span className="inline-flex items-center gap-1 rounded border border-highlight/30 bg-highlight/15 px-1.5 py-0.5 font-mono text-[10px] text-highlight">
-                                <StarIcon className="size-2.5" aria-hidden="true" />
-                                {/*
-                                  Named for screen readers because this chip sits beside the
-                                  author's own ScoreBadge elsewhere in the builder and looks
-                                  like one — it is the provider's community aggregate, never
-                                  the user's rating (D28).
-                                */}
-                                <span className="sr-only">
-                                  {PROVIDER_LABELS[result.provider]} community score{" "}
-                                </span>
-                                {result.averageScore}%
-                              </span>
-                            )}
                           </div>
-                          <span className="truncate text-sm font-bold text-foreground">
+                          <span className="line-clamp-2 text-xs font-bold text-foreground">
                             {result.title}
                           </span>
                           {result.genres.length > 0 && (
-                            <span className="truncate font-mono text-[11px] text-muted-foreground">
-                              {result.genres.slice(0, 3).join(" · ")}
+                            <span className="truncate font-mono text-[10px] text-muted-foreground">
+                              {result.genres.slice(0, 2).join(" · ")}
                             </span>
                           )}
                         </div>
-                        <span
-                          className={cn(
-                            "flex shrink-0 items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold",
-                            added
-                              ? "border-success/40 bg-success/15 text-success"
-                              : "border-primary/40 bg-primary/15 text-primary",
-                          )}
-                        >
-                          {added ? (
-                            <>
-                              <CheckIcon className="size-3.5" aria-hidden="true" />
-                              Added
-                            </>
-                          ) : (
-                            <>
-                              <PlusIcon className="size-3.5" aria-hidden="true" />
-                              Add
-                            </>
-                          )}
-                        </span>
                       </CommandItem>
                     );
                   })}
+                  {effectiveState.loadingMore && (
+                    <div className="col-span-full flex items-center justify-center py-3">
+                      <Loader2Icon
+                        className="size-4 animate-spin text-muted-foreground"
+                        aria-hidden="true"
+                      />
+                    </div>
+                  )}
                 </CommandGroup>
               )}
               {effectiveState.status === "error" && effectiveState.reason === "rate_limited" && (

@@ -91,6 +91,8 @@ function CommandList({
       data-slot="command-list"
       className={cn(
         "max-h-[300px] scroll-py-1 overflow-x-hidden overflow-y-auto",
+        "[scrollbar-width:thin] [scrollbar-color:var(--border)_transparent]",
+        "[&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb:hover]:bg-muted-foreground/60",
         className
       )}
       {...props}
@@ -118,7 +120,7 @@ function CommandGroup({
     <CommandPrimitive.Group
       data-slot="command-group"
       className={cn(
-        "overflow-hidden p-1 text-foreground [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground",
+        "overflow-hidden p-1 text-foreground [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group-items]]:grid [&_[cmdk-group-items]]:grid-cols-2 [&_[cmdk-group-items]]:gap-3 sm:[&_[cmdk-group-items]]:grid-cols-3 lg:[&_[cmdk-group-items]]:grid-cols-5",
         className
       )}
       {...props}

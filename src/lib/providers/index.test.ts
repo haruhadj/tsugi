@@ -144,6 +144,46 @@ describe("searchMedia (dispatch)", () => {
       expect(new URL(mock.url()).searchParams.get("genres")).toBe("22");
     });
   });
+
+  // Infinite scroll (load-more) pages through the same adapters a keystroke
+  // search already used — the dispatcher just has to forward the page number.
+  describe("pagination forwarding", () => {
+    test("defaults to page 1 against AniList when the caller omits it", async () => {
+      const mock = mockFetchCapturing();
+      await searchMedia("anilist", "frieren", "anime", new AbortController().signal, mock.fetchImpl);
+      const vars = JSON.parse(mock.body()).variables as Record<string, unknown>;
+      expect(vars.page).toBe(1);
+    });
+
+    test("a later page reaches AniList as the page variable", async () => {
+      const mock = mockFetchCapturing();
+      await searchMedia(
+        "anilist",
+        "frieren",
+        "anime",
+        new AbortController().signal,
+        mock.fetchImpl,
+        undefined,
+        3,
+      );
+      const vars = JSON.parse(mock.body()).variables as Record<string, unknown>;
+      expect(vars.page).toBe(3);
+    });
+
+    test("a later page reaches MAL as the page query param", async () => {
+      const mock = mockFetchCapturing({ data: [] });
+      await searchMedia(
+        "mal",
+        "frieren",
+        "anime",
+        new AbortController().signal,
+        mock.fetchImpl,
+        undefined,
+        3,
+      );
+      expect(new URL(mock.url()).searchParams.get("page")).toBe("3");
+    });
+  });
 });
 
 describe("fetchGenres (dispatch)", () => {

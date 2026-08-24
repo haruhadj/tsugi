@@ -1,11 +1,7 @@
+import { SEARCH_PAGE_SIZE } from "@/lib/providers/constants";
 import type { MediaType, ProviderResult, UnifiedMediaResult } from "@/lib/types/media";
 
 const ENDPOINT = "https://graphql.anilist.co";
-
-// A typeahead result count, not a page size — this is spent from the user's
-// own 30/min budget (D3), so there is no reason to fetch more than a
-// dropdown shows.
-const SEARCH_RESULT_COUNT = 8;
 
 // AniList's `genre_in` takes the genre *name* as a string. The genre browse
 // (empty search + a genre) sorts by popularity so the panel opens on titles a
@@ -15,8 +11,8 @@ const GENRE_SORT = "POPULARITY_DESC";
 const EXCLUDED_GENRES = new Set(["Hentai"]);
 
 const SEARCH_QUERY = `
-  query ($search: String, $type: MediaType, $perPage: Int, $genre_in: [String], $sort: [MediaSort]) {
-    Page(perPage: $perPage) {
+  query ($search: String, $type: MediaType, $perPage: Int, $page: Int, $genre_in: [String], $sort: [MediaSort]) {
+    Page(perPage: $perPage, page: $page) {
       media(search: $search, type: $type, genre_in: $genre_in, sort: $sort) {
         id
         type
@@ -152,6 +148,7 @@ export async function searchAniList(
   signal: AbortSignal,
   fetchImpl: typeof fetch = fetch,
   genre?: string,
+  page = 1,
 ): Promise<ProviderResult<UnifiedMediaResult[]>> {
   const result = await postGraphQL(
     {
@@ -162,7 +159,8 @@ export async function searchAniList(
         // genre's titles rather than nothing.
         search: query || null,
         type: toGraphQLMediaType(mediaType),
-        perPage: SEARCH_RESULT_COUNT,
+        perPage: SEARCH_PAGE_SIZE,
+        page,
         genre_in: genre ? [genre] : null,
         // Only impose the popularity sort when browsing (no query). With a
         // title typed, AniList's own search relevance is the better order.

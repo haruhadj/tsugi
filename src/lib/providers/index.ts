@@ -1,6 +1,7 @@
 import { fetchAniListGenres, searchAniList } from "@/lib/providers/anilist-client";
 import { fetchJikanGenres, searchJikan } from "@/lib/providers/jikan-client";
 import { logProviderFailure } from "@/lib/providers/log-provider-failure";
+export { SEARCH_PAGE_SIZE } from "@/lib/providers/constants";
 import type {
   MediaType,
   Provider,
@@ -27,16 +28,17 @@ export async function searchMedia(
   signal: AbortSignal,
   fetchImpl: typeof fetch = fetch,
   genre?: string,
+  page = 1,
 ): Promise<ProviderResult<UnifiedMediaResult[]>> {
   const start = performance.now();
   let result: ProviderResult<UnifiedMediaResult[]>;
 
   switch (provider) {
     case "anilist":
-      result = await searchAniList(query, mediaType, signal, fetchImpl, genre);
+      result = await searchAniList(query, mediaType, signal, fetchImpl, genre, page);
       break;
     case "mal":
-      result = await searchJikan(query, mediaType, signal, fetchImpl, genre);
+      result = await searchJikan(query, mediaType, signal, fetchImpl, genre, page);
       break;
   }
 
