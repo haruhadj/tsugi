@@ -400,15 +400,34 @@ export default async function FeedPage({
   */
   const pagination = (
     <div className="mt-8 flex items-center justify-between">
+      {/*
+        Both halves carry an explicit key. This element is handed to FeedList as
+        a prop, and a prop crossing into a Client Component is serialized —
+        which drops the marker JSX puts on statically written children, leaving
+        React to re-check them as a dynamic list. Same reason the sort drawer's
+        links are wrapped in a fragment above.
+      */}
       {page > 1 ? (
-        <Button asChild variant="ghost" size="sm" className="rounded-full">
+        <Button
+          key="back"
+          asChild
+          variant="ghost"
+          size="sm"
+          className="rounded-full"
+        >
           <Link href={hrefFor({ page: page - 1 })}>Back</Link>
         </Button>
       ) : (
-        <span />
+        <span key="back" />
       )}
       {entries.length === PAGE_SIZE ? (
-        <Button asChild variant="ghost" size="sm" className="rounded-full">
+        <Button
+          key="next"
+          asChild
+          variant="ghost"
+          size="sm"
+          className="rounded-full"
+        >
           <Link href={hrefFor({ page: page + 1 })}>
             Slot {firstSlot + PAGE_SIZE} onward
           </Link>
