@@ -27,6 +27,13 @@ import {
 import { MediaCover } from "@/components/MediaCover";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { ShareModal } from "@/components/ShareModal";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { VoteButtons } from "@/components/VoteButtons";
 import type { FeedCover, FeedEntry } from "@/server/services/lists";
 import { FEED_PAGE_SIZE, buildFeedQuery, type FeedUrlState } from "@/lib/feed-params";
@@ -81,6 +88,7 @@ export function FeedList({
   urlState: FeedUrlState;
 }) {
   const [density, setDensity] = useState<Density>("stream");
+  const activeDensity = DENSITIES.find((option) => option.id === density);
   const { appended, status, sentinelRef, retry } = useInfiniteFeed(entries, urlState);
   const { pull, refreshing } = usePullToRefresh();
 
@@ -116,37 +124,37 @@ export function FeedList({
             narrow desktop widths — wrapping would change this band's height and
             shift every row under it.
           */}
-          <div className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex min-w-0 flex-1 items-center overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {sortDrawer}
             {sortNav}
+            <div aria-hidden className="mx-2 hidden h-5 w-px shrink-0 bg-border md:block" />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="hidden items-center gap-1.5 rounded-full border border-border bg-secondary/40 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:inline-flex"
+                >
+                  {activeDensity && <activeDensity.icon className="size-3.5" aria-hidden />}
+                  {activeDensity?.label}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuRadioGroup
+                  value={density}
+                  onValueChange={(value) => setDensity(value as Density)}
+                >
+                  {DENSITIES.map((option) => (
+                    <DropdownMenuRadioItem key={option.id} value={option.id}>
+                      <option.icon className="size-3.5" aria-hidden />
+                      {option.label}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {browseDrawer}
-            <div
-              role="group"
-              aria-label="Feed layout"
-              className="hidden items-center gap-0.5 rounded-full border border-border bg-secondary/40 p-0.5 md:inline-flex"
-            >
-              {DENSITIES.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => setDensity(option.id)}
-                  aria-pressed={density === option.id}
-                  title={option.label}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
-                    "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                    density === option.id
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  <option.icon className="size-3.5" aria-hidden />
-                  {option.label}
-                </button>
-              ))}
-            </div>
           </div>
         </div>
       </div>
@@ -669,7 +677,7 @@ function StreamCard({ entry }: { entry: FeedEntry }) {
     <li
       className={cn(
         "relative flex flex-col gap-2 border-b border-border px-4 py-3 transition-colors",
-        "md:gap-3 md:rounded-2xl md:border md:bg-card/60 md:p-5 md:hover:border-input",
+        "md:gap-1 md:rounded-md md:border md:bg-card/40 md:p-2.5 md:hover:border-input",
       )}
     >
       {/* The compact metadata line, replacing the three stacked chip rows. */}
@@ -703,7 +711,7 @@ function StreamCard({ entry }: { entry: FeedEntry }) {
         )}
       </div>
 
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-3 md:gap-2">
         <div className="min-w-0 flex-1">
           <Link
             href={`/r/${entry.slug}`}
@@ -713,16 +721,16 @@ function StreamCard({ entry }: { entry: FeedEntry }) {
               "md:after:content-none",
             )}
           >
-            <h2 className="line-clamp-2 font-display leading-tight font-bold tracking-[-0.01em] text-foreground">
+            <h2 className="line-clamp-2 font-display text-base leading-tight font-bold tracking-[-0.01em] text-foreground md:text-[13px]">
               {entry.name}
             </h2>
           </Link>
           {entry.caption && (
-            <p className="mt-1 hidden line-clamp-2 text-sm text-muted-foreground md:block">
+            <p className="mt-1 hidden line-clamp-1 text-xs text-muted-foreground md:mt-0.5 md:block">
               {entry.caption}
             </p>
           )}
-          <div className="mt-1.5">
+          <div className="mt-1.5 md:mt-1">
             <Meta entry={entry} />
           </div>
         </div>
@@ -751,7 +759,7 @@ function StreamCard({ entry }: { entry: FeedEntry }) {
 
       <div
         className={cn(
-          "flex flex-wrap items-center gap-2 md:justify-start",
+          "flex flex-wrap items-center gap-2 md:justify-start md:gap-1.5",
           OVER_LINK_OVERLAY,
         )}
       >

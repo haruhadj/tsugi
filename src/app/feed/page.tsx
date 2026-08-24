@@ -1,4 +1,6 @@
 import {
+  CheckIcon,
+  ChevronDownIcon,
   ClockIcon,
   CompassIcon,
   EyeIcon,
@@ -19,6 +21,12 @@ import { FeedList } from "@/components/FeedList";
 import { FeedSortDrawer } from "@/components/FeedSortDrawer";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { getServerSession } from "@/lib/auth";
 import { isListCategory } from "@/lib/categories";
 import {
@@ -264,39 +272,40 @@ export default async function FeedPage({
   );
 
   // Built here rather than inline below because FeedList lays them out around its own
-  // density toggle: the sort tabs share the toggle's row, the filter bar sits under it.
+  // density toggle: the sort dropdown shares the toggle's row, the filter bar sits
+  // under it. A dropdown rather than a chip rail from `md` up, so sort reads as its
+  // own control instead of blending into the view dropdown beside it.
   const sortNav = (
-    <nav
-      key="sort-nav"
-      aria-label="Sort"
-      className="hidden items-center gap-1 md:flex"
-    >
-      {FEED_SORTS.map((option) => {
-        const { label, icon: Icon } = SORTS[option];
-        return (
-          <Link
-            key={option}
-            href={hrefFor({ sort: option })}
-            aria-current={sort === option ? "true" : undefined}
-            title={label}
-            className={cn(
-              // `shrink-0` and the always-visible label are what make this row
-              // scrollable rather than wrapping: FeedList puts it in a sticky
-              // band on a phone, and a band that grows a second row of chips
-              // would shift every row beneath it (see FeedList's toolbar).
-              "inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors",
-              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-              sort === option
-                ? "bg-secondary text-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-foreground",
-            )}
-          >
-            <Icon className="size-3.5" aria-hidden />
-            {label}
-          </Link>
-        );
-      })}
-    </nav>
+    <DropdownMenu key="sort-nav">
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="Sort"
+          className="hidden shrink-0 items-center gap-1.5 rounded-full border border-border bg-secondary/40 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:inline-flex"
+        >
+          {(() => {
+            const { icon: Icon } = SORTS[sort];
+            return <Icon className="size-3.5" aria-hidden />;
+          })()}
+          {SORTS[sort].label}
+          <ChevronDownIcon className="size-3.5" aria-hidden />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-44">
+        {FEED_SORTS.map((option) => {
+          const { label, icon: Icon } = SORTS[option];
+          return (
+            <DropdownMenuItem key={option} asChild>
+              <Link href={hrefFor({ sort: option })} aria-current={sort === option ? "true" : undefined}>
+                <Icon className="size-3.5" aria-hidden />
+                {label}
+                {sort === option && <CheckIcon className="ml-auto size-3.5" aria-hidden />}
+              </Link>
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 
   // The phone form of the same sort control. FeedList shows this in the sticky band
@@ -451,38 +460,19 @@ export default async function FeedPage({
 
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
         <div className="animate-card-in">
-          <section className="relative overflow-hidden rounded-3xl border border-border bg-card/60 p-6 sm:p-10">
-            {/* Off-centre glow, purely decorative — kept behind the copy, never over it. */}
-            <div
-              aria-hidden
-              className="pointer-events-none absolute -top-24 -right-16 size-72 rounded-full bg-primary/20 blur-3xl"
-            />
-            <div className="relative flex flex-wrap items-end justify-between gap-6">
-              <div>
-                <p className="inline-flex items-center gap-2 font-mono text-xs tracking-[0.28em] text-primary uppercase">
-                  <CompassIcon className="size-3.5" aria-hidden />
-                  Public discovery feed
-                </p>
-                <h1 className="mt-3 font-display text-[clamp(1.9rem,5vw,2.75rem)] leading-[1.02] font-extrabold tracking-[-0.03em]">
-                  The rundown
-                </h1>
-                <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground">
-                  Every list people have published, ranked by what the room
-                  thinks of them. Vote on the ones you have opinions about.
-                </p>
-              </div>
-              {/* Right-aligned from `md` up, under the copy below it — the eyebrow
-                  already says where you are, so the action gets the corner. */}
-              <Button asChild className="rounded-full md:ml-auto">
-                <Link href={session === null ? "/sign-in" : "/"}>
-                  <PlusIcon aria-hidden />
-                  Create &amp; share a list
-                </Link>
-              </Button>
-            </div>
-          </section>
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <h1 className="font-display text-xl font-bold tracking-[-0.01em]">
+              The rundown
+            </h1>
+            <Button asChild size="sm" className="rounded-full">
+              <Link href={session === null ? "/sign-in" : "/"}>
+                <PlusIcon aria-hidden />
+                Create &amp; share a list
+              </Link>
+            </Button>
+          </div>
 
-          <div className="mt-8">
+          <div>
             <div className="min-w-0">
               {entries.length === 0 ? (
                 <>
