@@ -6,3 +6,5 @@ rules, and the session workflow.
 Nothing project-specific is documented in this file — it exists only so that tools which
 look for `CLAUDE.md` find their way to `AGENTS.md`. Do not add content here; it would
 immediately begin to diverge.
+
+When writing, reviewing, or refactoring code, follow the `clean-code` skill.
