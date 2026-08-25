@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { type ReactNode } from "react";
 import { Wordmark } from "@/components/Wordmark";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,8 +37,22 @@ const NAV = [
  *
  * `username` is null for signed-out visitors — the whole product is readable without
  * an account (invariant 9), so this renders a Sign in button rather than hiding.
+ *
+ * `mobileMenu` is a page-specific slot (only `/feed` passes one, its browse
+ * hamburger) — `Header` itself knows nothing about any page's own controls,
+ * it just reserves the top-left corner on a phone for whichever page hands
+ * it something. When present, it pushes the wordmark out of the flow it
+ * normally shares with the nav and into the bar's dead centre instead, the
+ * three-zone phone header shape (menu / mark / account) rather than the
+ * left-anchored one desktop keeps.
  */
-export function Header({ username }: { username: string | null }) {
+export function Header({
+  username,
+  mobileMenu,
+}: {
+  username: string | null;
+  mobileMenu?: ReactNode;
+}) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -59,9 +74,22 @@ export function Header({ username }: { username: string | null }) {
   return (
     <>
       <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
-        <div className="flex h-16 w-full items-center justify-between gap-3 px-4 sm:px-6">
+        <div className="relative flex h-16 w-full items-center justify-between gap-3 px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-8">
-            <Link href="/" aria-label="Tsugi home" className="rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+            {mobileMenu}
+
+            <Link
+              href="/"
+              aria-label="Tsugi home"
+              className={cn(
+                "rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                // Only pulled out of flow when there is a mobileMenu to make
+                // room for — otherwise the wordmark stays exactly where it
+                // always has, left-anchored, on every width.
+                mobileMenu &&
+                  "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 md:static md:top-auto md:left-auto md:translate-x-0 md:translate-y-0",
+              )}
+            >
               <Wordmark size="sm" />
             </Link>
 

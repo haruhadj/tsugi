@@ -277,9 +277,10 @@ export default async function FeedPage({
 
   // The phone form of the directory rail: shares `directory` with
   // `FeedBrowseSidebar`, but opens as a sheet instead of occupying a grid
-  // track that a phone has no width to spare for. Rendered as a bare
-  // hamburger in the title row (see below), standing in for the heading that
-  // row has no room for beside it on a phone.
+  // track that a phone has no width to spare for. Handed to `Header` as its
+  // `mobileMenu` slot, which is why it renders as a bare hamburger — that
+  // slot lives in the top bar beside the wordmark, not this page's own
+  // content.
   const browseTrigger = (
     <FeedBrowseMobileTrigger key="browse-trigger" filtered={hasFilter} iconOnly>
       {directory}
@@ -476,6 +477,7 @@ export default async function FeedPage({
     <div className="min-h-screen">
       <Header
         username={session ? (session.user.username ?? session.user.name) : null}
+        mobileMenu={browseTrigger}
       />
 
       <FeedBrowseProvider>
@@ -484,23 +486,6 @@ export default async function FeedPage({
         <main className="min-w-0">
           <div className="mx-auto max-w-[732px] px-4 pt-2 pb-8 sm:px-6 sm:pt-10 sm:pb-10">
             <div className="animate-card-in">
-              <div className="mb-4 flex items-center justify-between gap-4">
-                {/*
-                  A phone has no width to spare beside "Create & share a
-                  list" for both a heading and a way into the directory, and
-                  the heading is the one the URL already says — so `/feed`
-                  keeps its `h1` for anyone landing without CSS, but a phone
-                  sees the hamburger in its place.
-                */}
-                {browseTrigger}
-                <Button asChild size="sm" className="rounded-full">
-                  <Link href={session === null ? "/sign-in" : "/"}>
-                    <PlusIcon aria-hidden />
-                    Create &amp; share a list
-                  </Link>
-                </Button>
-              </div>
-
               <div>
                 <div className="min-w-0">
                   {entries.length === 0 ? (
