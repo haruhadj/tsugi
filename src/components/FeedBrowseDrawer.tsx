@@ -70,26 +70,38 @@ export function FeedBrowseProvider({ children }: { children: ReactNode }) {
 
 /**
  * The mobile form of the directory: a bottom-anchored sheet instead of a
- * rail, matching `FeedSortDrawer`'s shape. Rendered into `FeedList`'s own
- * sticky band (and the empty-state header in `FeedPage`) rather than owning
- * its own sticky wrapper — that band already sits at `top-16` on a phone, and
- * a second independent sticky element at the same offset would stack over it
- * instead of under it.
+ * rail, matching `FeedSortDrawer`'s shape. `FeedPage` places it in the title
+ * row, standing in for the "The rundown" heading on a phone — there is no
+ * spare width there for both, and a rail's job (getting to the directory) is
+ * worth more than a heading the page's own URL already announces.
+ *
+ * `iconOnly` drops the "Browse" label and the pill chrome for that slot: a
+ * bare hamburger glyph, the minimal form the title row has room for.
  */
 export function FeedBrowseMobileTrigger({
   children,
   filtered = false,
+  iconOnly = false,
 }: {
   children: ReactNode;
   filtered?: boolean;
+  iconOnly?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger className="relative inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border border-border bg-secondary/40 px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:hidden">
-        <MenuIcon className="size-3.5" aria-hidden />
-        Browse
+      <SheetTrigger
+        aria-label="Browse the rundown"
+        className={cn(
+          "relative inline-flex shrink-0 items-center justify-center rounded-full text-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:hidden",
+          iconOnly
+            ? "size-9"
+            : "min-h-9 gap-1.5 border border-border bg-secondary/40 px-3 text-xs font-medium",
+        )}
+      >
+        <MenuIcon className="size-4" aria-hidden />
+        {!iconOnly && "Browse"}
         {filtered && (
           <span
             aria-hidden

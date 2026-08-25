@@ -76,7 +76,6 @@ const PULL_THRESHOLD = 64;
  */
 export function FeedList({
   entries,
-  browseTrigger,
   sortNav,
   sortDrawer,
   filterBar,
@@ -84,7 +83,6 @@ export function FeedList({
   urlState,
 }: {
   entries: FeedEntry[];
-  browseTrigger?: ReactNode;
   sortNav: ReactNode;
   sortDrawer?: ReactNode;
   filterBar?: ReactNode;
@@ -104,11 +102,11 @@ export function FeedList({
   return (
     <div>
       {/*
-        One bar: sort chips, the browse drawer, and density. It pins under the
-        header on a phone — the rundown is a long scroll and the sort you are
-        reading in is the thing you most want to change halfway down it — and
-        relaxes into the ordinary card toolbar from `md`, where the whole page
-        is visible at once and a second sticky band would just eat height.
+        One bar: sort chips and density. It pins under the header on a phone —
+        the rundown is a long scroll and the sort you are reading in is the
+        thing you most want to change halfway down it — and relaxes into the
+        ordinary card toolbar from `md`, where the whole page is visible at
+        once and a second sticky band would just eat height.
 
         The negative margin lets the sticky band's blurred ground reach the
         screen edges inside `main`'s padding, so rows scroll under it instead of
@@ -123,8 +121,8 @@ export function FeedList({
         <div className="flex items-center gap-2">
           {/*
             Two forms of one control. On a phone the four sorts cannot sit in
-            this band beside the browse trigger, and a sideways-scrolling rail
-            hides the options it holds, so the drawer shows the current sort and
+            this band without scrolling sideways, and a sideways scroll hides
+            the options it holds, so the drawer shows the current sort and
             opens the rest over the feed. From `md` the chips fit outright and
             are worth the glanceability; each half hides itself at the other's
             breakpoint. `overflow-x-auto` stays as the chips' last resort at
@@ -132,7 +130,6 @@ export function FeedList({
             shift every row under it.
           */}
           <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {browseTrigger}
             {sortDrawer}
             {sortNav}
             <div

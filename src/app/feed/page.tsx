@@ -276,10 +276,12 @@ export default async function FeedPage({
   );
 
   // The phone form of the directory rail: shares `directory` with
-  // `FeedBrowseSidebar`, but opens as a sheet from the sticky band instead of
-  // occupying a grid track that a phone has no width to spare for.
+  // `FeedBrowseSidebar`, but opens as a sheet instead of occupying a grid
+  // track that a phone has no width to spare for. Rendered as a bare
+  // hamburger in the title row (see below), standing in for the heading that
+  // row has no room for beside it on a phone.
   const browseTrigger = (
-    <FeedBrowseMobileTrigger key="browse-trigger" filtered={hasFilter}>
+    <FeedBrowseMobileTrigger key="browse-trigger" filtered={hasFilter} iconOnly>
       {directory}
     </FeedBrowseMobileTrigger>
   );
@@ -483,7 +485,15 @@ export default async function FeedPage({
           <div className="mx-auto max-w-[850px] px-4 py-8 sm:px-6 sm:py-10">
             <div className="animate-card-in">
               <div className="mb-4 flex items-center justify-between gap-4">
-                <h1 className="font-display text-xl font-bold tracking-[-0.01em]">
+                {/*
+                  A phone has no width to spare beside "Create & share a
+                  list" for both a heading and a way into the directory, and
+                  the heading is the one the URL already says — so `/feed`
+                  keeps its `h1` for anyone landing without CSS, but a phone
+                  sees the hamburger in its place.
+                */}
+                {browseTrigger}
+                <h1 className="hidden font-display text-xl font-bold tracking-[-0.01em] md:block">
                   The rundown
                 </h1>
                 <Button asChild size="sm" className="rounded-full">
@@ -500,7 +510,6 @@ export default async function FeedPage({
                     <>
                       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
                         <div className="flex items-center gap-2">
-                          {browseTrigger}
                           {sortDrawer}
                           {sortNav}
                         </div>
@@ -562,7 +571,6 @@ export default async function FeedPage({
                   */
                       key={hrefFor({ page })}
                       entries={entries}
-                      browseTrigger={browseTrigger}
                       sortNav={sortNav}
                       sortDrawer={sortDrawer}
                       filterBar={filterBar}
