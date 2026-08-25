@@ -8,6 +8,13 @@ import {
   useContext,
   useState,
 } from "react";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 const SIDEBAR_WIDTH_OPEN = "17rem"; // 272px
@@ -17,7 +24,8 @@ const SIDEBAR_WIDTH_COLLAPSED = "4rem"; // 64px
  * Shared open state between the rail's own toggle and anything else that
  * ever needs to flip it. The rail shrinks rather than disappearing, so
  * "open" here means "expanded", not "mounted" — the sidebar is always in
- * the grid.
+ * the grid. Only meaningful from `md` up: below that the directory has no
+ * rail at all, just the sheet below.
  */
 const FeedBrowseContext = createContext<{
   open: boolean;
@@ -35,20 +43,19 @@ function useFeedBrowse() {
 }
 
 /**
- * The grid that gives the sidebar its own track. `--sidebar-width` is the
- * single source of truth for that track's size, so the rail's width, the
- * toggle's position, and the grid column all move together off one value
- * instead of three that could drift out of sync.
+ * The grid that gives the sidebar its own track — from `md` up only. A phone
+ * has no room to spare on a permanent rail, collapsed or not, so below `md`
+ * this is a single column and the directory moves into the sheet
+ * `FeedBrowseSidebar` renders for that width instead.
  */
 export function FeedBrowseProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(true);
   return (
     <FeedBrowseContext.Provider value={{ open, setOpen }}>
       <div
-        className="grid transition-[grid-template-columns] duration-200 ease-in-out"
+        className="grid grid-cols-1 transition-[grid-template-columns] duration-200 ease-in-out md:grid-cols-[var(--sidebar-width)_1fr]"
         style={
           {
-            gridTemplateColumns: "var(--sidebar-width) 1fr",
             "--sidebar-width": open
               ? SIDEBAR_WIDTH_OPEN
               : SIDEBAR_WIDTH_COLLAPSED,
@@ -62,10 +69,68 @@ export function FeedBrowseProvider({ children }: { children: ReactNode }) {
 }
 
 /**
- * The rundown's directory as a persistent rail rather than a modal. Collapsing
- * it shrinks the track to a 64px rail instead of removing it from the grid, so
- * the toggle stays put and the feed column recenters itself through the grid's
- * own `1fr` track rather than a width recalculated by hand.
+ * The mobile form of the directory: a bottom-anchored sheet instead of a
+ * rail, matching `FeedSortDrawer`'s shape. Rendered into `FeedList`'s own
+ * sticky band (and the empty-state header in `FeedPage`) rather than owning
+ * its own sticky wrapper — that band already sits at `top-16` on a phone, and
+ * a second independent sticky element at the same offset would stack over it
+ * instead of under it.
+ */
+export function FeedBrowseMobileTrigger({
+  children,
+  filtered = false,
+}: {
+  children: ReactNode;
+  filtered?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger className="relative inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border border-border bg-secondary/40 px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:hidden">
+        <MenuIcon className="size-3.5" aria-hidden />
+        Browse
+        {filtered && (
+          <span
+            aria-hidden
+            className="absolute top-0 right-0 size-1.5 rounded-full bg-primary"
+          />
+        )}
+      </SheetTrigger>
+
+      <SheetContent side="left" className="w-[17rem] gap-0 p-0">
+        <SheetHeader className="border-b border-border p-4">
+          <SheetTitle className="font-display tracking-[-0.01em]">
+            Browse
+          </SheetTitle>
+        </SheetHeader>
+        {/*
+          A click delegate, the same one the sort drawer uses: the
+          directory's categories and genres are real `Link`s, and a
+          client-side navigation would otherwise leave this sheet open
+          over the feed it just filtered.
+        */}
+        <div
+          onClick={() => setOpen(false)}
+          className="flex flex-col gap-4 overflow-y-auto p-4"
+        >
+          {children}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+/**
+ * The rundown's directory as a persistent rail, from `md` up only. A phone
+ * has no room to spare on a permanent rail, collapsed or not, so below `md`
+ * this renders nothing — the same `children` reach a phone through
+ * `FeedBrowseMobileTrigger` instead, placed wherever the sort controls are.
+ *
+ * Collapsing the rail shrinks its track to a 64px sliver instead of removing
+ * it from the grid, so the toggle stays put and the feed column recenters
+ * itself through the grid's own `1fr` track rather than a width recalculated
+ * by hand.
  */
 export function FeedBrowseSidebar({
   children,
@@ -86,7 +151,7 @@ export function FeedBrowseSidebar({
         with everything else. The clip now belongs to the wrapper just below,
         which owns nothing but the collapse effect.
       */
-      className="sticky top-16 h-[calc(100vh-4rem)] shrink-0 border-r border-border"
+      className="sticky top-16 hidden h-[calc(100vh-4rem)] shrink-0 border-r border-border md:block"
     >
       <button
         type="button"

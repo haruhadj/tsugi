@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import {
+  FeedBrowseMobileTrigger,
   FeedBrowseProvider,
   FeedBrowseSidebar,
 } from "@/components/FeedBrowseDrawer";
@@ -274,6 +275,15 @@ export default async function FeedPage({
     </>
   );
 
+  // The phone form of the directory rail: shares `directory` with
+  // `FeedBrowseSidebar`, but opens as a sheet from the sticky band instead of
+  // occupying a grid track that a phone has no width to spare for.
+  const browseTrigger = (
+    <FeedBrowseMobileTrigger key="browse-trigger" filtered={hasFilter}>
+      {directory}
+    </FeedBrowseMobileTrigger>
+  );
+
   // Built here rather than inline below because FeedList lays them out around its own
   // density toggle: the sort dropdown shares the toggle's row, the filter bar sits
   // under it. A dropdown rather than a chip rail from `md` up, so sort reads as its
@@ -490,6 +500,7 @@ export default async function FeedPage({
                     <>
                       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
                         <div className="flex items-center gap-2">
+                          {browseTrigger}
                           {sortDrawer}
                           {sortNav}
                         </div>
@@ -551,6 +562,7 @@ export default async function FeedPage({
                   */
                       key={hrefFor({ page })}
                       entries={entries}
+                      browseTrigger={browseTrigger}
                       sortNav={sortNav}
                       sortDrawer={sortDrawer}
                       filterBar={filterBar}

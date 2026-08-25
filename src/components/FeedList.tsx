@@ -76,6 +76,7 @@ const PULL_THRESHOLD = 64;
  */
 export function FeedList({
   entries,
+  browseTrigger,
   sortNav,
   sortDrawer,
   filterBar,
@@ -83,6 +84,7 @@ export function FeedList({
   urlState,
 }: {
   entries: FeedEntry[];
+  browseTrigger?: ReactNode;
   sortNav: ReactNode;
   sortDrawer?: ReactNode;
   filterBar?: ReactNode;
@@ -129,7 +131,8 @@ export function FeedList({
             narrow desktop widths — wrapping would change this band's height and
             shift every row under it.
           */}
-          <div className="flex min-w-0 flex-1 items-center overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {browseTrigger}
             {sortDrawer}
             {sortNav}
             <div
