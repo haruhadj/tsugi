@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Wordmark } from "@/components/Wordmark";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +29,50 @@ const NAV = [
   { href: "/", label: "Create", icon: PlusIcon, needsSession: true },
   { href: "/dashboard", label: "Your lists", icon: LayoutDashboardIcon, needsSession: true },
 ] as const;
+
+/** Scroll distance, in CSS pixels, before a direction change counts — small
+ * jitter (a bounce, a sub-pixel wheel tick) should not toggle the bars. */
+const SCROLL_HIDE_THRESHOLD = 8;
+
+/**
+ * True once the reader has scrolled down past the bars' own height, false
+ * on any scroll back up — the up-swipe that reveals the bars again is also
+ * the gesture readers already use to go looking for the top of the page, so
+ * it doubles as "show me the chrome".
+ *
+ * Only meaningful on a phone: the desktop header does not hide (see the
+ * `md:` override where this is applied), so nothing here needs to run
+ * differently by width — a `md`-width reader just never triggers a large
+ * enough scroll delta to flip it before landing back near the top.
+ */
+function useHideOnScroll() {
+  const [hidden, setHidden] = useState(false);
+  const lastY = useRef(0);
+
+  useEffect(() => {
+    lastY.current = window.scrollY;
+
+    function onScroll() {
+      const y = window.scrollY;
+      const delta = y - lastY.current;
+
+      // Near the top, always shown — hiding the way back to the very
+      // content the bars navigate would be self-defeating.
+      if (y < 64) {
+        setHidden(false);
+      } else if (Math.abs(delta) > SCROLL_HIDE_THRESHOLD) {
+        setHidden(delta > 0);
+      }
+
+      lastY.current = y;
+    }
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  return hidden;
+}
 
 /**
  * The app shell's top bar, on every screen. Sticky and blurred so the page scrolls
@@ -55,6 +99,7 @@ export function Header({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const hidden = useHideOnScroll();
 
   // Signed-out landing page already links to /feed itself (its hero card),
   // so the nav's own "Rundown" entry would just repeat it there.
@@ -73,7 +118,14 @@ export function Header({
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
+      <header
+        className={cn(
+          "sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl transition-transform duration-300",
+          // Desktop never hides — `hidden` only ever flips from a phone-sized
+          // scroll delta, but the override keeps this true even if it did.
+          hidden ? "-translate-y-full md:translate-y-0" : "translate-y-0",
+        )}
+      >
         <div className="relative flex h-16 w-full items-center justify-between gap-3 px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-8">
             {mobileMenu}
@@ -193,7 +245,10 @@ export function Header({
       */}
       <nav
         aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur-xl md:hidden"
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur-xl transition-transform duration-300 md:hidden",
+          hidden && "translate-y-full",
+        )}
       >
         {/*
           The bar's own padding, not the page's: the row of targets stops above the
