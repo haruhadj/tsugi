@@ -1,9 +1,6 @@
 "use client";
 
 import {
-  ArrowRightIcon,
-  CheckIcon,
-  CopyIcon,
   EyeIcon,
   LayoutGridIcon,
   LayoutListIcon,
@@ -441,51 +438,21 @@ function usePullToRefresh() {
 }
 
 /**
- * The card action bar's shape: a filled pill with a 44px target on touch
- * (ui-rules.md § Responsive), thinning to the quiet text button it used to be
- * from `md` up, where the row sits inside a bordered card and three more
- * outlined pills would be one border too many.
+ * The card action bar's shape: an icon-only circle on a phone — the label
+ * would just be repeating what the icon already says, and three of them is
+ * what made the row wrap — thinning further into the quiet text button it
+ * used to be from `md` up, where the row sits inside a bordered card and
+ * three more outlined pills would be one border too many. The label survives
+ * as `sr-only` below `md` so the button still has a name, not just a glyph.
  */
 const ACTION_PILL = cn(
-  "inline-flex min-h-11 items-center gap-1.5 rounded-full border border-border bg-secondary/40 px-3 text-xs font-medium",
+  "inline-flex size-9 items-center justify-center gap-1.5 rounded-full border border-border bg-secondary/40 text-xs font-medium",
   "text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
   "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-  "md:min-h-0 md:border-transparent md:bg-transparent md:px-2 md:py-1",
+  "md:size-auto md:border-transparent md:bg-transparent md:px-2 md:py-1",
 );
 
-function CopyLinkButton({
-  slug,
-  className,
-}: {
-  slug: string;
-  className?: string;
-}) {
-  const [copied, setCopied] = useState(false);
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(
-        `${window.location.origin}/r/${slug}`,
-      );
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard access can be denied outright; the link is still on screen and
-      // selectable, so there is nothing to recover from and nothing to announce.
-    }
-  }
-
-  return (
-    <button type="button" onClick={copy} className={cn(ACTION_PILL, className)}>
-      {copied ? (
-        <CheckIcon className="size-3.5 text-success" aria-hidden />
-      ) : (
-        <CopyIcon className="size-3.5" aria-hidden />
-      )}
-      <span aria-live="polite">{copied ? "Copied" : "Copy link"}</span>
-    </button>
-  );
-}
+const ACTION_LABEL = "sr-only md:not-sr-only";
 
 /**
  * The same modal the artifact page's `ShareListButton` opens, minus the card
@@ -516,7 +483,7 @@ function ShareRowButton({
         className={cn(ACTION_PILL, className)}
       >
         <Share2Icon className="size-3.5" aria-hidden />
-        Share
+        <span className={ACTION_LABEL}>Share</span>
       </button>
       <ShareModal open={open} onOpenChange={setOpen} url={url} text={name} />
     </>
@@ -691,10 +658,12 @@ function Meta({ entry }: { entry: FeedEntry }) {
  * filmstrip, same as desktop does, `next/image` lazy-loading the ones still
  * off screen.
  *
- * No link overlay: with the genre chips, filmstrip and copy button live at
- * every width, a full-card overlay would swallow all three the way the old
- * compact card's doc comment warned about. The title's own `Link` and the
- * explicit "Open" pill are the click targets everywhere.
+ * Link-overlaid at every width: the title's `Link` grows a full-card
+ * pseudo-element (`LINK_OVERLAY`) so empty space anywhere on the row opens
+ * the list, the way the rest of the row already reads as one card. Genre
+ * chips, vote buttons and the share button sit above that overlay
+ * (`OVER_LINK_OVERLAY`) so they stay their own click targets instead of being
+ * swallowed by it.
  */
 function StreamCard({ entry }: { entry: FeedEntry }) {
   const published = entry.publishedAt ?? entry.createdAt;
@@ -724,7 +693,10 @@ function StreamCard({ entry }: { entry: FeedEntry }) {
       <div className="min-w-0">
         <Link
           href={`/r/${entry.slug}`}
-          className="min-w-0 rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className={cn(
+            "min-w-0 rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+            LINK_OVERLAY,
+          )}
         >
           <h2 className="line-clamp-2 font-display text-base leading-tight font-bold tracking-[-0.01em] text-foreground md:text-[13px]">
             {entry.name}
@@ -740,25 +712,24 @@ function StreamCard({ entry }: { entry: FeedEntry }) {
         </div>
       </div>
 
-      <GenreChips genres={entry.genres} />
+      <div className={OVER_LINK_OVERLAY}>
+        <GenreChips genres={entry.genres} />
+      </div>
 
       <Filmstrip covers={entry.covers} />
 
-      <div className="flex flex-wrap items-center gap-2 md:justify-start md:gap-1.5">
+      <div
+        className={cn(
+          "flex flex-wrap items-center gap-2 md:justify-start md:gap-1.5",
+          OVER_LINK_OVERLAY,
+        )}
+      >
         <VoteButtons
           slug={entry.slug}
           initialScore={entry.score}
           initialDirection={entry.myDirection}
-          size="touch"
+          size="md"
         />
-        <Link
-          href={`/r/${entry.slug}`}
-          className={cn(ACTION_PILL, "text-primary")}
-        >
-          Open
-          <ArrowRightIcon className="size-3.5" aria-hidden />
-        </Link>
-        <CopyLinkButton slug={entry.slug} />
         <ShareRowButton slug={entry.slug} name={entry.name} />
       </div>
     </li>

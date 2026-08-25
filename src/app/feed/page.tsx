@@ -482,9 +482,9 @@ export default async function FeedPage({
         <FeedBrowseSidebar filtered={hasFilter}>{directory}</FeedBrowseSidebar>
 
         <main className="min-w-0">
-          <div className="mx-auto max-w-[850px] px-4 py-8 sm:px-6 sm:py-10">
+          <div className="mx-auto max-w-[732px] px-4 pt-2 pb-8 sm:px-6 sm:pt-10 sm:pb-10">
             <div className="animate-card-in">
-              <div className="mb-4 flex items-center justify-between gap-4">
+              <div className="mb-4 flex items-center justify-end gap-4">
                 {/*
                   A phone has no width to spare beside "Create & share a
                   list" for both a heading and a way into the directory, and
@@ -493,9 +493,6 @@ export default async function FeedPage({
                   sees the hamburger in its place.
                 */}
                 {browseTrigger}
-                <h1 className="hidden font-display text-xl font-bold tracking-[-0.01em] md:block">
-                  The rundown
-                </h1>
                 <Button asChild size="sm" className="rounded-full">
                   <Link href={session === null ? "/sign-in" : "/"}>
                     <PlusIcon aria-hidden />
