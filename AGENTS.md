@@ -8,7 +8,7 @@ can open that link; only creating needs an account** (**D23**).
 
 ---
 
-When writing, reviewing, or refactoring code, follow the `/clean-code` skill.
+When writing, reviewing, or refactoring code, always use the `/clean-code` skill.
 
 ---
 
