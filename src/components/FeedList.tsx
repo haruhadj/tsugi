@@ -137,13 +137,13 @@ export function FeedList({
             {sortNav}
             <div
               aria-hidden
-              className="mx-2 hidden h-5 w-px shrink-0 bg-border md:block"
+              className="mx-2 h-5 w-px shrink-0 bg-border"
             />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="hidden items-center gap-1.5 rounded-full border border-border bg-secondary/40 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:inline-flex"
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-secondary/40 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 >
                   {activeDensity && (
                     <activeDensity.icon className="size-3.5" aria-hidden />
@@ -541,9 +541,9 @@ function ShareRowButton({
  * each cover. `fluid` on `MediaCover` is what lets the art itself grow to fill
  * that flexible slot instead of rendering at its 56×84 intrinsic size.
  *
- * Only rendered from `md` up (see `StreamCard`). Ten covers divided into a
- * 390px screen is 35px each, which is a row of thumbnails too small to
- * recognise anything in — and it costs ten image requests to say so.
+ * Rendered at every width `StreamCard` appears at, five to a row (see the
+ * grid below), so a 390px screen still gives each cover ~70px rather than the
+ * ~35px a single ten-wide row would leave it.
  */
 function Filmstrip({ covers }: { covers: FeedCover[] }) {
   if (covers.length === 0) return null;
@@ -684,31 +684,22 @@ function Meta({ entry }: { entry: FeedEntry }) {
 }
 
 /**
- * The rundown's default row, and the only one shaped twice.
+ * The rundown's default row — the same shape at every width.
  *
- * On a phone it is a compact card: one metadata line, the title, a lead cover
- * as a thumbnail, and a bar of thumb-sized actions — everything else is spent
- * on fitting the next row on screen. From `md` it opens back out into the
- * original stream card, with the chip row, the caption, the genre links and the
- * full filmstrip.
+ * Used to shed the chip row, caption, genre links and filmstrip below `md`
+ * for a compact Reddit-style thumbnail card, but that made the phone and
+ * desktop feeds read as two different products. It is one card now: the
+ * `md:` variants below only ever adjust spacing, borders and text size, never
+ * which content renders — a phone pays a few more image requests for the
+ * filmstrip, same as desktop does, `next/image` lazy-loading the ones still
+ * off screen.
  *
- * **One component, not two.** Rendering a mobile card and a desktop card and
- * hiding one would mount `VoteButtons` twice for the same slug: two optimistic
- * state machines, diverging the moment either is clicked. The filmstrip and the
- * caption are safe to hide with `md:` because `next/image` lazy-loads and a
- * `display: none` element never intersects the viewport — a phone pays nothing
- * for the covers it is not shown.
- *
- * **The card is link-overlaid below `md` only.** The doc comment this replaces
- * argued the stream density had too many affordances of its own to take the
- * overlay, and that was right — but the compact card sheds the genre chips, the
- * filmstrip and the copy button, which is exactly what made it unsafe. So the
- * overlay is on below `md` and switched off with `md:after:content-none` above
- * it, where the inner targets come back. Everything in the action bar still
- * carries `OVER_LINK_OVERLAY`; without it the overlay eats every one of them.
+ * No link overlay: with the genre chips, filmstrip and copy button live at
+ * every width, a full-card overlay would swallow all three the way the old
+ * compact card's doc comment warned about. The title's own `Link` and the
+ * explicit "Open" pill are the click targets everywhere.
  */
 function StreamCard({ entry }: { entry: FeedEntry }) {
-  const lead = entry.covers[0];
   const published = entry.publishedAt ?? entry.createdAt;
   const age = formatRelativeTime(published);
 
@@ -719,24 +710,7 @@ function StreamCard({ entry }: { entry: FeedEntry }) {
         "md:gap-1 md:rounded-md md:border md:bg-card/40 md:p-2.5 md:hover:border-input",
       )}
     >
-      {/* The compact metadata line, replacing the three stacked chip rows. */}
-      <p className="flex items-center gap-1.5 overflow-hidden font-mono text-[11px] whitespace-nowrap text-muted-foreground md:hidden">
-        <span className="truncate text-primary">{entry.category}</span>
-        {entry.authorUsername && (
-          <>
-            <span aria-hidden>·</span>
-            <span className="truncate">u/{entry.authorUsername}</span>
-          </>
-        )}
-        {age && (
-          <>
-            <span aria-hidden>·</span>
-            <time dateTime={toDateTimeAttribute(published)}>{age}</time>
-          </>
-        )}
-      </p>
-
-      <div className="hidden flex-wrap items-center gap-2 md:flex">
+      <div className="flex flex-wrap items-center gap-2">
         <CategoryChip name={entry.category} />
         <MultiGenreBadge genres={entry.genres} />
         <AuthorTag username={entry.authorUsername} />
@@ -750,58 +724,30 @@ function StreamCard({ entry }: { entry: FeedEntry }) {
         )}
       </div>
 
-      <div className="flex items-start gap-3 md:gap-2">
-        <div className="min-w-0 flex-1">
-          <Link
-            href={`/r/${entry.slug}`}
-            className={cn(
-              "min-w-0 rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-              LINK_OVERLAY,
-              "md:after:content-none",
-            )}
-          >
-            <h2 className="line-clamp-2 font-display text-base leading-tight font-bold tracking-[-0.01em] text-foreground md:text-[13px]">
-              {entry.name}
-            </h2>
-          </Link>
-          {entry.caption && (
-            <p className="mt-1 hidden line-clamp-1 text-xs text-muted-foreground md:mt-0.5 md:block">
-              {entry.caption}
-            </p>
-          )}
-          <div className="mt-1.5 md:mt-1">
-            <Meta entry={entry} />
-          </div>
+      <div className="min-w-0">
+        <Link
+          href={`/r/${entry.slug}`}
+          className="min-w-0 rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        >
+          <h2 className="line-clamp-2 font-display text-base leading-tight font-bold tracking-[-0.01em] text-foreground md:text-[13px]">
+            {entry.name}
+          </h2>
+        </Link>
+        {entry.caption && (
+          <p className="mt-1 line-clamp-1 text-xs text-muted-foreground md:mt-0.5">
+            {entry.caption}
+          </p>
+        )}
+        <div className="mt-1.5 md:mt-1">
+          <Meta entry={entry} />
         </div>
-
-        {/* The Reddit thumbnail. `aria-hidden` with an empty title: it is the
-            first cover of a list the heading beside it already names, and the
-            filmstrip above `md` is where the covers get read properly. */}
-        {lead && (
-          <MediaCover
-            src={lead.coverImage}
-            title=""
-            width={56}
-            height={84}
-            className="shrink-0 rounded-md md:hidden"
-          />
-        )}
       </div>
 
-      <div className="hidden md:block">
-        <GenreChips genres={entry.genres} />
-      </div>
+      <GenreChips genres={entry.genres} />
 
-      <div className="hidden md:block">
-        <Filmstrip covers={entry.covers} />
-      </div>
+      <Filmstrip covers={entry.covers} />
 
-      <div
-        className={cn(
-          "flex flex-wrap items-center gap-2 md:justify-start md:gap-1.5",
-          OVER_LINK_OVERLAY,
-        )}
-      >
+      <div className="flex flex-wrap items-center gap-2 md:justify-start md:gap-1.5">
         <VoteButtons
           slug={entry.slug}
           initialScore={entry.score}
@@ -815,10 +761,7 @@ function StreamCard({ entry }: { entry: FeedEntry }) {
           Open
           <ArrowRightIcon className="size-3.5" aria-hidden />
         </Link>
-        {/* Copy is the one action that does not survive the compact card:
-            ShareModal already offers it, and a fourth pill is what made this
-            row wrap. */}
-        <CopyLinkButton slug={entry.slug} className="hidden md:inline-flex" />
+        <CopyLinkButton slug={entry.slug} />
         <ShareRowButton slug={entry.slug} name={entry.name} />
       </div>
     </li>
