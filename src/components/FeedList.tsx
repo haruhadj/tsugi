@@ -27,9 +27,20 @@ import {
 import { MediaCover } from "@/components/MediaCover";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { ShareModal } from "@/components/ShareModal";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { VoteButtons } from "@/components/VoteButtons";
 import type { FeedCover, FeedEntry } from "@/server/services/lists";
-import { FEED_PAGE_SIZE, buildFeedQuery, type FeedUrlState } from "@/lib/feed-params";
+import {
+  FEED_PAGE_SIZE,
+  buildFeedQuery,
+  type FeedUrlState,
+} from "@/lib/feed-params";
 import { formatRelativeTime, toDateTimeAttribute } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -53,7 +64,7 @@ const PULL_THRESHOLD = 64;
  * not change what a shared /feed link resolves to. Sort, category and page do all live
  * in the URL, and are owned by the server component above this one.
  *
- * `sortNav`, `sortDrawer`, `filterBar`, `browseDrawer` and `pagination` are rendered by
+ * `sortNav`, `sortDrawer`, `filterBar` and `pagination` are rendered by
  * the server and
  * handed down rather than placed above this component: the sort control shares the density
  * toggle's sticky rail, and the pagination links have to be able to disappear once
@@ -68,7 +79,6 @@ export function FeedList({
   sortNav,
   sortDrawer,
   filterBar,
-  browseDrawer,
   pagination,
   urlState,
 }: {
@@ -76,12 +86,15 @@ export function FeedList({
   sortNav: ReactNode;
   sortDrawer?: ReactNode;
   filterBar?: ReactNode;
-  browseDrawer?: ReactNode;
   pagination?: ReactNode;
   urlState: FeedUrlState;
 }) {
   const [density, setDensity] = useState<Density>("stream");
-  const { appended, status, sentinelRef, retry } = useInfiniteFeed(entries, urlState);
+  const activeDensity = DENSITIES.find((option) => option.id === density);
+  const { appended, status, sentinelRef, retry } = useInfiniteFeed(
+    entries,
+    urlState,
+  );
   const { pull, refreshing } = usePullToRefresh();
 
   const rows = appended.length === 0 ? entries : [...entries, ...appended];
@@ -116,37 +129,39 @@ export function FeedList({
             narrow desktop widths — wrapping would change this band's height and
             shift every row under it.
           */}
-          <div className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex min-w-0 flex-1 items-center overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {sortDrawer}
             {sortNav}
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {browseDrawer}
             <div
-              role="group"
-              aria-label="Feed layout"
-              className="hidden items-center gap-0.5 rounded-full border border-border bg-secondary/40 p-0.5 md:inline-flex"
-            >
-              {DENSITIES.map((option) => (
+              aria-hidden
+              className="mx-2 hidden h-5 w-px shrink-0 bg-border md:block"
+            />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
                 <button
-                  key={option.id}
                   type="button"
-                  onClick={() => setDensity(option.id)}
-                  aria-pressed={density === option.id}
-                  title={option.label}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
-                    "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                    density === option.id
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
+                  className="hidden items-center gap-1.5 rounded-full border border-border bg-secondary/40 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:inline-flex"
                 >
-                  <option.icon className="size-3.5" aria-hidden />
-                  {option.label}
+                  {activeDensity && (
+                    <activeDensity.icon className="size-3.5" aria-hidden />
+                  )}
+                  {activeDensity?.label}
                 </button>
-              ))}
-            </div>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuRadioGroup
+                  value={density}
+                  onValueChange={(value) => setDensity(value as Density)}
+                >
+                  {DENSITIES.map((option) => (
+                    <DropdownMenuRadioItem key={option.id} value={option.id}>
+                      <option.icon className="size-3.5" aria-hidden />
+                      {option.label}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
@@ -168,7 +183,9 @@ export function FeedList({
         <RefreshCwIcon
           className={cn(
             "size-5 text-muted-foreground",
-            refreshing ? "animate-spin" : pull >= PULL_THRESHOLD && "text-primary",
+            refreshing
+              ? "animate-spin"
+              : pull >= PULL_THRESHOLD && "text-primary",
           )}
         />
       </div>
@@ -203,9 +220,15 @@ export function FeedList({
         it is not one of the rundown's rows, and putting it inside the <ul> would
         add an empty list item to what a screen reader counts.
       */}
-      <div ref={sentinelRef} className="flex min-h-12 items-center justify-center py-4">
+      <div
+        ref={sentinelRef}
+        className="flex min-h-12 items-center justify-center py-4"
+      >
         {status === "loading" && (
-          <Loader2Icon className="size-5 animate-spin text-muted-foreground" aria-hidden />
+          <Loader2Icon
+            className="size-5 animate-spin text-muted-foreground"
+            aria-hidden
+          />
         )}
         {status === "error" && (
           // Inline and quiet, not an Alert: nothing was lost and the fix is one
@@ -222,7 +245,9 @@ export function FeedList({
           </p>
         )}
         {status === "done" && rows.length > FEED_PAGE_SIZE && (
-          <p className="font-mono text-xs text-muted-foreground">That&apos;s the whole rundown.</p>
+          <p className="font-mono text-xs text-muted-foreground">
+            That&apos;s the whole rundown.
+          </p>
         )}
       </div>
 
@@ -350,7 +375,9 @@ function usePullToRefresh() {
     // The drag readout is decoration; the refresh is the function. Under
     // reduced motion the gesture still works, it just does not animate, so the
     // listeners stay attached and only the indicator's height is pinned at 0.
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reduced = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
 
     let startY: number | null = null;
 
@@ -426,12 +453,20 @@ const ACTION_PILL = cn(
   "md:min-h-0 md:border-transparent md:bg-transparent md:px-2 md:py-1",
 );
 
-function CopyLinkButton({ slug, className }: { slug: string; className?: string }) {
+function CopyLinkButton({
+  slug,
+  className,
+}: {
+  slug: string;
+  className?: string;
+}) {
   const [copied, setCopied] = useState(false);
 
   async function copy() {
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}/r/${slug}`);
+      await navigator.clipboard.writeText(
+        `${window.location.origin}/r/${slug}`,
+      );
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -469,7 +504,9 @@ function ShareRowButton({
 }) {
   const [open, setOpen] = useState(false);
   const url =
-    typeof window === "undefined" ? `/r/${slug}` : `${window.location.origin}/r/${slug}`;
+    typeof window === "undefined"
+      ? `/r/${slug}`
+      : `${window.location.origin}/r/${slug}`;
 
   return (
     <>
@@ -517,7 +554,10 @@ function Filmstrip({ covers }: { covers: FeedCover[] }) {
       trailing cells empty rather than stretching to fill the row, so covers are
       the same size on every card in the feed.
     */
-    <ul aria-label="Leading titles" className="grid grid-cols-5 items-start gap-2">
+    <ul
+      aria-label="Leading titles"
+      className="grid grid-cols-5 items-start gap-2"
+    >
       {covers.map((cover, index) => (
         <li
           key={`${cover.title}-${index}`}
@@ -599,7 +639,11 @@ function CategoryChip({ name }: { name: string }) {
  */
 function AuthorTag({ username }: { username: string | null }) {
   if (!username) return null;
-  return <span className="font-mono text-[11px] text-muted-foreground">u/{username}</span>;
+  return (
+    <span className="font-mono text-[11px] text-muted-foreground">
+      u/{username}
+    </span>
+  );
 }
 
 /** Genre chips link back into the feed, so the rundown filters itself. */
@@ -669,7 +713,7 @@ function StreamCard({ entry }: { entry: FeedEntry }) {
     <li
       className={cn(
         "relative flex flex-col gap-2 border-b border-border px-4 py-3 transition-colors",
-        "md:gap-3 md:rounded-2xl md:border md:bg-card/60 md:p-5 md:hover:border-input",
+        "md:gap-1 md:rounded-md md:border md:bg-card/40 md:p-2.5 md:hover:border-input",
       )}
     >
       {/* The compact metadata line, replacing the three stacked chip rows. */}
@@ -703,7 +747,7 @@ function StreamCard({ entry }: { entry: FeedEntry }) {
         )}
       </div>
 
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-3 md:gap-2">
         <div className="min-w-0 flex-1">
           <Link
             href={`/r/${entry.slug}`}
@@ -713,16 +757,16 @@ function StreamCard({ entry }: { entry: FeedEntry }) {
               "md:after:content-none",
             )}
           >
-            <h2 className="line-clamp-2 font-display leading-tight font-bold tracking-[-0.01em] text-foreground">
+            <h2 className="line-clamp-2 font-display text-base leading-tight font-bold tracking-[-0.01em] text-foreground md:text-[13px]">
               {entry.name}
             </h2>
           </Link>
           {entry.caption && (
-            <p className="mt-1 hidden line-clamp-2 text-sm text-muted-foreground md:block">
+            <p className="mt-1 hidden line-clamp-1 text-xs text-muted-foreground md:mt-0.5 md:block">
               {entry.caption}
             </p>
           )}
-          <div className="mt-1.5">
+          <div className="mt-1.5 md:mt-1">
             <Meta entry={entry} />
           </div>
         </div>
@@ -751,7 +795,7 @@ function StreamCard({ entry }: { entry: FeedEntry }) {
 
       <div
         className={cn(
-          "flex flex-wrap items-center gap-2 md:justify-start",
+          "flex flex-wrap items-center gap-2 md:justify-start md:gap-1.5",
           OVER_LINK_OVERLAY,
         )}
       >
@@ -761,7 +805,10 @@ function StreamCard({ entry }: { entry: FeedEntry }) {
           initialDirection={entry.myDirection}
           size="touch"
         />
-        <Link href={`/r/${entry.slug}`} className={cn(ACTION_PILL, "text-primary")}>
+        <Link
+          href={`/r/${entry.slug}`}
+          className={cn(ACTION_PILL, "text-primary")}
+        >
           Open
           <ArrowRightIcon className="size-3.5" aria-hidden />
         </Link>
@@ -800,7 +847,9 @@ function CompactRow({ entry }: { entry: FeedEntry }) {
         </Link>
         <div className="mt-1 flex items-center gap-3 font-mono text-[11px] text-muted-foreground">
           <span className="truncate">{entry.category}</span>
-          {entry.authorUsername && <span className="truncate">u/{entry.authorUsername}</span>}
+          {entry.authorUsername && (
+            <span className="truncate">u/{entry.authorUsername}</span>
+          )}
           <span className="hidden md:inline">{entry.itemCount} titles</span>
           <span className="hidden md:inline">{entry.views} views</span>
         </div>
