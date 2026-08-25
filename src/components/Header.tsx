@@ -109,7 +109,14 @@ export function Header({ username }: { username: string | null }) {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-2 rounded-full border-border pl-1.5"
+                  /*
+                    Hidden below `md`: the bottom tab bar's own "Settings" tab
+                    reaches the same pages this dropdown does, and its Sign out
+                    (the only one in the product — ProviderConnections) lives on
+                    that Settings page, so this trigger is pure duplication on a
+                    phone rather than a second way in.
+                  */
+                  className="hidden gap-2 rounded-full border-border pl-1.5 md:inline-flex"
                 >
                   <span
                     aria-hidden
