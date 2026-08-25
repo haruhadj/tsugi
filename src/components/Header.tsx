@@ -197,7 +197,7 @@ export function Header({ username }: { username: string | null }) {
             )}
           >
             <UserIcon className="size-5" aria-hidden />
-            {username === null ? "Sign in" : "Settings"}
+            {username === null ? "Sign in" : "You"}
           </Link>
         </div>
       </nav>
