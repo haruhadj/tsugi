@@ -1,186 +1,26 @@
-/**
- * Draws the shareable card to a canvas so the reader can save it as a PNG. Unlike
- * /r/[slug]/opengraph-image.tsx — which is pinned at 1200×630 because that's the OG
- * image spec crawlers expect — this one is a real download with no such constraint,
- * so its height grows with the cover count instead of cropping or shrinking covers
- * to fit a fixed box. Keep the two visually in step where they overlap — the palette
- * below is the same hex block, for the same reason (Satori and canvas both need
- * literal colours, not oklch).
- */
-const COLOR = {
-  background: "#101434",
-  card: "#181C40",
-  border: "#262B54",
-  foreground: "#FAFAFA",
-  mutedForeground: "#9CA0C4",
-  primary: "#9A66E0",
-  highlight: "#D0B070",
-};
+import {
+  COLOR,
+  COVER_HEIGHT,
+  COVER_OVERLAP,
+  COVER_ROW_GAP,
+  COVER_WIDTH,
+  MARK_SIZE,
+  MAX_COVERS,
+  PADDING,
+  loadImage,
+  roundedRect,
+  wrapText,
+  type CardItem,
+  type SocialCardInput,
+} from "@/lib/canvas-export/helpers";
+import { computeCardLayout } from "@/lib/canvas-export/layout";
 
-const MIN_WIDTH = 700;
-const MAX_WIDTH = 1200;
-const PADDING = 48;
-const MAX_COVERS = 10;
-const COVER_WIDTH = 168;
-const COVER_HEIGHT = 250;
-const COVER_OVERLAP = 26;
-const COVER_ROW_GAP = 24;
-const MAX_COVERS_PER_ROW = 5;
-const MARK_SIZE = 28;
-
-export type CardItem = { title: string; coverImage: string | null };
-
-export type SocialCardInput = {
-  title: string;
-  subtitle: string | null;
-  comment: string | null;
-  itemCount: number;
-  items: CardItem[];
-  username: string | null;
-};
-
-/**
- * Cover art is remote (s4.anilist.co, cdn.myanimelist.net). Without crossOrigin the
- * draw succeeds but taints the canvas, and every later toBlob/toDataURL throws a
- * SecurityError — so a failure to load anonymously has to degrade to "no cover"
- * rather than being drawn anyway.
- */
-function loadImage(src: string): Promise<HTMLImageElement | null> {
-  return new Promise((resolve) => {
-    const image = new Image();
-    image.crossOrigin = "anonymous";
-    image.onload = () => resolve(image);
-    image.onerror = () => resolve(null);
-    image.src = src;
-  });
-}
-
-function roundedRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number,
-): void {
-  ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.arcTo(x + width, y, x + width, y + height, radius);
-  ctx.arcTo(x + width, y + height, x, y + height, radius);
-  ctx.arcTo(x, y + height, x, y, radius);
-  ctx.arcTo(x, y, x + width, y, radius);
-  ctx.closePath();
-}
-
-/** Greedy wrap. Returns the lines actually drawn, capped at `maxLines` with an ellipsis. */
-function wrapText(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  maxWidth: number,
-  maxLines: number,
-): string[] {
-  const words = text.split(/\s+/).filter(Boolean);
-  const lines: string[] = [];
-  let current = "";
-
-  for (const word of words) {
-    const candidate = current ? `${current} ${word}` : word;
-    if (ctx.measureText(candidate).width <= maxWidth || !current) {
-      current = candidate;
-      continue;
-    }
-    lines.push(current);
-    current = word;
-    if (lines.length === maxLines) break;
-  }
-
-  if (lines.length < maxLines && current) lines.push(current);
-
-  if (lines.length === maxLines) {
-    const last = lines[maxLines - 1];
-    if (last !== undefined) {
-      const consumed = lines.join(" ");
-      if (consumed.length < text.length) {
-        let truncated = last;
-        while (
-          truncated.length > 0 &&
-          ctx.measureText(`${truncated}…`).width > maxWidth
-        ) {
-          truncated = truncated.slice(0, -1);
-        }
-        lines[maxLines - 1] = `${truncated}…`;
-      }
-    }
-  }
-
-  return lines;
-}
-
-/** Rows sized to fit MAX_COVERS_PER_ROW per line, filling as evenly as two rows allow. */
-function coverLayout(count: number): { perRow: number; rows: number } {
-  if (count <= MAX_COVERS_PER_ROW) return { perRow: count, rows: count > 0 ? 1 : 0 };
-  const rows = Math.ceil(count / MAX_COVERS_PER_ROW);
-  return { perRow: Math.ceil(count / rows), rows };
-}
+export type { CardItem, SocialCardInput };
 
 async function drawCard(input: SocialCardInput): Promise<HTMLCanvasElement> {
   const covers = input.items.slice(0, MAX_COVERS);
-  const { perRow, rows } = coverLayout(covers.length);
-
-  // A throwaway context purely to measure wrapped text before the real canvas — whose
-  // height depends on that wrap — is sized.
-  const measureCtx = document.createElement("canvas").getContext("2d");
-  if (!measureCtx) throw new Error("Canvas 2D context unavailable");
-
-  // Text wraps against the widest the card is allowed to get, then the card shrinks
-  // to whatever the wrapped lines and the cover row actually need — so a short title
-  // with few covers doesn't drag along the full 1200px canvas as dead space.
-  const wrapBound = MAX_WIDTH - PADDING * 2;
-
-  measureCtx.font = "800 58px system-ui, sans-serif";
-  const measuredTitleLines = wrapText(measureCtx, input.title, wrapBound, 2);
-  const titleWidth = Math.max(0, ...measuredTitleLines.map((l) => measureCtx.measureText(l).width));
-  let measuredCursorY = PADDING + 110 + measuredTitleLines.length * 68;
-
-  let subtitleWidth = 0;
-  if (input.subtitle) {
-    measureCtx.font = "400 26px system-ui, sans-serif";
-    const [line] = wrapText(measureCtx, input.subtitle, wrapBound, 1);
-    subtitleWidth = line ? measureCtx.measureText(line).width : 0;
-    measuredCursorY += 44;
-  }
-
-  let commentWidth = 0;
-  if (input.comment) {
-    measureCtx.font = "400 22px system-ui, sans-serif";
-    const commentLines = wrapText(measureCtx, input.comment, wrapBound, 2);
-    commentWidth = Math.max(0, ...commentLines.map((l) => measureCtx.measureText(l).width));
-    measuredCursorY += 16 + commentLines.length * 32;
-  }
-
-  const coversRowWidth =
-    perRow > 0 ? COVER_WIDTH + (perRow - 1) * (COVER_WIDTH - COVER_OVERLAP) : 0;
-
-  // The item count and byline sit beside the TSUGI wordmark up top rather than beside
-  // the covers, so the cover row can claim the full card width for itself.
-  measureCtx.font = "700 20px ui-monospace, monospace";
-  const wordmarkWidth = MARK_SIZE + 10 + measureCtx.measureText("TSUGI").width;
-  measureCtx.font = "500 13px ui-monospace, monospace";
-  const metaText = [
-    input.username ? `u/${input.username}` : null,
-    `${input.itemCount} ${input.itemCount === 1 ? "title" : "titles"}`,
-  ]
-    .filter(Boolean)
-    .join("  ·  ");
-  const metaWidth = measureCtx.measureText(metaText).width;
-  const topRowWidth = wordmarkWidth + 24 + metaWidth;
-
-  const contentWidth = Math.max(titleWidth, subtitleWidth, commentWidth, coversRowWidth, topRowWidth);
-  const WIDTH = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, contentWidth + PADDING * 2));
-
-  const coversTop = rows > 0 ? measuredCursorY + 32 : measuredCursorY;
-  const coversHeight = rows > 0 ? rows * COVER_HEIGHT + (rows - 1) * COVER_ROW_GAP : 0;
-  const HEIGHT = Math.max(630, coversTop + coversHeight + PADDING);
+  const { width: WIDTH, height: HEIGHT, perRow, rows, coversTop, metaText } =
+    computeCardLayout(input);
 
   const canvas = document.createElement("canvas");
   canvas.width = WIDTH;

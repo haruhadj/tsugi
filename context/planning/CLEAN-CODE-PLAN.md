@@ -55,15 +55,37 @@ Committed as `dc42f4d`, pushed to `main`.
 
 All 206 tests pass, `tsc --noEmit` and `eslint` clean. Not yet committed.
 
-## Next — Phase 3 Track B (not started)
+## Done — Phase 3 Track B, round 1 (2026-08-26)
 
-### Track B — fresh bloat scan beyond the original list
+Fresh line-count survey of `src/**/*.{ts,tsx}` (excluding tests) turned up two files well
+past the original top-18 scan, both split:
 
-The Phase 1 exploration only ranked the top ~18 largest files in `src/` (excluding
-`reference/`, `.next/`, tests). It has not been re-run since, and files outside that top
-list were never looked at. Before starting: re-run a line-count survey of `src/**/*.{ts,tsx}`
-(excluding `*.test.ts`) to catch anything that grew past a few hundred lines since, or that
-was missed the first time because it sat just under the original cutoff.
+- `src/server/services/lists/crud.ts` (680 lines) → `lists/{resolve,read,create,edit,
+  mutate}.ts`. `resolve.ts` holds the shared concurrent-resolution machinery
+  (`resolveAllItems`, `withDeadline`, slug-collision/slug-generation helpers) used by both
+  `create.ts` and `edit.ts`. `read.ts` holds the `ListView` type, `itemColumns`, and every
+  read path (`getListBySlug`, `listListsForUser`, `getOwnedListBySlug`,
+  `incrementViewCount`). `mutate.ts` holds publish/unpublish/delete/duplicate. The file
+  itself is deleted — `lists/index.ts` now re-exports the five modules directly, so every
+  existing `@/server/services/lists` import kept working unchanged.
+- `src/lib/canvasExport.ts` (368→208 lines) → `src/lib/canvas-export/{helpers,layout}.ts`.
+  `helpers.ts` holds the palette/size constants and the pure drawing primitives
+  (`loadImage`, `roundedRect`, `wrapText`, `coverLayout`). `layout.ts` holds
+  `computeCardLayout`, the measurement pass that sizes the canvas before `drawCard` (still
+  in the main file) paints it — pulled out because it used a second, throwaway canvas
+  context and previously duplicated variables the real draw pass also needed.
+
+All 206 tests pass, `tsc --noEmit` and `eslint` clean. Not yet committed.
+
+## Next — Phase 3 Track B, round 2 (not started)
+
+Next-largest files not yet reviewed, in order: `src/server/services/lists/feed.ts` (361),
+`src/lib/auth.ts` (316), `src/components/DashboardRecList.tsx` (312),
+`src/components/Header.tsx` (289), `src/components/ShareModal.tsx` (279). The `src/
+components/ui/*` shadcn primitives (`dropdown-menu.tsx` 257, `select.tsx` 190,
+`command.tsx` 186, `dialog.tsx` 158) are vendor-generated and were deliberately skipped —
+confirm before touching any of them, since diverging from upstream shadcn output has its
+own cost.
 
 ### Explicitly still out of scope
 
