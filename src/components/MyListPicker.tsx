@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   BookOpenIcon,
   Loader2Icon,
@@ -17,30 +17,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  collectGenres,
-  countByStatus,
-  sortEntries,
-  type SortMode,
-} from "@/components/my-list-picker/helpers";
+import { type SortMode } from "@/components/my-list-picker/helpers";
 import { ResultGrid } from "@/components/my-list-picker/ResultGrid";
+import { StatusFilterBar } from "@/components/my-list-picker/StatusFilterBar";
 import { useMyListEntries } from "@/components/my-list-picker/useMyListEntries";
+import { useMyListFilters } from "@/components/my-list-picker/useMyListFilters";
 import { SegmentedRadioGroup } from "@/components/SegmentedRadioGroup";
-import type { ListEntry, ListStatus, MediaType, Provider } from "@/lib/types/media";
+import type { ListEntry, MediaType, Provider } from "@/lib/types/media";
 
 const PROVIDER_LABELS: Record<Provider, string> = {
   anilist: "AniList",
   mal: "MyAnimeList",
 };
-
-const STATUS_CONFIG: { value: ListStatus; label: string }[] = [
-  { value: "current", label: "Watching" },
-  { value: "planning", label: "Planning" },
-  { value: "completed", label: "Completed" },
-  { value: "paused", label: "Paused" },
-  { value: "dropped", label: "Dropped" },
-  { value: "repeating", label: "Repeating" },
-];
 
 export function MyListPicker({
   provider: initialProvider,
@@ -57,45 +45,23 @@ export function MyListPicker({
 }) {
   const [provider, setProvider] = useState<Provider>(initialProvider);
   const [mediaType, setMediaType] = useState<MediaType>(initialMediaType);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<ListStatus | null>(null);
-  const [genreFilter, setGenreFilter] = useState<string | null>(null);
-  const [sortMode, setSortMode] = useState<SortMode>("score");
 
   const { state, refreshing, load } = useMyListEntries(provider, mediaType);
 
-  const allGenres = useMemo(() => {
-    if (state.status !== "results") return [];
-    return collectGenres(state.entries);
-  }, [state]);
-
-  const statusCounts = useMemo(() => {
-    if (state.status !== "results") return new Map<ListStatus, number>();
-    return countByStatus(state.entries);
-  }, [state]);
-
-  const filtered = useMemo(() => {
-    if (state.status !== "results") return [];
-    let entries = state.entries;
-
-    // Status filter
-    if (statusFilter) {
-      entries = entries.filter((e) => e.status === statusFilter);
-    }
-
-    // Genre filter
-    if (genreFilter) {
-      entries = entries.filter((e) => e.genres.includes(genreFilter));
-    }
-
-    // Search filter
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      entries = entries.filter((e) => e.title.toLowerCase().includes(q));
-    }
-
-    return sortEntries(entries, sortMode);
-  }, [state, statusFilter, genreFilter, search, sortMode]);
+  const {
+    search,
+    setSearch,
+    statusFilter,
+    setStatusFilter,
+    genreFilter,
+    setGenreFilter,
+    sortMode,
+    setSortMode,
+    allGenres,
+    statusCounts,
+    filtered,
+    addableCount,
+  } = useMyListFilters(state, isSelected);
 
   const handleAddAll = () => {
     for (const entry of filtered) {
@@ -104,8 +70,6 @@ export function MyListPicker({
       }
     }
   };
-
-  const addableCount = filtered.filter((e) => !isSelected(e)).length;
 
   if (state.status === "loading") {
     return (
@@ -205,38 +169,11 @@ export function MyListPicker({
         />
       </div>
 
-      {/* Status filter pills */}
-      <div className="flex flex-wrap gap-1.5">
-        <button
-          type="button"
-          onClick={() => setStatusFilter(null)}
-          className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-            statusFilter === null
-              ? "border-primary bg-primary/15 text-primary"
-              : "border-border text-muted-foreground hover:bg-accent"
-          }`}
-        >
-          All
-        </button>
-        {STATUS_CONFIG.map(({ value, label }) => {
-          const count = statusCounts.get(value) ?? 0;
-          if (count === 0) return null;
-          return (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setStatusFilter(value)}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                statusFilter === value
-                  ? "border-primary bg-primary/15 text-primary"
-                  : "border-border text-muted-foreground hover:bg-accent"
-              }`}
-            >
-              {label} <span className="ml-1 opacity-60">{count}</span>
-            </button>
-          );
-        })}
-      </div>
+      <StatusFilterBar
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+        statusCounts={statusCounts}
+      />
 
       {/* Genre + Sort + Search row */}
       <div className="flex flex-wrap items-center gap-2">

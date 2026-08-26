@@ -40,27 +40,22 @@ cloud vs. unique sorted genre list / status tally). Left separate.
 
 Committed as `dc42f4d`, pushed to `main`.
 
-## Next — Phase 3 (not started)
+## Done — Phase 3 Track A (2026-08-26)
 
-Two independent tracks. Neither blocks the other; do them in either order or split across
-sessions.
+- `src/components/ListBuilder.tsx` (508→260 lines) → `src/components/list-builder/
+  {useListBuilderForm,useListBuilderSubmit,StepRail}.ts(x)`. `useListBuilderForm` holds the
+  form state (`items`/`name`/`category`/`caption`/`comment`/`step`/`error`), the tray
+  mutators, `body()`, `validate()`, and `goNext`/`goBack`. `useListBuilderSubmit` holds
+  `pending`/`savedNotice`/`shareUrl` and the `submit`/`saveEdit` network calls.
+  `StepRail.tsx` is the step-indicator header, now presentational.
+- `src/components/MyListPicker.tsx` (297→234 lines) → `src/components/my-list-picker/
+  {useMyListFilters,StatusFilterBar}.ts(x)`. `useMyListFilters` holds
+  `search`/`statusFilter`/`genreFilter`/`sortMode` and the derived `allGenres`/
+  `statusCounts`/`filtered`/`addableCount`. `StatusFilterBar.tsx` is the status-pill row.
 
-### Track A — go further on the two files that are smaller but still moderate
+All 206 tests pass, `tsc --noEmit` and `eslint` clean. Not yet committed.
 
-Phase 2 shrank these but didn't fully atomize them:
-
-- **`src/components/ListBuilder.tsx` (508 lines).** Still holds all of the wizard's state
-  (`items`, `name`, `category`, `caption`, `comment`, `step`, `pending`, `error`,
-  `savedNotice`, `shareUrl`) plus the submit/save/validate logic and the step-rail JSX,
-  even though the three step *bodies* already moved out in Phase 1. Candidate split:
-  a `useListBuilderState` hook (or reducer) for the form state and validation, a
-  `useListBuilderSubmit` hook for `submit`/`saveEdit`/`body()`, and a `StepRail.tsx` for
-  the step-indicator JSX block — leaving `ListBuilder.tsx` as pure wiring.
-- **`src/components/MyListPicker.tsx` (297 lines).** Filter state (`search`, `statusFilter`,
-  `genreFilter`, `sortMode`) and the derived `allGenres`/`statusCounts`/`filtered`/
-  `addableCount` memos could become a `useMyListFilters` hook, matching the pattern already
-  used for `useMyListEntries`. The header bar and status-pill row could each become small
-  presentational components too, mirroring `my-list-picker/ResultGrid.tsx`.
+## Next — Phase 3 Track B (not started)
 
 ### Track B — fresh bloat scan beyond the original list
 
