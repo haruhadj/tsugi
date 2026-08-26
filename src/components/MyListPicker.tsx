@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   BookOpenIcon,
-  CheckIcon,
   Loader2Icon,
   PlusIcon,
   RefreshCwIcon,
@@ -18,8 +17,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MediaCover } from "@/components/MediaCover";
-import { ScoreBadge } from "@/components/ScoreBadge";
+import {
+  collectGenres,
+  countByStatus,
+  sortEntries,
+  type SortMode,
+} from "@/components/my-list-picker/helpers";
+import { ResultGrid } from "@/components/my-list-picker/ResultGrid";
+import { useMyListEntries } from "@/components/my-list-picker/useMyListEntries";
 import { SegmentedRadioGroup } from "@/components/SegmentedRadioGroup";
 import type { ListEntry, ListStatus, MediaType, Provider } from "@/lib/types/media";
 
@@ -37,59 +42,6 @@ const STATUS_CONFIG: { value: ListStatus; label: string }[] = [
   { value: "repeating", label: "Repeating" },
 ];
 
-type ListState =
-  | { status: "loading" }
-  | { status: "results"; entries: ListEntry[]; stale?: boolean }
-  | {
-      status: "error";
-      reason: "not_linked" | "reauth_required" | "rate_limited" | "unavailable" | "timeout" | "not_found";
-    };
-
-function stateFromStatus(status: number): ListState {
-  if (status === 404) return { status: "error", reason: "not_linked" };
-  if (status === 409) return { status: "error", reason: "reauth_required" };
-  if (status === 429) return { status: "error", reason: "rate_limited" };
-  if (status === 504) return { status: "error", reason: "timeout" };
-  return { status: "error", reason: "unavailable" };
-}
-
-function countByStatus(entries: ListEntry[]): Map<ListStatus, number> {
-  const counts = new Map<ListStatus, number>();
-  for (const entry of entries) {
-    if (entry.status) {
-      counts.set(entry.status, (counts.get(entry.status) ?? 0) + 1);
-    }
-  }
-  return counts;
-}
-
-function collectGenres(entries: ListEntry[]): string[] {
-  const genres = new Set<string>();
-  for (const entry of entries) {
-    for (const genre of entry.genres) {
-      if (genre.trim()) genres.add(genre.trim());
-    }
-  }
-  return [...genres].sort((a, b) => a.localeCompare(b));
-}
-
-type SortMode = "score" | "title" | "updated";
-
-function sortEntries(entries: ListEntry[], mode: SortMode): ListEntry[] {
-  const sorted = [...entries];
-  switch (mode) {
-    case "score":
-      return sorted.sort((a, b) => (b.scoreRaw ?? 0) - (a.scoreRaw ?? 0));
-    case "title":
-      return sorted.sort((a, b) => a.title.localeCompare(b.title));
-    case "updated":
-      // No updated timestamp available from trackers; fall back to title sort
-      return sorted.sort((a, b) => a.title.localeCompare(b.title));
-    default:
-      return sorted;
-  }
-}
-
 export function MyListPicker({
   provider: initialProvider,
   mediaType: initialMediaType,
@@ -105,61 +57,12 @@ export function MyListPicker({
 }) {
   const [provider, setProvider] = useState<Provider>(initialProvider);
   const [mediaType, setMediaType] = useState<MediaType>(initialMediaType);
-  const [state, setState] = useState<ListState>({ status: "loading" });
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ListStatus | null>(null);
   const [genreFilter, setGenreFilter] = useState<string | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>("score");
-  const [refreshing, setRefreshing] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
-  const cacheRef = useRef<Map<string, ListState>>(new Map());
 
-  const load = (force: boolean) => {
-    const key = `${provider}:${mediaType}`;
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    if (force) {
-      setRefreshing(true);
-    } else {
-      setState({ status: "loading" });
-    }
-
-    fetch(`/api/lists/${provider}/${mediaType}${force ? "?refresh=1" : ""}`, {
-      signal: controller.signal,
-    })
-      .then(async (res) => {
-        if (controller.signal.aborted) return;
-        if (res.status === 200) {
-          const data = (await res.json()) as { entries: ListEntry[]; stale?: boolean };
-          const next: ListState = { status: "results", entries: data.entries, stale: data.stale };
-          cacheRef.current.set(key, next);
-          setState(next);
-        } else {
-          const next = stateFromStatus(res.status);
-          cacheRef.current.set(key, next);
-          setState(next);
-        }
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setState({ status: "error", reason: "unavailable" });
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setRefreshing(false);
-      });
-  };
-
-  useEffect(() => {
-    const key = `${provider}:${mediaType}`;
-    const cached = cacheRef.current.get(key);
-    if (cached) {
-      setState(cached);
-      return;
-    }
-    load(false);
-    return () => abortRef.current?.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [provider, mediaType]);
+  const { state, refreshing, load } = useMyListEntries(provider, mediaType);
 
   const allGenres = useMemo(() => {
     if (state.status !== "results") return [];
@@ -388,73 +291,7 @@ export function MyListPicker({
         </button>
       )}
 
-      {/*
-        Results grid. Two-up on a phone, not three: this grid is nested two levels
-        inside padded panels, so at 360px `grid-cols-3` left each cell about 88px to
-        carry cover art, a title, a score badge and a tap target — the title
-        truncated to a couple of characters and the badge overlapped the art it
-        annotates. Two-up gives roughly 140px, the width the cell was designed
-        against. It rejoins the desktop ramp at `sm`.
-      */}
-      {filtered.length === 0 ? (
-        <p className="py-4 text-sm text-muted-foreground">No titles match.</p>
-      ) : (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
-          {filtered.map((entry) => {
-            const selected = isSelected(entry);
-            return (
-              <li
-                key={`${entry.provider}-${entry.externalId}`}
-                className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card"
-              >
-                <div className="relative aspect-[2/3]">
-                  <MediaCover
-                    src={entry.coverImage}
-                    title={entry.title}
-                    width={200}
-                    height={300}
-                    className="size-full object-cover"
-                  />
-                  {entry.scoreRaw != null && entry.scoreFormat && (
-                    <div className="absolute bottom-1 right-1 z-10">
-                      <ScoreBadge scoreRaw={entry.scoreRaw} scoreFormat={entry.scoreFormat} size="sm" />
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-col gap-0.5 p-2">
-                  <span className="line-clamp-2 text-xs font-medium leading-tight">{entry.title}</span>
-                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                    {entry.year && <span>{entry.year}</span>}
-                    {entry.genres.length > 0 && (
-                      <>
-                        <span aria-hidden="true">·</span>
-                        <span className="truncate">{entry.genres.slice(0, 2).join(", ")}</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  disabled={selected}
-                  onClick={() => onImport(entry)}
-                  className={`absolute top-1 right-1 z-10 flex size-7 items-center justify-center rounded-full transition-colors ${
-                    selected
-                      ? "bg-success/90 text-success-foreground"
-                      : "bg-primary/90 text-primary-foreground opacity-0 group-hover:opacity-100"
-                  }`}
-                  aria-label={selected ? "Added" : "Add to list"}
-                >
-                  {selected ? (
-                    <CheckIcon className="size-4" aria-hidden="true" />
-                  ) : (
-                    <PlusIcon className="size-4" aria-hidden="true" />
-                  )}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      <ResultGrid entries={filtered} isSelected={isSelected} onImport={onImport} />
     </div>
   );
 }

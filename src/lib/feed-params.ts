@@ -72,6 +72,10 @@ export function buildFeedHref(
   return `/feed?${buildFeedQuery(current, next)}`;
 }
 
+/** The page's own `hrefFor` closure, threaded through the JSX it builds for
+ *  `FeedList` — every link on `/feed` is `hrefFor` applied to one changed field. */
+export type HrefFor = (next?: Partial<FeedUrlState>) => string;
+
 /**
  * The query string on its own, without the `/feed` in front of it.
  *
