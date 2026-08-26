@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { MediaCover } from "@/components/MediaCover";
-import { MediaTypeChip } from "@/components/MediaTypeChip";
 import { ScoreInput } from "@/components/ScoreInput";
 import { SourceLink } from "@/components/SourceLink";
 import { cn } from "@/lib/utils";
@@ -76,50 +75,49 @@ export function ItemTray({
 
         return (
           <li key={key} className="rounded-2xl border border-border bg-card/60 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex min-w-0 flex-1 items-start gap-3">
-                <span
-                  className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary font-mono text-xs font-bold text-primary"
-                  aria-hidden="true"
-                >
-                  {index + 1}
-                </span>
-                <MediaCover
-                  src={item.coverImage}
-                  title={item.title}
-                  width={48}
-                  height={64}
-                  className="shrink-0 rounded-lg"
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="mb-1 flex flex-wrap items-center gap-1.5">
-                    <MediaTypeChip mediaType={item.mediaType} />
-                    {item.year !== null && (
-                      <span className="font-mono text-[11px] text-muted-foreground">
-                        {item.year}
-                      </span>
-                    )}
-                    <SourceLink
-                      provider={item.provider}
-                      mediaType={item.mediaType}
-                      externalId={item.externalId}
-                      className="font-mono text-[11px] text-primary underline-offset-4 hover:underline"
-                    />
-                  </div>
-                  <p className="truncate text-sm font-bold text-foreground">{item.title}</p>
-                  {item.titleNative && item.titleNative !== item.title && (
-                    <p className="truncate font-mono text-xs text-muted-foreground">
-                      {item.titleNative}
-                    </p>
+            <div className="flex items-start gap-3">
+              <span
+                className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary font-mono text-xs font-bold text-primary"
+                aria-hidden="true"
+              >
+                {index + 1}
+              </span>
+              <MediaCover
+                src={item.coverImage}
+                title={item.title}
+                width={48}
+                height={64}
+                className="shrink-0 rounded-lg"
+              />
+              <div className="min-w-0 flex-1">
+                <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                  {item.year !== null && (
+                    <span className="font-mono text-[11px] text-muted-foreground">
+                      {item.year}
+                    </span>
                   )}
+                  <SourceLink
+                    provider={item.provider}
+                    mediaType={item.mediaType}
+                    externalId={item.externalId}
+                    className="font-mono text-[11px] text-primary underline-offset-4 hover:underline"
+                  />
                 </div>
+                <p className="text-sm font-bold text-foreground">{item.title}</p>
+                {item.titleNative && item.titleNative !== item.title && (
+                  <p className="font-mono text-xs text-muted-foreground">{item.titleNative}</p>
+                )}
               </div>
+            </div>
 
-              {/*
-                Grouped into one bordered cluster, as in the prototype. Drag is
-                not implemented and is not claimed to be — these buttons are the
-                reorder mechanism, and they work from the keyboard (ui-rules.md).
-              */}
+            {/*
+              Grouped into one bordered cluster, as in the prototype. Drag is
+              not implemented and is not claimed to be — these buttons are the
+              reorder mechanism, and they work from the keyboard (ui-rules.md).
+              On its own row (rather than squeezed beside the title) so long
+              titles get the card's full width instead of truncating.
+            */}
+            <div className="mt-3 flex justify-end">
               <div className="flex shrink-0 items-center gap-0.5 rounded-lg border border-border bg-background p-1">
                 <Button
                   type="button"
