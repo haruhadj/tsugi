@@ -77,13 +77,70 @@ past the original top-18 scan, both split:
 
 All 206 tests pass, `tsc --noEmit` and `eslint` clean. Not yet committed.
 
-## Next — Phase 3 Track B, round 2 (not started)
+## Done — Phase 3 Track B, round 2 (2026-08-26)
 
-Next-largest files not yet reviewed, in order: `src/server/services/lists/feed.ts` (361),
-`src/lib/auth.ts` (316), `src/components/DashboardRecList.tsx` (312),
-`src/components/Header.tsx` (289), `src/components/ShareModal.tsx` (279). The `src/
-components/ui/*` shadcn primitives (`dropdown-menu.tsx` 257, `select.tsx` 190,
-`command.tsx` 186, `dialog.tsx` 158) are vendor-generated and were deliberately skipped —
+Split the five files identified as next-largest:
+
+- `src/server/services/lists/feed.ts` (361 lines) → `src/server/services/lists/feed/
+  {where,query,facets,index}.ts`. `where.ts` holds `FeedFilters` and the shared `feedWhere`
+  builder (plus `escapeLike`); `query.ts` holds `listPublishedFeed` and its cover/genre
+  enrichment; `facets.ts` holds the four sidebar-count queries
+  (`listFeedCategories`/`listFeedMediaTypeCounts`/`countPublishedLists`/`listFeedGenres`).
+  `feed/index.ts` re-exports all three, so `lists/index.ts`'s existing
+  `export * from "@/server/services/lists/feed"` kept working unchanged.
+- `src/lib/auth.ts` (316→~145 lines) → `src/lib/auth/{username.ts,providers/{anilist,
+  mal}.ts}`. `username.ts` holds `deriveDefaultUsername`; `providers/anilist.ts` and
+  `providers/mal.ts` hold each tracker's `getUserInfo` (and MAL's `getMalToken` PKCE
+  workaround). `auth.ts` itself is left as the `betterAuth()` config wiring plus
+  `getServerSession` — kept as the entry file since 16 files import from `@/lib/auth`
+  directly.
+- `src/components/DashboardRecList.tsx` (312 lines) → `src/components/dashboard-rec-list/
+  {useDashboardRecs,FilterBar,RecCard}.ts(x)`. `useDashboardRecs` holds the recs state and
+  the delete/publish-toggle/duplicate network calls; `RecCard` is the per-row card,
+  presentational.
+- `src/components/Header.tsx` (289→~140 lines) → `src/components/header/{nav,
+  useHideOnScroll,AccountMenu,MobileTabBar}.ts(x)`. `nav.ts` holds `NAV` and
+  `isActiveHref`, shared by both the desktop nav (still inline in `Header.tsx`) and
+  `MobileTabBar`.
+- `src/components/ShareModal.tsx` (279→~110 lines) → `src/components/share-modal/
+  {useShareModalState,LinkTab,MarkdownTab,CardTab}.ts(x)`. One component per tab, all
+  driven by the shared copy/card state hook.
+
+All 206 tests pass, `tsc --noEmit` and `eslint` clean. Committed as `d01cb1e`, pushed to
+`main`.
+
+## Done — Phase 3 Track B, round 3 (2026-08-26)
+
+Fresh line-count survey after round 2 showed every remaining file in `src/` (excluding
+`src/components/ui/*` vendor primitives and tests) under 260 lines. Only one further split
+was worth making:
+
+- `src/components/ListBuilder.tsx` (260→~180 lines) → `src/components/list-builder/
+  StepFooter.tsx`, the Back/Next/Save/Publish button block — the last chunk of non-wiring
+  JSX left in the component. `useListBuilderSubmit.ts` now exports a `PendingAction` type
+  so the footer can share it.
+
+Reviewed but left alone: `src/server/services/lists/read.ts` (251 lines) — its four
+functions (`getListBySlug`, `incrementViewCount`, `listListsForUser`,
+`getOwnedListBySlug`) share the `itemColumns`/`ListView` types tightly enough that
+splitting further would hurt cohesion for no clarity gain. The rest of the top-25
+(`FeedList.tsx` 238, `MyListPicker.tsx` 234, `ItemTray.tsx` 220,
+`media-search/useMediaSearch.ts` 216, `MediaSearchInput.tsx` 216, `feed/page.tsx` 212,
+`lists/anilist.ts` 199, `FeedBrowseDrawer.tsx` 199, `feed/query.ts` 188, `db/schema.ts`
+186, `feed/FeedDirectory.tsx` 184, `app/page.tsx` 176) are each already single-purpose at
+that size — no action taken.
+
+All 206 tests pass, `tsc --noEmit` and `eslint` clean. Committed as `0e25bb5`, pushed to
+`main`.
+
+## Status: clean-code pass complete
+
+Diminishing returns reached — every file in `src/` (outside vendor UI primitives and the
+explicitly out-of-scope prototype folder below) is now under 260 lines and
+single-responsibility. No further round planned unless new bloat accumulates.
+
+The `src/components/ui/*` shadcn primitives (`dropdown-menu.tsx` 257, `select.tsx` 190,
+`command.tsx` 186, `dialog.tsx` 158) remain vendor-generated and deliberately skipped —
 confirm before touching any of them, since diverging from upstream shadcn output has its
 own cost.
 
