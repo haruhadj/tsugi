@@ -10,6 +10,10 @@ can open that link; only creating needs an account** (**D23**).
 
 When writing, reviewing, or refactoring code, always use the `/clean-code` skill.
 
+An ongoing cross-cutting cleanup pass tracks its own status and next task at
+[`context/planning/CLEAN-CODE-PLAN.md`](./context/planning/CLEAN-CODE-PLAN.md) —
+check it before starting new clean-code work.
+
 ---
 
 ## 1. Read order
