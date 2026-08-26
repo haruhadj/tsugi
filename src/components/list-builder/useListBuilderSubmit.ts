@@ -12,6 +12,8 @@ type Body = {
   items: CreateListItem[];
 };
 
+export type PendingAction = "draft" | "publish" | "save" | null;
+
 /**
  * The create/save network calls and the pending/notice/share-url state they
  * drive. Split out of `ListBuilder` so the request handling doesn't sit next
@@ -29,7 +31,7 @@ export function useListBuilderSubmit({
   setError: (error: string | null) => void;
 }) {
   const router = useRouter();
-  const [pending, setPending] = useState<"draft" | "publish" | "save" | null>(null);
+  const [pending, setPending] = useState<PendingAction>(null);
   const [savedNotice, setSavedNotice] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
 

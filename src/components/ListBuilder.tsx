@@ -1,20 +1,11 @@
 "use client";
 
-import {
-  AlertCircleIcon,
-  ArrowLeftIcon,
-  ArrowRightIcon,
-  CheckIcon,
-  GlobeIcon,
-  Loader2Icon,
-  SaveIcon,
-  XIcon,
-} from "lucide-react";
+import { AlertCircleIcon, CheckIcon } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import { AddTitlesStep } from "@/components/list-builder/steps/AddTitlesStep";
 import { ArrangeStep } from "@/components/list-builder/steps/ArrangeStep";
 import { DetailsStep } from "@/components/list-builder/steps/DetailsStep";
+import { StepFooter } from "@/components/list-builder/StepFooter";
 import { StepRail } from "@/components/list-builder/StepRail";
 import { useListBuilderForm } from "@/components/list-builder/useListBuilderForm";
 import { useListBuilderSubmit } from "@/components/list-builder/useListBuilderSubmit";
@@ -173,79 +164,17 @@ export function ListBuilder({ existing }: { existing?: BuilderList } = {}) {
         />
       )}
 
-      {/* Step footer: Back / Next, or the save + publish actions on the last step. */}
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card/60 p-4">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={step === 1}
-          onClick={goBack}
-        >
-          <ArrowLeftIcon aria-hidden="true" />
-          Back
-        </Button>
-
-        {isEdit ? (
-          /*
-            One save button on every step, not just the last: an edit is often a
-            one-word fix to the title, and making that person walk to step 3 to
-            commit it is the kind of friction the create flow at least earns by
-            being a flow. Cancel is a link back to the artifact, which is also
-            where a successful save lands.
-          */
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={pending !== null}
-              onClick={() => router.push(`/r/${existing.slug}`)}
-            >
-              <XIcon aria-hidden="true" />
-              Cancel
-            </Button>
-            <Button type="button" size="sm" disabled={pending !== null} onClick={saveEdit}>
-              {pending === "save" ? (
-                <Loader2Icon className="animate-spin" aria-hidden="true" />
-              ) : (
-                <SaveIcon aria-hidden="true" />
-              )}
-              Save changes
-            </Button>
-          </div>
-        ) : step < 3 ? (
-          <Button type="button" size="sm" onClick={goNext}>
-            {step === 1 ? "Next: Add titles" : "Next: Arrange"}
-            <ArrowRightIcon aria-hidden="true" />
-          </Button>
-        ) : (
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={pending !== null}
-              onClick={() => submit(false)}
-            >
-              {pending === "draft" ? (
-                <Loader2Icon className="animate-spin" aria-hidden="true" />
-              ) : (
-                <SaveIcon aria-hidden="true" />
-              )}
-              Save draft
-            </Button>
-            <Button type="button" size="sm" disabled={pending !== null} onClick={() => submit(true)}>
-              {pending === "publish" ? (
-                <Loader2Icon className="animate-spin" aria-hidden="true" />
-              ) : (
-                <GlobeIcon aria-hidden="true" />
-              )}
-              Publish list
-            </Button>
-          </div>
-        )}
-      </div>
+      <StepFooter
+        step={step}
+        isEdit={isEdit}
+        existing={existing}
+        pending={pending}
+        onBack={goBack}
+        onNext={goNext}
+        onCancel={() => existing && router.push(`/r/${existing.slug}`)}
+        onSaveEdit={saveEdit}
+        onSubmit={submit}
+      />
 
       <ShareModal
         open={shareUrl !== null}
