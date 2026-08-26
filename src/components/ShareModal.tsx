@@ -1,22 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { CheckIcon, DownloadIcon, ImageIcon, Loader2Icon } from "lucide-react";
-import { CopyIcon } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { copySocialCard, downloadSocialCard, type SocialCardInput } from "@/lib/canvasExport";
-import { buildDiscordMessage, buildWhatsAppShareUrl, buildXShareUrl } from "@/lib/share";
-
-type CopyState = "pending" | "copied" | "failed";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CardTab } from "@/components/share-modal/CardTab";
+import { LinkTab } from "@/components/share-modal/LinkTab";
+import { MarkdownTab } from "@/components/share-modal/MarkdownTab";
+import { useShareModalState } from "@/components/share-modal/useShareModalState";
+import type { SocialCardInput } from "@/lib/canvasExport";
 
 /**
  * `card` and `markdown` are optional: the builder opens this modal the moment a list
@@ -38,71 +28,18 @@ export function ShareModal({
   markdown?: string;
   card?: SocialCardInput;
 }) {
-  const [copyState, setCopyState] = useState<CopyState>("pending");
-  const [discordCopyState, setDiscordCopyState] = useState<CopyState>("pending");
-  const [markdownCopyState, setMarkdownCopyState] = useState<CopyState>("pending");
-  const [cardState, setCardState] = useState<"idle" | "working" | "copied" | "failed">(
-    "idle",
-  );
-  const [prevOpen, setPrevOpen] = useState(open);
-
-  if (open !== prevOpen) {
-    setPrevOpen(open);
-    if (open) {
-      setCopyState("pending");
-      setDiscordCopyState("pending");
-      setMarkdownCopyState("pending");
-      setCardState("idle");
-    }
-  }
-
-  useEffect(() => {
-    if (!open) return;
-    if (!navigator.clipboard) {
-      Promise.resolve().then(() => setCopyState("failed"));
-      return;
-    }
-    navigator.clipboard
-      .writeText(url)
-      .then(() => setCopyState("copied"))
-      .catch(() => setCopyState("failed"));
-  }, [open, url]);
-
-  const copyText = (value: string, set: (state: CopyState) => void) => {
-    if (!navigator.clipboard) {
-      set("failed");
-      return;
-    }
-    navigator.clipboard
-      .writeText(value)
-      .then(() => set("copied"))
-      .catch(() => set("failed"));
-  };
-
-  async function copyCard() {
-    if (!card) return;
-    setCardState("working");
-    try {
-      await copySocialCard(card);
-      setCardState("copied");
-    } catch {
-      // Firefox and older Safari have no image clipboard at all; the download
-      // button beside this one is the way through, so this is not an error state
-      // that needs an alert.
-      setCardState("failed");
-    }
-  }
-
-  async function saveCard() {
-    if (!card) return;
-    setCardState("working");
-    try {
-      await downloadSocialCard(card, "tsugi-card.png");
-      setCardState("idle");
-    } catch {
-      setCardState("failed");
-    }
-  }
+  const {
+    copyState,
+    setCopyState,
+    discordCopyState,
+    setDiscordCopyState,
+    markdownCopyState,
+    setMarkdownCopyState,
+    cardState,
+    copyText,
+    copyCard,
+    saveCard,
+  } = useShareModalState({ open, url, card });
 
   const extraTabs = Boolean(markdown) || Boolean(card);
 
@@ -147,131 +84,26 @@ export function ShareModal({
             </TabsList>
           )}
 
-          <TabsContent value="link" className="flex flex-col gap-4">
-            <div role="status" aria-live="polite" className="text-sm text-muted-foreground">
-              {copyState === "copied" && "Link copied!"}
-              {copyState === "failed" && "Copy your link"}
-            </div>
-            <div className="flex flex-row gap-2">
-              <Input
-                readOnly
-                value={url}
-                onFocus={(e) => e.target.select()}
-                aria-label="List link"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => copyText(url, setCopyState)}
-                aria-label="Copy link"
-              >
-                {copyState === "copied" ? (
-                  <CheckIcon aria-hidden="true" />
-                ) : (
-                  <CopyIcon aria-hidden="true" />
-                )}
-              </Button>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button asChild type="button" variant="secondary" className="flex-1">
-                <a href={buildXShareUrl(url, text)} target="_blank" rel="noopener noreferrer">
-                  Share to X
-                </a>
-              </Button>
-              <Button asChild type="button" variant="secondary" className="flex-1">
-                <a
-                  href={buildWhatsAppShareUrl(url, text)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Share to WhatsApp
-                </a>
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                className="flex-1"
-                onClick={() => copyText(buildDiscordMessage(url, text), setDiscordCopyState)}
-              >
-                {discordCopyState === "copied" ? "Message copied" : "Copy for Discord"}
-              </Button>
-            </div>
-            <div role="status" aria-live="polite" className="sr-only">
-              {discordCopyState === "copied" && "Discord message copied to clipboard"}
-            </div>
-            <a href={url} className="text-sm text-muted-foreground underline underline-offset-4">
-              View it
-            </a>
-          </TabsContent>
+          <LinkTab
+            url={url}
+            text={text}
+            copyState={copyState}
+            setCopyState={setCopyState}
+            discordCopyState={discordCopyState}
+            setDiscordCopyState={setDiscordCopyState}
+            copyText={copyText}
+          />
 
           {markdown && (
-            <TabsContent value="markdown" className="flex flex-col gap-3">
-              <p className="text-sm text-muted-foreground">
-                For a forum post or anywhere the link preview will not render.
-              </p>
-              <Textarea
-                readOnly
-                value={markdown}
-                rows={9}
-                onFocus={(e) => e.target.select()}
-                aria-label="Markdown export"
-                className="resize-none font-mono text-xs"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => copyText(markdown, setMarkdownCopyState)}
-              >
-                {markdownCopyState === "copied" ? (
-                  <CheckIcon aria-hidden />
-                ) : (
-                  <CopyIcon aria-hidden />
-                )}
-                {markdownCopyState === "copied" ? "Copied" : "Copy markdown"}
-              </Button>
-            </TabsContent>
+            <MarkdownTab
+              markdown={markdown}
+              markdownCopyState={markdownCopyState}
+              setMarkdownCopyState={setMarkdownCopyState}
+              copyText={copyText}
+            />
           )}
 
-          {card && (
-            <TabsContent value="card" className="flex flex-col gap-3">
-              <p className="text-sm text-muted-foreground">
-                The same 1200×630 card the link unfurls into, as a file you can post
-                yourself.
-              </p>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="flex-1"
-                  disabled={cardState === "working"}
-                  onClick={copyCard}
-                >
-                  {cardState === "working" ? (
-                    <Loader2Icon className="animate-spin" aria-hidden />
-                  ) : cardState === "copied" ? (
-                    <CheckIcon aria-hidden />
-                  ) : (
-                    <ImageIcon aria-hidden />
-                  )}
-                  {cardState === "copied" ? "Image copied" : "Copy image"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="flex-1"
-                  disabled={cardState === "working"}
-                  onClick={saveCard}
-                >
-                  <DownloadIcon aria-hidden />
-                  Download PNG
-                </Button>
-              </div>
-              <p role="status" aria-live="polite" className="text-xs text-muted-foreground">
-                {cardState === "failed" &&
-                  "This browser cannot copy images — use Download PNG instead."}
-              </p>
-            </TabsContent>
-          )}
+          {card && <CardTab cardState={cardState} onCopy={copyCard} onSave={saveCard} />}
         </Tabs>
       </DialogContent>
     </Dialog>

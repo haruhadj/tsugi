@@ -3,9 +3,9 @@ import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { user } from "@/db/auth-schema";
 import { list, listItem, listVote } from "@/db/schema";
-import type { ListCategory } from "@/lib/categories";
-import type { MediaType, ScoreFormat } from "@/lib/types/media";
+import type { ScoreFormat } from "@/lib/types/media";
 import { aggregateGenres } from "@/server/services/lists/stats";
+import { feedWhere, type FeedFilters } from "@/server/services/lists/feed/where";
 
 export const FEED_SORTS = ["top", "new", "views", "items"] as const;
 export type FeedSort = (typeof FEED_SORTS)[number];
@@ -50,76 +50,6 @@ const FEED_GENRE_COUNT = 3;
 
 /** How many covers each feed row carries. Enough to fill the filmstrip, no more. */
 const FEED_COVER_COUNT = 10;
-
-/**
- * Everything the rundown can be narrowed by. One type, because the row query and
- * all three sidebar count queries have to agree on it — a sidebar that counts a
- * different population than the list beneath it is worse than no counts at all.
- */
-export type FeedFilters = {
-  // The fixed vocabulary, not a free string — the route narrows an unknown
-  // `?category=` to undefined before it reaches here (D48).
-  category?: ListCategory;
-  genre?: string;
-  mediaType?: MediaType;
-  /** Already trimmed and floored at 2 characters by the caller. */
-  q?: string;
-};
-
-/**
- * `%` and `_` are wildcards inside ILIKE, so a user searching for "100%" would
- * otherwise match everything after "100". `\` escapes them, and itself first.
- */
-function escapeLike(value: string): string {
-  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
-}
-
-/**
- * The one place the feed's WHERE is built. Four callers need it — the row query
- * and the three facet counts — and each of the facet queries drops its *own*
- * dimension (see `omit`), which is only safe to express once.
- *
- * Both item-level filters are correlated `EXISTS` subqueries rather than joins,
- * for the reason `itemCountExpr` documents: joining `list_item` multiplies
- * against the `list_vote` leftJoin and corrupts every aggregate in the select.
- */
-function feedWhere(filters: FeedFilters) {
-  const { category, genre, mediaType, q } = filters;
-  const pattern = q ? `%${escapeLike(q)}%` : null;
-
-  return and(
-    eq(list.published, true),
-    category ? eq(list.category, category) : undefined,
-    genre
-      ? sql`exists (
-          select 1 from ${listItem}
-          where ${listItem.listId} = ${list.id} and ${genre} = any(${listItem.genres})
-        )`
-      : undefined,
-    mediaType
-      ? sql`exists (
-          select 1 from ${listItem}
-          where ${listItem.listId} = ${list.id} and ${listItem.mediaType} = ${mediaType}
-        )`
-      : undefined,
-    // Everything a reader can see on a feed row is searchable, plus the item
-    // titles behind it — "the list with Frieren in it" is how people look for a
-    // list they have read before, and the row itself never names its items.
-    pattern
-      ? sql`(
-          ${list.name} ilike ${pattern} escape '\\'
-          or ${list.caption} ilike ${pattern} escape '\\'
-          or ${list.category}::text ilike ${pattern} escape '\\'
-          or ${user.username} ilike ${pattern} escape '\\'
-          or exists (
-            select 1 from ${listItem}
-            where ${listItem.listId} = ${list.id}
-              and ${listItem.title} ilike ${pattern} escape '\\'
-          )
-        )`
-      : undefined,
-  );
-}
 
 /**
  * Public, published-only (D42) — no `userId` in the selected columns
@@ -255,107 +185,4 @@ export async function listPublishedFeed(
       .slice(0, FEED_GENRE_COUNT)
       .map((genre) => genre.name),
   }));
-}
-
-/**
- * The categories actually in use across published lists, most-used first, for
- * the rundown's directory.
- *
- * Since D48 this groups `list.category` — a fixed vocabulary — rather than the
- * free-text `name` it used to. Only categories with at least one published list
- * are returned: the directory is "where there is something to read", not a
- * table of contents with nineteen empty rows. The 20 cap is now larger than the
- * vocabulary itself and kept only so this can never blow out the sidebar.
- */
-export type FeedCategory = { name: string; count: number };
-
-/**
- * Every facet query below drops its *own* dimension from the filters before
- * counting. Counting categories under an active category filter would collapse
- * the directory to the one row already selected, and the panel would stop being
- * a way to move sideways — which is the only thing it is for.
- */
-export async function listFeedCategories(filters: FeedFilters = {}): Promise<FeedCategory[]> {
-  const rows = await db
-    .select({ name: list.category, count: sql<number>`count(*)::int` })
-    .from(list)
-    // Joined even when nothing searches on it: `feedWhere` reaches for
-    // `user.username`, so the column has to be in scope for every caller.
-    .innerJoin(user, eq(list.userId, user.id))
-    .where(feedWhere({ ...filters, category: undefined }))
-    .groupBy(list.category)
-    .orderBy(desc(sql`count(*)`))
-    .limit(20);
-
-  return rows;
-}
-
-/**
- * Counts for the format panel. `all` is counted separately rather than summed
- * from the other two — a list holding both anime and manga belongs to both, so
- * adding them would over-count it.
- */
-export type FeedMediaTypeCounts = { all: number; anime: number; manga: number };
-
-export async function listFeedMediaTypeCounts(
-  filters: FeedFilters = {},
-): Promise<FeedMediaTypeCounts> {
-  const base = { ...filters, mediaType: undefined };
-
-  const countFor = async (mediaType: MediaType | undefined) => {
-    const [row] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(list)
-      .innerJoin(user, eq(list.userId, user.id))
-      .where(feedWhere({ ...base, mediaType }));
-    return row?.count ?? 0;
-  };
-
-  const [all, anime, manga] = await Promise.all([
-    countFor(undefined),
-    countFor("anime"),
-    countFor("manga"),
-  ]);
-
-  return { all, anime, manga };
-}
-
-/**
- * Every published list, unfiltered. Deliberately not derived from the category
- * facet's counts: those respect the reader's active filters, and the one place
- * this is used — the sidebar's call to action — is quoting a fact about the
- * product rather than about the current view.
- */
-export async function countPublishedLists(): Promise<number> {
-  const [row] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(list)
-    .where(eq(list.published, true));
-  return row?.count ?? 0;
-}
-
-/**
- * The genre directory beside the category one — how many published lists carry
- * each genre on at least one of their items.
- *
- * `count(distinct list.id)`, not `count(*)`: a list with four Fantasy titles is
- * one Fantasy list, and counting rows would rank a single long list above ten
- * short ones. Unnesting in a lateral join keeps this to one query over the GIN
- * index rather than a read-all-then-aggregate in TypeScript, which is what the
- * per-row aggregation above does — this one spans the whole table.
- */
-export async function listFeedGenres(filters: FeedFilters = {}): Promise<FeedCategory[]> {
-  const rows = await db.execute<{ name: string; count: number }>(sql`
-    select genre as name, count(distinct ${list.id})::int as count
-    from ${list}
-    join ${user} on ${list.userId} = ${user.id}
-    join ${listItem} on ${listItem.listId} = ${list.id}
-    cross join lateral unnest(${listItem.genres}) as genre
-    where ${feedWhere({ ...filters, genre: undefined })}
-    group by genre
-    order by count desc, genre asc
-    limit 20
-  `);
-
-  return [...rows];
 }
