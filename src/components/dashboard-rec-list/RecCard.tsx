@@ -1,4 +1,4 @@
-import { CopyPlusIcon, ExternalLinkIcon, Loader2Icon, PencilIcon } from "lucide-react";
+import { CopyPlusIcon, Loader2Icon, PencilIcon } from "lucide-react";
 import Link from "next/link";
 import { MediaCover } from "@/components/MediaCover";
 import { Button } from "@/components/ui/button";
@@ -25,14 +25,14 @@ export function RecCard({
   onClearConfirm: (slug: string) => void;
 }) {
   return (
-    <li className="rounded-2xl border border-border bg-card/60 p-4 sm:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex min-w-0 gap-4">
+    <li className="rounded-2xl border border-border bg-card/60 p-4 transition-colors hover:border-input sm:p-5">
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+        <div className="flex min-w-0 flex-1 gap-4">
           <MediaCover
             src={rec.items[0]?.coverImage ?? null}
             title={rec.name}
-            width={48}
-            height={72}
+            width={64}
+            height={96}
             className="shrink-0 rounded-lg"
           />
 
@@ -51,16 +51,13 @@ export function RecCard({
               <span className="rounded-full border border-primary/30 bg-primary/15 px-2 py-0.5 font-mono text-[10px] font-semibold text-primary">
                 {rec.category}
               </span>
-              <span className="font-mono text-[11px] text-muted-foreground">
-                /r/{rec.slug}
-              </span>
             </div>
 
             <Link
               href={`/r/${rec.slug}`}
               className="mt-1.5 block rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
-              <h2 className="font-display leading-tight font-bold tracking-[-0.01em] text-foreground">
+              <h2 className="font-display text-lg leading-tight font-bold tracking-[-0.02em] text-foreground sm:text-xl">
                 {rec.name}
               </h2>
             </Link>
@@ -79,7 +76,7 @@ export function RecCard({
           </div>
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-1">
+        <div className="flex shrink-0 flex-wrap items-center gap-1 border-t border-border pt-3 sm:max-w-56 sm:justify-end sm:border-0 sm:pt-0">
           <Button
             variant="outline"
             size="sm"
@@ -96,19 +93,15 @@ export function RecCard({
             )}
           </Button>
 
-          {/*
-            Edit (D59). A link, not a button: it navigates rather than
-            acting, so middle-click and open-in-new-tab work and it is
-            unaffected by `busySlug`.
-          */}
           <Button
             asChild
-            variant="ghost"
+            variant="outline"
             size="sm"
-            className="rounded-full text-muted-foreground"
+            className="rounded-full"
           >
-            <Link href={`/r/${rec.slug}/edit`} aria-label={`Edit ${rec.name}`}>
+            <Link href={`/r/${rec.slug}/edit`}>
               <PencilIcon aria-hidden />
+              Edit
             </Link>
           </Button>
 
@@ -121,17 +114,6 @@ export function RecCard({
             onClick={() => onDuplicate(rec)}
           >
             <CopyPlusIcon aria-hidden />
-          </Button>
-
-          <Button
-            asChild
-            variant="ghost"
-            size="sm"
-            className="rounded-full text-muted-foreground"
-          >
-            <Link href={`/r/${rec.slug}`} aria-label={`Open ${rec.name}`}>
-              <ExternalLinkIcon aria-hidden />
-            </Link>
           </Button>
 
           <Button
@@ -149,22 +131,6 @@ export function RecCard({
           </Button>
         </div>
       </div>
-
-      {rec.items.length > 1 && (
-        <ul aria-hidden className="mt-4 flex gap-2 overflow-x-auto pb-1">
-          {rec.items.map((item) => (
-            <li key={item.position} className="shrink-0">
-              <MediaCover
-                src={item.coverImage}
-                title=""
-                width={40}
-                height={60}
-                className="rounded-md"
-              />
-            </li>
-          ))}
-        </ul>
-      )}
 
       {error?.slug === rec.slug && (
         <p className="mt-3 font-mono text-[11px] text-destructive">{error.message}</p>

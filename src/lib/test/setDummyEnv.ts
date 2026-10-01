@@ -3,7 +3,6 @@ import type { Env } from "@/lib/env";
 
 const DUMMY_ENV: Env = {
   DATABASE_URL: "postgresql://user:pass@host:5432/db",
-  DIRECT_URL: "postgresql://user:pass@host:5432/db",
   NEXT_PUBLIC_APP_URL: "http://localhost:3000",
   BETTER_AUTH_SECRET: "test-secret",
   ANILIST_CLIENT_ID: "test-anilist-client-id",

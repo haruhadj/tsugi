@@ -10,34 +10,27 @@ import type { FeedCover } from "@/server/services/lists";
  * each cover arrives with its title and `(raw, format)` score pair, the strip
  * says something the row does not, so it is exposed.
  *
- * Each cover is `flex-1` so the strip divides the row's whole width between
- * however many covers there are, rather than sitting at a fixed size and
- * scrolling — no cap on that growth, or a short list would leave the leftover
- * width unfilled at the end of the row instead of resolving to a share for
- * each cover. `fluid` on `MediaCover` is what lets the art itself grow to fill
- * that flexible slot instead of rendering at its 56×84 intrinsic size.
+ * A five-column grid gives every visible cover the same width. `fluid` on
+ * `MediaCover` lets the art fill its cell instead of keeping a fixed width.
  *
- * Rendered at every width `StreamCard` appears at, five to a row (see the
- * grid below), so a 390px screen still gives each cover ~70px rather than the
- * ~35px a single ten-wide row would leave it.
+ * The stream shows up to ten covers in two rows. The landing preview uses five
+ * so its featured card stays compact.
  */
-export function Filmstrip({ covers }: { covers: FeedCover[] }) {
+export function Filmstrip({
+  covers,
+  limit = 10,
+}: {
+  covers: FeedCover[];
+  limit?: 5 | 10;
+}) {
   if (covers.length === 0) return null;
 
   return (
-    /*
-      Five to a row, two rows deep for a full ten-cover list — the card-view
-      grid Reddit uses. One row of ten squeezed each cover to about half a
-      thumbnail's width at this card's size, too narrow to recognise the art;
-      halving the count per row doubles it back. A short list simply leaves the
-      trailing cells empty rather than stretching to fill the row, so covers are
-      the same size on every card in the feed.
-    */
     <ul
       aria-label="Leading titles"
       className="grid grid-cols-5 items-start gap-2"
     >
-      {covers.map((cover, index) => (
+      {covers.slice(0, limit).map((cover, index) => (
         <li
           key={`${cover.title}-${index}`}
           className="flex min-w-0 flex-col items-center gap-1"
@@ -67,7 +60,7 @@ export function Filmstrip({ covers }: { covers: FeedCover[] }) {
               scoreRaw={cover.scoreRaw}
               scoreFormat={cover.scoreFormat}
               size="sm"
-              className="px-1 text-[9px]"
+              className="px-1 text-[10px]"
             />
           )}
         </li>

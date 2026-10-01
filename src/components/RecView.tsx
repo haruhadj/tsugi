@@ -5,6 +5,7 @@ import { ListQuickActions } from "@/components/ListQuickActions";
 import { Button } from "@/components/ui/button";
 import { ShareListButton } from "@/components/ShareListButton";
 import { VoteButtons } from "@/components/VoteButtons";
+import { MediaCover } from "@/components/MediaCover";
 import { getEnv } from "@/lib/env";
 import { buildMarkdownExport } from "@/lib/markdown";
 import type { SocialCardInput } from "@/lib/canvasExport";
@@ -43,103 +44,113 @@ export function RecView({ rec }: { rec: ListView }) {
   };
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-16">
+    <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-12">
       <article className="animate-card-in overflow-hidden rounded-3xl border border-border bg-card/60 shadow-xl">
-        <div className="p-6 sm:p-10">
-          <header className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="max-w-full rounded-full border border-primary/30 bg-primary/15 px-2.5 py-1 font-mono text-[11px] font-semibold tracking-wide break-words text-primary">
-                {rec.category}
-              </span>
-              {/*
-                The author's handle (D49). Absent only for lists published before
-                handles were mandatory, whose owner has not signed in since — no
-                line at all rather than a name they never chose as a handle.
-              */}
-              {rec.authorUsername && (
-                <span className="font-mono text-[11px] text-muted-foreground">
-                  u/{rec.authorUsername}
+        <div className="p-5 sm:p-10">
+          <header className="grid gap-8 border-b border-border pb-8 lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-start">
+            <div className="flex min-w-0 flex-col gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="max-w-full rounded-full border border-primary/30 bg-primary/15 px-2.5 py-1 font-mono text-[11px] font-semibold tracking-wide break-words text-primary">
+                  {rec.category}
                 </span>
-              )}
-              <span className="font-mono text-[11px] text-muted-foreground">/r/{rec.slug}</span>
-              {!rec.published && (
-                <span className="rounded-full border border-border bg-secondary px-2.5 py-1 font-mono text-[11px] font-semibold text-muted-foreground">
-                  Draft
-                </span>
-              )}
-            </div>
-
-            <h1 className="font-display text-[clamp(1.75rem,5vw,2.5rem)] leading-[1.05] font-extrabold tracking-[-0.03em] break-words text-foreground">
-              {rec.name}
-            </h1>
-
-            {rec.caption && (
-              <p className="max-w-2xl break-words text-base leading-relaxed text-muted-foreground">
-                {rec.caption}
-              </p>
-            )}
-
-            {rec.comment && (
-              <p className="max-w-2xl break-words text-sm leading-relaxed text-foreground/85">
-                {rec.comment}
-              </p>
-            )}
-
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-4">
-              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1.5">
-                  <EyeIcon className="size-3.5" aria-hidden />
-                  {rec.views.toLocaleString()} {rec.views === 1 ? "view" : "views"}
-                </span>
-                {rec.publishedAt && (
-                  <time dateTime={rec.publishedAt.toISOString()}>
-                    {rec.publishedAt.toLocaleDateString(undefined, {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </time>
+                {/*
+                  The author's handle (D49). Absent only for lists published before
+                  handles were mandatory, whose owner has not signed in since — no
+                  line at all rather than a name they never chose as a handle.
+                */}
+                {rec.authorUsername && (
+                  <span className="font-mono text-[11px] text-muted-foreground">
+                    u/{rec.authorUsername}
+                  </span>
+                )}
+                {!rec.published && (
+                  <span className="rounded-full border border-border bg-secondary px-2.5 py-1 font-mono text-[11px] font-semibold text-muted-foreground">
+                    Draft
+                  </span>
                 )}
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                {/*
-                  Drafts are not votable (D42 — the vote route checks `published`),
-                  so the control is absent rather than present-and-failing on one.
-                  Signed-out readers still see it: the score is public, and clicking
-                  is how they find out they need an account (the button says so).
-                */}
-                {rec.published && (
-                  <VoteButtons
-                    slug={rec.slug}
-                    initialScore={rec.score}
-                    initialDirection={rec.myDirection}
-                    size="touch"
+              <h1 className="font-display text-[clamp(2rem,5vw,3.5rem)] leading-[1.05] font-extrabold tracking-[-0.03em] break-words text-foreground">
+                {rec.name}
+              </h1>
+
+              {rec.caption && (
+                <p className="max-w-2xl break-words text-base leading-relaxed text-muted-foreground">
+                  {rec.caption}
+                </p>
+              )}
+
+              {rec.comment && (
+                <p className="max-w-2xl break-words text-sm leading-relaxed text-foreground/85">
+                  {rec.comment}
+                </p>
+              )}
+
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1.5">
+                    <EyeIcon className="size-3.5" aria-hidden />
+                    {rec.views.toLocaleString()} {rec.views === 1 ? "view" : "views"}
+                  </span>
+                  {rec.publishedAt && (
+                    <time dateTime={rec.publishedAt.toISOString()}>
+                      {rec.publishedAt.toLocaleDateString(undefined, {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </time>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {/*
+                    Drafts are not votable (D42 — the vote route checks `published`),
+                    so the control is absent rather than present-and-failing on one.
+                    Signed-out readers still see it: the score is public, and clicking
+                    is how they find out they need an account (the button says so).
+                  */}
+                  {rec.published && (
+                    <VoteButtons
+                      slug={rec.slug}
+                      initialScore={rec.score}
+                      initialDirection={rec.myDirection}
+                      size="touch"
+                    />
+                  )}
+                  {/*
+                    The owner's way in to editing (D59). `isOwner` is computed against
+                    the viewer who asked for this read, so an anonymous visitor and a
+                    signed-in stranger both get nothing here — this is an affordance,
+                    not the access check, which lives on /r/[slug]/edit itself.
+                  */}
+                  {rec.isOwner && (
+                    <Button asChild variant="outline" size="sm" className="rounded-full">
+                      <Link href={`/r/${rec.slug}/edit`}>
+                        <PencilIcon aria-hidden />
+                        Edit
+                      </Link>
+                    </Button>
+                  )}
+                  <ListQuickActions url={shareUrl} card={card} />
+                  <ShareListButton
+                    url={shareUrl}
+                    text={rec.caption ?? rec.name}
+                    markdown={markdown}
+                    card={card}
                   />
-                )}
-                {/*
-                  The owner's way in to editing (D59). `isOwner` is computed against
-                  the viewer who asked for this read, so an anonymous visitor and a
-                  signed-in stranger both get nothing here — this is an affordance,
-                  not the access check, which lives on /r/[slug]/edit itself.
-                */}
-                {rec.isOwner && (
-                  <Button asChild variant="outline" size="sm" className="rounded-full">
-                    <Link href={`/r/${rec.slug}/edit`}>
-                      <PencilIcon aria-hidden />
-                      Edit
-                    </Link>
-                  </Button>
-                )}
-                <ListQuickActions url={shareUrl} card={card} />
-                <ShareListButton
-                  url={shareUrl}
-                  text={rec.caption ?? rec.name}
-                  markdown={markdown}
-                  card={card}
-                />
+                </div>
               </div>
             </div>
+            {rec.items.length > 0 && (
+              <ul aria-label="Titles in this list" className="hidden grid-cols-3 gap-2 lg:grid">
+                {rec.items.slice(0, 3).map((item) => (
+                  <li key={item.position} className="min-w-0">
+                    <MediaCover src={item.coverImage} title={item.title} width={84} height={126} fluid className="rounded-lg" />
+                  </li>
+                ))}
+              </ul>
+            )}
           </header>
 
           <ListItemViews items={rec.items} genres={rec.genres} />

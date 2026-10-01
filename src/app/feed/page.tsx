@@ -164,9 +164,16 @@ export default async function FeedPage({
       <FeedBrowseProvider>
         <FeedBrowseSidebar filtered={hasFilter}>{directory}</FeedBrowseSidebar>
 
-        <main className="min-w-0">
-          <div className="mx-auto max-w-[732px] px-4 pt-2 pb-8 sm:px-6 sm:pt-10 sm:pb-10">
+        <main className="min-w-0 xl:pr-[var(--sidebar-width)]">
+          <div className="mx-auto max-w-3xl px-4 pt-6 pb-8 sm:px-6 sm:pt-10 sm:pb-10">
             <div className="animate-card-in">
+              <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h1 className="font-display text-3xl font-extrabold tracking-[-0.03em] text-foreground sm:text-4xl">Explore lists</h1>
+                  <p className="mt-2 text-sm text-muted-foreground sm:text-base">Find your next anime or manga through someone else&apos;s favorites.</p>
+                </div>
+                <span className="text-sm tabular-nums text-muted-foreground">{totalPublished.toLocaleString()} published</span>
+              </div>
               <div>
                 <div className="min-w-0">
                   {entries.length === 0 ? (

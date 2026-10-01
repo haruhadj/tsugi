@@ -13,7 +13,6 @@ export const DEFAULT_APP_URL = "http://localhost:3000";
 
 const envSchema = z.object({
   DATABASE_URL: z.string().url(),
-  DIRECT_URL: z.string().url(),
   NEXT_PUBLIC_APP_URL: z
     .string()
     .url()
@@ -67,6 +66,14 @@ export function validateEnv(source: Record<string, string | undefined>): Env {
       .map((issue) => issue.path.join("."))
       .join(", ");
     throw new Error(`Invalid environment configuration. Check: ${missing}`);
+  }
+  return parsed.data;
+}
+
+export function getMigrationDatabaseUrl(source: Record<string, string | undefined>): string {
+  const parsed = z.string().url().safeParse(source.DIRECT_URL);
+  if (!parsed.success) {
+    throw new Error("Invalid migration configuration. Check: DIRECT_URL");
   }
   return parsed.data;
 }

@@ -21,36 +21,33 @@ export default async function SignInPage() {
   }
 
   return (
-    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 py-12 sm:px-6 sm:py-16">
-      {/*
-        Two off-centre glows in theme tokens, not artwork — the page is
-        unauthenticated, so nothing licensed (cover art, character art) belongs
-        here. Kept behind the card and never over the copy; `overflow-hidden`
-        on `main` stops them from pushing the page wider on a narrow viewport.
-      */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-32 -left-24 size-96 rounded-full bg-primary/20 blur-3xl"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -right-24 -bottom-32 size-96 rounded-full bg-highlight/15 blur-3xl"
-      />
+    <main className="mx-auto grid min-h-screen max-w-6xl items-center gap-12 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,1fr)_25rem] lg:gap-20 lg:py-20">
+      <section className="hidden max-w-xl lg:block">
+        <Wordmark size="lg" />
+        <p className="mt-10 font-display text-5xl leading-[1.08] font-extrabold tracking-[-0.03em] text-foreground">
+          Your taste deserves a link of its own.
+        </p>
+        <p className="mt-6 max-w-md text-lg leading-relaxed text-muted-foreground">
+          Choose the titles you love, rate them, and share the list with anyone. You can also bring in titles from your tracker.
+        </p>
+        <div className="mt-10 border-t border-border pt-6 text-sm text-muted-foreground">
+          <span className="font-semibold text-foreground">Signing in lets you create.</span> Anyone can open a list you share.
+        </div>
+      </section>
 
-      <div className="relative w-full max-w-sm animate-card-in">
+      <div className="w-full max-w-md animate-card-in justify-self-center lg:max-w-none">
         <Link
           href="/"
-          className="mb-4 inline-flex items-center gap-1.5 font-mono text-xs tracking-[0.2em] text-muted-foreground uppercase underline-offset-4 transition-colors hover:text-foreground hover:underline"
+          className="mb-5 inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
         >
-          <ArrowLeftIcon className="size-3.5" aria-hidden />
-          Back
+          <ArrowLeftIcon className="size-4" aria-hidden />
+          Back to Tsugi
         </Link>
 
-        {/* Same card as the hero's example, at the other end of the flow. */}
-        <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-xl">
+        <div className="overflow-hidden rounded-2xl border border-border bg-card">
           <div className="flex flex-col gap-8 p-8 sm:p-10">
             <div className="flex flex-col gap-5">
-              <Wordmark size="lg" />
+              <div className="lg:hidden"><Wordmark size="lg" /></div>
               <div className="flex flex-col gap-2">
                 <h1 className="font-display text-2xl leading-tight font-extrabold tracking-[-0.02em]">
                   Sign in

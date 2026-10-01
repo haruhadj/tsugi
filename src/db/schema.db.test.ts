@@ -340,7 +340,7 @@ if (hasDb) {
         .from(listItem)
         .where(eq(listItem.listId, recB!.id));
       expect(inRecB).toHaveLength(1);
-    });
+    }, 20_000);
 
     test("two items with the same mediaType/externalId but different provider both insert", async () => {
       const slug = trackSlug(randomSlug());

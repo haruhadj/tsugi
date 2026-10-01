@@ -19,24 +19,7 @@ import { cn } from "@/lib/utils";
 const LINK_OVERLAY = "after:absolute after:inset-0 after:content-['']";
 const OVER_LINK_OVERLAY = "relative z-10";
 
-/**
- * The rundown's default row — the same shape at every width.
- *
- * Used to shed the chip row, caption, genre links and filmstrip below `md`
- * for a compact Reddit-style thumbnail card, but that made the phone and
- * desktop feeds read as two different products. It is one card now: the
- * `md:` variants below only ever adjust spacing, borders and text size, never
- * which content renders — a phone pays a few more image requests for the
- * filmstrip, same as desktop does, `next/image` lazy-loading the ones still
- * off screen.
- *
- * Link-overlaid at every width: the title's `Link` grows a full-card
- * pseudo-element (`LINK_OVERLAY`) so empty space anywhere on the row opens
- * the list, the way the rest of the row already reads as one card. Genre
- * chips, vote buttons and the share button sit above that overlay
- * (`OVER_LINK_OVERLAY`) so they stay their own click targets instead of being
- * swallowed by it.
- */
+/** A full-width two-row cover preview beneath the list details. */
 export function StreamCard({ entry }: { entry: FeedEntry }) {
   const published = entry.publishedAt ?? entry.createdAt;
   const age = formatRelativeTime(published);
@@ -44,25 +27,22 @@ export function StreamCard({ entry }: { entry: FeedEntry }) {
   return (
     <li
       className={cn(
-        "relative flex flex-col gap-2 border-b border-border px-4 py-3 transition-colors",
-        "md:gap-1 md:rounded-md md:border md:bg-card/40 md:p-2.5 md:hover:border-input",
+        "relative flex flex-col gap-4 border-b border-border px-4 py-5 transition-colors",
+        "md:rounded-xl md:border md:bg-card/40 md:p-5 md:hover:border-input",
       )}
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <CategoryChip name={entry.category} />
-        <MultiGenreBadge genres={entry.genres} />
-        <AuthorTag username={entry.authorUsername} />
-        {age && (
-          <time
-            dateTime={toDateTimeAttribute(published)}
-            className="font-mono text-[11px] text-muted-foreground"
-          >
-            {age}
-          </time>
-        )}
-      </div>
+      <div className="min-w-0 space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <CategoryChip name={entry.category} />
+          <MultiGenreBadge genres={entry.genres} />
+          <AuthorTag username={entry.authorUsername} />
+          {age && (
+            <time dateTime={toDateTimeAttribute(published)} className="font-mono text-[11px] text-muted-foreground">
+              {age}
+            </time>
+          )}
+        </div>
 
-      <div className="min-w-0">
         <Link
           href={`/r/${entry.slug}`}
           className={cn(
@@ -70,29 +50,28 @@ export function StreamCard({ entry }: { entry: FeedEntry }) {
             LINK_OVERLAY,
           )}
         >
-          <h2 className="line-clamp-2 font-display text-base leading-tight font-bold tracking-[-0.01em] text-foreground md:text-[13px]">
+          <h2 className="line-clamp-2 font-display text-xl leading-tight font-bold tracking-[-0.02em] text-foreground md:text-2xl">
             {entry.name}
           </h2>
         </Link>
         {entry.caption && (
-          <p className="mt-1 line-clamp-1 text-xs text-muted-foreground md:mt-0.5">
+          <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
             {entry.caption}
           </p>
         )}
-        <div className="mt-1.5 md:mt-1">
+        <div>
           <Meta entry={entry} />
         </div>
-      </div>
-
-      <div className={OVER_LINK_OVERLAY}>
-        <GenreChips genres={entry.genres} />
+        <div className={OVER_LINK_OVERLAY}>
+          <GenreChips genres={entry.genres} />
+        </div>
       </div>
 
       <Filmstrip covers={entry.covers} />
 
       <CardActionRow
         entry={entry}
-        className="flex flex-wrap items-center gap-2 md:justify-start md:gap-1.5"
+        className="flex flex-wrap items-center gap-2 md:gap-1.5 md:border-t md:border-border md:pt-3"
       />
     </li>
   );

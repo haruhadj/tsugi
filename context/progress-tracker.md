@@ -14,7 +14,7 @@ happened last time.
 | **Upstash** | Provisioned 2026-08-11 — `fit-hyena-107044.upstash.io`, credentials in `.env`. Backs both rate limiting (D9) and the media resolve cache (Phase 4). |
 | **Prototype adaptation** | **2026-08-18.** The AI Studio prototype's builder page and UI system adapted into the app — see **D47**/**D48**/**D49** (pass 1; its tracker's two open boxes are folded into pass 2's, and the file itself is awaiting deletion). Data layer: `list.category` (fixed enum), `list_item.genres` (`text[]` + GIN), genres fetched from both providers, the author's handle joined into the feed and the artifact, publish-on-create. UI: `ListBuilder` rewritten to the two-column workspace, `MediaSearchInput` rebuilt as an inline multi-add panel (`Command` without the `Popover`), `ItemTray` to the prototype's row card, plus the rundown, artifact, dashboard, settings, and sign-in. New: `SegmentedRadioGroup`, `SocialCardPreview`, `ChooseHandle`, `/handle`. Migration `0006` applied to production (hand-edited from drizzle-kit's unsafe `ADD COLUMN NOT NULL`). Gate green: `tsc`, `eslint`, 152 tests.<br><br>**Pass 2 — 2026-08-20, the reading surfaces.** See **D50**/**D51**/**D52** and `planning/TEMP-prototype-adaptation-2.md` (the one live tracker; deleted once the owner has walked the result in a browser). The feed gained a text search, an anime/manga format panel with live-filtered counts, icon'd sort tabs, and a mobile filter toggle; its cards became fully clickable in compact and grid via a link overlay and lost the decorative rank number. `MyListPicker` was rewritten into the import workspace (status pills, genre, sort, search-within, add-all) over `ListEntry`'s new `status`/`genres`/`year`, with `list_cache` versioned rather than migrated. A closing sweep of the remaining prototype files found five defects in our own work — including a `"use client"` on `RecView` that broke `/r/[slug]` on hydration while SSR and curl stayed green. New: `ListQuickActions`, `MediaTypeChip`, `FeedControls`. Gate green: `tsc`, `eslint`, 170 tests. **No browser walkthrough yet.** |
 | **Database contents** | **Empty, deliberately — 2026-08-20 (D54).** All 20 lists (17 `Untitled`, 2 `Phase 5 verification run`, 1 draft `test`) were leaked `schema.db.test.ts` fixtures being served as the public feed; cleared with the 5 users and, by cascade, 2 accounts / 43 sessions / 2 `list_cache` rows. Every table is at zero. **Sign-in is a fresh account** — AniList/MAL need reconnecting from `/settings`. A full suite run leaves it at zero, which is the standing check that the live-DB tier cleans up after itself. |
-| **Last updated** | 2026-08-23 |
+| **Last updated** | 2026-10-01 |
 | **UI library** | **shadcn/ui + Radix** — replaced HeroUI on 2026-08-11 (**D41**). Custom "Eyecatch" palette, authored by us. Anything referencing `@heroui/*`, `onPress`, `isPending`, or `data-theme="dark"` is a leftover. |
 | **Application code** | Phase 0 scaffold, Phase 1's full data layer, and Phase 2's auth wiring: Hono catch-all at `/api`, `genericOAuth` for AniList + MAL (Google not yet configured), `/sign-in` and `/settings`, session helper. Frontend redesigned on shadcn with a real landing page. |
 | **Repository** | `main` pushed to `github.com/haruhadj/tsugi` (private). CI green. |
@@ -1533,6 +1533,80 @@ where `getListBySlug` would rightly return it.
 changed under a link — that is the point at which the `updatedAt` column and the "edited" line
 stop being optional.
 
+### D60 — The rundown previews five titles per list
+
+**Superseded by D63.** The owner preferred the original ten-cover Stream preview.
+
+*Owner request, 2026-10-01: improve the whole app's UI and UX while keeping its
+navy/violet identity.* The stream card previously showed two rows of five covers on
+phones and desktops. With scores below each cover, one long list occupied most
+of a viewport and made the next recommendation hard to discover. Show the first
+five lead covers at every width; the existing title count still describes the
+full list, and opening the card reveals every item. This is a preview-density
+choice, not a change to list contents or the public artifact.
+
+**Revisit if:** reader testing shows that the sixth through tenth covers are
+needed to decide whether to open a list, or if cards with five covers still
+dominate a typical phone viewport.
+
+### D61 — Migration connection validation belongs to drizzle-kit
+
+*Runtime error reported 2026-10-01.* `DIRECT_URL` is used only by
+`drizzle.config.ts`, but the shared `getEnv()` schema required it whenever an
+app module loaded. A developer with a valid `DATABASE_URL` and no migration
+connection saw every page fail before its first database read. Runtime validation
+now checks runtime credentials; `getMigrationDatabaseUrl()` requires a valid
+`DIRECT_URL` when drizzle-kit loads its config. The application still uses the
+transaction pooler through `DATABASE_URL`, and migration commands still require
+the separate session/direct connection.
+
+**Revisit if:** an application runtime path begins using the migration
+connection, which would need an explicit design review of pooler and deployment
+requirements first.
+
+### D62 — Show the product through real lists and faster scanning
+
+**Stream cover layout superseded by D63.** The landing preview and other layout
+changes remain.
+
+*Owner feedback, 2026-10-01: the first UI pass did not feel like a major change.*
+The signed-out home now pairs a clear creation path with a preview from the
+published feed. When no list is published, it explains the creation flow
+without inventing a sample title or score. The default feed row places its
+five lead covers beside the title and notes on desktop, so readers can compare
+more lists before scrolling. The public artifact uses real lead covers beside
+its title at desktop widths; its phone layout still prioritizes the first item.
+These presentation changes keep the D57 navy/violet identity and the same
+public routes and access rules. Sign-in now pairs its form with a plain-language
+product explanation on desktop; settings separates its introduction from the
+account controls and makes section labels easier to scan.
+
+**Revisit if:** the featured-list query adds unacceptable landing latency, or
+readers need a different way to choose a list from the feed.
+
+### D63 — Restore the ten-cover Stream preview
+
+*Owner correction, 2026-10-01.* Stream is the detailed feed mode: show up to ten
+lead titles in a five-column, two-row grid below each list's details on phones
+and desktops. The previous five-cover side layout hid half of the preview the
+owner expects from this mode. Keep the landing page's featured preview at five
+covers, since its compact frame serves a different purpose. Compact and Grid
+feed modes retain their existing layouts.
+
+**Revisit if:** the owner asks to change Stream's preview count or arrangement.
+
+### D64 — Keep the feed in a focused reading column
+
+*Owner feedback, 2026-10-01, with a Reddit feed reference.* The ten-cover
+Stream post was too wide on large desktops. Cap the feed content at Tailwind's
+`max-w-3xl` so its heading, controls, and posts align in one narrower column.
+On wide screens, reserve the sidebar's width on the right of the main grid
+track; that centers the reading column in the viewport rather than in only the
+space left over after the sidebar. Phone layout stays full width. The ten-cover
+two-row Stream preview from D63 remains intact.
+
+**Revisit if:** a future right rail or feed layout changes the available width.
+
 ## External prerequisites
 
 | Needed by | Service | Status |
@@ -1570,6 +1644,114 @@ the one you forgot. `scripts/check-db-reachable.sh` warns if a second file appea
 ## Session log
 
 Newest first. One entry per session: what changed, what was decided, what to pick up next.
+
+### 2026-10-01 — Narrowed the feed reading column
+
+Matched the owner's Reddit width reference by changing `/feed` from a
+`max-w-5xl` content area to `max-w-3xl`, with viewport-centered placement on
+wide screens. The title, controls, and posts stay aligned; Stream still shows
+ten covers in two rows. Browser-checked at desktop and phone widths. TypeScript,
+ESLint, production build, and the full suite pass (206 tests). See D64.
+
+### 2026-10-01 — Restored Stream's ten-title preview
+
+The owner pointed out that the new Stream card hid five titles and changed its
+two-row preview. Restored ten visible covers in two rows of five at every width.
+The landing feature still displays five covers. Updated the UI registry and
+recorded D63; other redesign changes remain in place. Browser-checked desktop
+and phone widths. TypeScript, ESLint, production build, and the full suite pass
+(206 tests).
+
+### 2026-10-01 — Larger landing, feed, and list layout pass
+
+Responded to the owner's feedback that the previous polish pass was too subtle.
+The signed-out home now has a split hero with clear primary action and an actual
+published-list preview, plus an honest empty-feed state. The feed now has an
+explicit heading, a wider reading area, and compact text-led stream cards with
+covers beside the copy on desktop. The public artifact gained a larger title
+and real cover preview on desktop; dashboard list cards give Edit a labelled
+action and remove redundant visual clutter. The signed-in create page has a
+clearer task introduction. Sign-in now has a two-column desktop composition,
+and settings separates its introduction from its form sections. See D62.
+TypeScript, ESLint, the production build, and the full test suite pass (206 tests, 0 failures).
+Browser review covered home, feed, sign-in, and a public list at desktop and
+phone widths. Authenticated settings and dashboard remain source-reviewed,
+pending a local sign-in.
+
+### 2026-10-01 — Local AniList OAuth client ID corrected
+
+The owner showed an AniList API client page with ID `48161` and an OAuth
+authorization request using `48160`, which returned `invalid_client`. The local
+`.env` contained `48160`; changed only `ANILIST_CLIENT_ID` to `48161`.
+Playwright followed Tsugi's "Continue with AniList" button and confirmed the
+new request uses `48161`, keeps the registered localhost callback, and reaches
+AniList's login page instead of the JSON error. The screenshot exposed the
+client secret. The owner must rotate it in AniList, update the local `.env`
+then complete sign-in to verify the callback and token exchange. The owner
+clarified that Vercel uses a separate production AniList app; its credentials
+must stay untouched. A local comparison suggests the existing `.env` secret
+does not match the pictured dev client's secret, so updating it after rotation
+is necessary. Phase 7's account-gated checks remain open.
+
+### 2026-10-01 — Local runtime no longer requires the migration URL
+
+Fixed the reported `Invalid environment configuration. Check: DIRECT_URL`
+startup error. `src/lib/env.ts` no longer treats the migration-only URL as a
+runtime requirement; `drizzle.config.ts` validates it separately before a
+migration. Added regression tests for both paths and corrected `.env.example`.
+The local homepage and feed API now return 200 with the existing `.env`, which
+has `DATABASE_URL` but no `DIRECT_URL`. Corrected the example's stale
+`VERCEL_URL` fallback note as well. See D61. TypeScript, ESLint, and the full
+suite pass (206 tests, 0 failures).
+
+### 2026-10-01 — UI and UX refinement across reading and management surfaces
+
+Kept the D57 navy/violet identity at the owner's direction. Used Impeccable and
+Playwright CLI to inspect the live landing page, feed, sign-in, and public list at
+desktop and phone widths. The feed's stream card now gives its title more readable
+type and spacing and shows five lead covers at every width, leaving more lists visible
+without losing the title count or the full-list link. The public list omits its
+redundant visible slug and reaches its first item sooner. The dashboard now puts
+its four statistics in one compact summary, uses a task-first heading, and gives
+the list filters 44px touch targets. Settings copy now describes the actual colour
+schemes, including those that change the background. The builder's step footer
+actions also now meet the 44px touch target without changing its form flow.
+
+Installed the owner's `clean-code` skill from `haruhadj/ai-skills` into the user
+skill directory. The local `.env` lacks `DIRECT_URL`, so the test run needs a
+process-only valid URL for that required but unused-in-read-path setting. An
+existing multi-round-trip live database test exceeded Bun's 5s default; it now
+has an explicit 20s timeout, as AGENTS.md requires. TypeScript, ESLint, and all
+206 tests pass. Phase 8 remains open, with
+the account-gated live checks from its spec still outstanding.
+
+### 2026-10-01 — Codebase index refreshed and Vercel Production environment repaired
+
+Indexed the repository in codebase-memory as `home-haruhadj-tsugi` using full mode. The
+ready graph has 3,334 nodes and 6,763 edges. No files were unusable or skipped. Ten files
+have partial parse coverage, including six SQL migrations and `src/app/globals.css`; consult
+source directly for their flagged ranges when making structural claims. Four files were
+excluded by design (`.env`, `.env.example`, `public/logo.png`, `src/app/icon.svg`). No product
+code or phase status changed.
+
+Updated Vercel project `tsugi`'s sensitive `UPSTASH_REDIS_REST_TOKEN` from the local `.env`
+for both Preview and Production. Both edits returned HTTP 200 and were confirmed in the
+project's environment-variable metadata. The owner then requested a complete Production sync
+and live check. The local `DATABASE_URL` contained a literal `@` in its password; encoding it
+as `%40` made an authenticated `select 1` succeed. The local Redis token, Supabase publishable
+key, and MAL client ID also passed read-only live checks. Resend's read endpoint returned 403;
+a sending-only key cannot use that endpoint, so email sending remains unverified without a
+real send. OAuth client secrets likewise cannot be validated without completing OAuth.
+
+Synced all 11 nonempty `.env` variables to Vercel Production, creating the two
+`NEXT_PUBLIC_SUPABASE_*` variables and updating the other nine. Kept the four Production-only
+settings (`DIRECT_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXT_PUBLIC_APP_URL`).
+Redeployed the existing commit `af2930c` as production deployment
+`dpl_3NQTCjhuUwR5zxJMpLQxFD7TQ9Ph`, which reached READY and received the production aliases.
+Before the redeploy, `/api/feed` and `/api/feed/categories` returned 500. Afterward, the home
+page and `/api/feed` returned 200 on both `tsugi.haruhadj.org` and
+`tsugi-lyart.vercel.app`; `/sign-in` and `/api/feed/categories` returned 200, and the
+unauthenticated `/api/lists` returned its expected 401.
 
 ### 2026-08-23 — Editing comes back into scope: one builder, two modes
 

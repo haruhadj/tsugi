@@ -1,4 +1,3 @@
-import { ArrowUpIcon, EyeIcon, LayersIcon, ListOrderedIcon } from "lucide-react";
 import Link from "next/link";
 import { DashboardRecList } from "@/components/DashboardRecList";
 import { Header } from "@/components/Header";
@@ -17,37 +16,11 @@ export default async function DashboardPage() {
     getDashboardStats(session.user.id),
   ]);
 
-  // Full class strings per tile, never interpolated — see ScoreBadge's note on
-  // why a `bg-${token}/15` emits nothing under Tailwind's static scan.
-  const tiles = [
-    {
-      label: "Lists",
-      value: stats.listCount,
-      icon: LayersIcon,
-      tone: "text-primary",
-      chip: "border-primary/30 bg-primary/15",
-    },
-    {
-      label: "Views",
-      value: stats.totalViews,
-      icon: EyeIcon,
-      tone: "text-score-good",
-      chip: "border-score-good/30 bg-score-good/15",
-    },
-    {
-      label: "Net votes",
-      value: stats.totalScore,
-      icon: ArrowUpIcon,
-      tone: "text-success",
-      chip: "border-success/30 bg-success/15",
-    },
-    {
-      label: "Titles curated",
-      value: stats.totalItems,
-      icon: ListOrderedIcon,
-      tone: "text-highlight",
-      chip: "border-highlight/30 bg-highlight/15",
-    },
+  const summary = [
+    { label: "Lists", value: stats.listCount },
+    { label: "Views", value: stats.totalViews },
+    { label: "Net votes", value: stats.totalScore },
+    { label: "Titles curated", value: stats.totalItems },
   ];
 
   return (
@@ -62,11 +35,10 @@ export default async function DashboardPage() {
                 u/{session.user.username}
               </p>
               <h1 className="mt-3 font-display text-[clamp(1.9rem,5vw,2.75rem)] leading-[1.02] font-extrabold tracking-[-0.03em]">
-                Your curation desk
+                Your lists
               </h1>
               <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
-                Everything you have made, newest first. Publishing a list puts it on the
-                rundown; deleting one is immediate and total.
+                Find what you have made, share a link, or manage what appears on the rundown.
               </p>
             </div>
             <Button asChild className="rounded-full">
@@ -74,27 +46,16 @@ export default async function DashboardPage() {
             </Button>
           </div>
 
-          <ul className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {tiles.map((tile) => (
-              <li
-                key={tile.label}
-                className="rounded-2xl border border-border bg-card/60 p-4"
-              >
-                <span
-                  className={`inline-flex size-8 items-center justify-center rounded-lg border ${tile.chip}`}
-                  aria-hidden
-                >
-                  <tile.icon className={`size-4 ${tile.tone}`} />
-                </span>
-                <p className="mt-3 font-mono text-2xl leading-none font-bold tabular-nums">
-                  {tile.value.toLocaleString()}
-                </p>
-                <p className="mt-1.5 font-mono text-[11px] tracking-[0.16em] text-muted-foreground uppercase">
-                  {tile.label}
-                </p>
-              </li>
+          <dl className="mt-8 grid grid-cols-2 gap-x-6 gap-y-5 rounded-2xl border border-border bg-card/60 p-5 sm:grid-cols-4 sm:p-6">
+            {summary.map((item) => (
+              <div key={item.label}>
+                <dt className="text-xs text-muted-foreground">{item.label}</dt>
+                <dd className="mt-1 font-mono text-2xl leading-none font-bold tabular-nums text-foreground">
+                  {item.value.toLocaleString()}
+                </dd>
+              </div>
             ))}
-          </ul>
+          </dl>
 
           <div className="mt-8">
             <DashboardRecList initialRecs={recs} />

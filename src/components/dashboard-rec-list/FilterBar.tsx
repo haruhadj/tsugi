@@ -23,7 +23,7 @@ export function FilterBar({
           onClick={() => onChange(option.id)}
           aria-pressed={filter === option.id}
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+            "inline-flex min-h-11 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors",
             "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
             filter === option.id
               ? "bg-primary text-primary-foreground"

@@ -27,7 +27,7 @@ export function StepFooter({
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card/60 p-4">
-      <Button type="button" variant="ghost" size="sm" disabled={step === 1} onClick={onBack}>
+      <Button type="button" variant="ghost" size="sm" className="min-h-11" disabled={step === 1} onClick={onBack}>
         <ArrowLeftIcon aria-hidden="true" />
         Back
       </Button>
@@ -41,11 +41,11 @@ export function StepFooter({
           where a successful save lands.
         */
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="ghost" size="sm" disabled={pending !== null} onClick={onCancel}>
+          <Button type="button" variant="ghost" size="sm" className="min-h-11" disabled={pending !== null} onClick={onCancel}>
             <XIcon aria-hidden="true" />
             Cancel
           </Button>
-          <Button type="button" size="sm" disabled={pending !== null} onClick={onSaveEdit}>
+          <Button type="button" size="sm" className="min-h-11" disabled={pending !== null} onClick={onSaveEdit}>
             {pending === "save" ? (
               <Loader2Icon className="animate-spin" aria-hidden="true" />
             ) : (
@@ -55,7 +55,7 @@ export function StepFooter({
           </Button>
         </div>
       ) : step < 3 ? (
-        <Button type="button" size="sm" onClick={onNext}>
+        <Button type="button" size="sm" className="min-h-11" onClick={onNext}>
           {step === 1 ? "Next: Add titles" : "Next: Arrange"}
           <ArrowRightIcon aria-hidden="true" />
         </Button>
@@ -65,6 +65,7 @@ export function StepFooter({
             type="button"
             variant="outline"
             size="sm"
+            className="min-h-11"
             disabled={pending !== null}
             onClick={() => onSubmit(false)}
           >
@@ -75,7 +76,7 @@ export function StepFooter({
             )}
             Save draft
           </Button>
-          <Button type="button" size="sm" disabled={pending !== null} onClick={() => onSubmit(true)}>
+          <Button type="button" size="sm" className="min-h-11" disabled={pending !== null} onClick={() => onSubmit(true)}>
             {pending === "publish" ? (
               <Loader2Icon className="animate-spin" aria-hidden="true" />
             ) : (

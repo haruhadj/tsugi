@@ -1,10 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { validateEnv } from "./env";
+import { getMigrationDatabaseUrl, validateEnv } from "./env";
 
 describe("validateEnv", () => {
   test("rejects a missing DATABASE_URL", () => {
     const source = {
-      DIRECT_URL: "postgresql://user:pass@host:5432/db",
     };
 
     expect(() => validateEnv(source)).toThrow(/DATABASE_URL/);
@@ -13,7 +12,6 @@ describe("validateEnv", () => {
   test("accepts a complete environment", () => {
     const source = {
       DATABASE_URL: "postgresql://user:pass@host:6543/db",
-      DIRECT_URL: "postgresql://user:pass@host:5432/db",
       BETTER_AUTH_SECRET: "secret",
       ANILIST_CLIENT_ID: "id",
       ANILIST_CLIENT_SECRET: "secret",
@@ -25,12 +23,31 @@ describe("validateEnv", () => {
     expect(() => validateEnv(source)).not.toThrow();
   });
 
+  test("runtime validation does not require a migration URL", () => {
+    const source = {
+      DATABASE_URL: "postgresql://user:pass@host:6543/db",
+      BETTER_AUTH_SECRET: "secret",
+      ANILIST_CLIENT_ID: "id",
+      ANILIST_CLIENT_SECRET: "secret",
+      MAL_CLIENT_ID: "id",
+      MAL_CLIENT_SECRET: "secret",
+      RESEND_API_KEY: "resend-key",
+    };
+
+    expect(() => validateEnv(source)).not.toThrow();
+    expect(() => getMigrationDatabaseUrl(source)).toThrow(/DIRECT_URL/);
+  });
+
+  test("migration validation accepts a direct connection URL", () => {
+    expect(getMigrationDatabaseUrl({ DIRECT_URL: "postgresql://user:pass@host:5432/db" }))
+      .toBe("postgresql://user:pass@host:5432/db");
+  });
+
   // D9: Upstash is optional at the env-shape layer — src/server/hono/middleware.ts
   // is what enforces "required in production", not this file.
   test("UPSTASH_REDIS_REST_URL/TOKEN are optional — absent entirely", () => {
     const source = {
       DATABASE_URL: "postgresql://user:pass@host:6543/db",
-      DIRECT_URL: "postgresql://user:pass@host:5432/db",
       BETTER_AUTH_SECRET: "secret",
       ANILIST_CLIENT_ID: "id",
       ANILIST_CLIENT_SECRET: "secret",
@@ -47,7 +64,6 @@ describe("validateEnv", () => {
   test("an empty-string UPSTASH_REDIS_REST_URL normalises to undefined, same as absent", () => {
     const source = {
       DATABASE_URL: "postgresql://user:pass@host:6543/db",
-      DIRECT_URL: "postgresql://user:pass@host:5432/db",
       BETTER_AUTH_SECRET: "secret",
       ANILIST_CLIENT_ID: "id",
       ANILIST_CLIENT_SECRET: "secret",
@@ -66,7 +82,6 @@ describe("validateEnv", () => {
   test("a real UPSTASH_REDIS_REST_URL/TOKEN pass through unchanged", () => {
     const source = {
       DATABASE_URL: "postgresql://user:pass@host:6543/db",
-      DIRECT_URL: "postgresql://user:pass@host:5432/db",
       BETTER_AUTH_SECRET: "secret",
       ANILIST_CLIENT_ID: "id",
       ANILIST_CLIENT_SECRET: "secret",
@@ -85,7 +100,6 @@ describe("validateEnv", () => {
   test("EMAIL_FROM falls back to the Resend shared sender when absent", () => {
     const source = {
       DATABASE_URL: "postgresql://user:pass@host:6543/db",
-      DIRECT_URL: "postgresql://user:pass@host:5432/db",
       BETTER_AUTH_SECRET: "secret",
       ANILIST_CLIENT_ID: "id",
       ANILIST_CLIENT_SECRET: "secret",
@@ -101,7 +115,6 @@ describe("validateEnv", () => {
   test("a real EMAIL_FROM passes through unchanged", () => {
     const source = {
       DATABASE_URL: "postgresql://user:pass@host:6543/db",
-      DIRECT_URL: "postgresql://user:pass@host:5432/db",
       BETTER_AUTH_SECRET: "secret",
       ANILIST_CLIENT_ID: "id",
       ANILIST_CLIENT_SECRET: "secret",

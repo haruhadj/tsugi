@@ -42,7 +42,9 @@ peer-dependency warning. A version matrix without a date is a rumour.
 | `cmdk` | 1.1.1 | **Approved 2026-08-15 (D42).** Radix has no combobox primitive; shadcn's `Combobox` composes `Popover` + `Command`, and `Command` wraps `cmdk`. Needed for `MediaSearchInput` (Phase 5). Verified via `npm view cmdk version`. |
 | `resend` | 6.22.0 | **Approved 2026-08-23.** Sends better-auth's `emailAndPassword` verification and reset-password emails. Replaces nothing — no email sender existed. The platform (better-auth) only calls a `sendVerificationEmail`/`sendResetPassword` callback; it does not send email itself. `@react-email/render` is listed as a peer but is `optional: true` (verified via `npm view resend peerDependenciesMeta`) — not installed, since emails are sent as plain HTML strings, no JSX templates. Verified via `npm view resend version peerDependencies`. |
 
-**Local toolchain:** Bun 1.3.14, Node 24.14.0, linux/aarch64.
+**Local toolchain (verified 2026-10-01):** Bun 1.4.2, Node 24.21.0,
+linux/x86_64. Bun was installed in the user toolchain for this UI pass; it is
+not a project dependency.
 
 **Test runner:** `bun test`, built into Bun. Not a dependency and not in the matrix above —
 there is nothing to version or upgrade. (**D16**)

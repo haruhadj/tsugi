@@ -13,29 +13,23 @@ export default async function SettingsPage() {
     <div className="min-h-screen">
       <Header username={session.user.username ?? session.user.name} />
 
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
-        <div className="animate-card-in">
-          <p className="font-mono text-xs tracking-[0.28em] text-muted-foreground uppercase">
-            Settings
-          </p>
-          <h1 className="mt-3 font-display text-[clamp(1.9rem,5vw,2.75rem)] leading-[1.02] font-extrabold tracking-[-0.03em]">
-            Connected accounts
-          </h1>
-          <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
-            Link a tracker to pull in titles you have already scored. Linking a second one
-            never replaces the first.
-          </p>
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
+        <div className="animate-card-in grid gap-8 lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-14">
+          <div className="lg:sticky lg:top-24 lg:self-start">
+            <h1 className="font-display text-[clamp(2rem,5vw,2.75rem)] leading-tight font-extrabold tracking-[-0.03em]">Settings</h1>
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">Manage your identity, trackers, and reading preferences.</p>
+          </div>
 
           {/*
             No brand-gradient rule on any card: settings is not an artifact, and
             spending the accent here would put it on the same screen as the header's
             active-nav underline for no reason.
           */}
-          <div className="mt-8 flex flex-col gap-4">
+          <div className="flex min-w-0 flex-col gap-4">
             <section className="overflow-hidden rounded-2xl border border-border bg-card/60">
               <div className="flex flex-col gap-4 p-6 sm:p-8">
-                <h2 className="flex items-center gap-1.5 font-mono text-[0.65rem] font-semibold tracking-[0.24em] text-muted-foreground uppercase">
-                  <UserIcon className="size-3.5 text-primary" aria-hidden />
+                <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                  <UserIcon className="size-4 text-primary" aria-hidden />
                   Identity
                 </h2>
                 <UsernameField initialUsername={session.user.username ?? ""} />
@@ -44,13 +38,13 @@ export default async function SettingsPage() {
 
             <section className="overflow-hidden rounded-2xl border border-border bg-card/60">
               <div className="flex flex-col gap-4 p-6 sm:p-8">
-                <h2 className="flex items-center gap-1.5 font-mono text-[0.65rem] font-semibold tracking-[0.24em] text-muted-foreground uppercase">
-                  <PaletteIcon className="size-3.5 text-primary" aria-hidden />
+                <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                  <PaletteIcon className="size-4 text-primary" aria-hidden />
                   Colour scheme
                 </h2>
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  Changes the accent pair everywhere. The zinc background and score
-                  colours stay the same in every scheme — only this changes.
+                  Choose the colours you read best. Some schemes also change the
+                  background; score colours keep their meaning in every scheme.
                 </p>
                 <ColorSchemeField />
               </div>
@@ -58,8 +52,8 @@ export default async function SettingsPage() {
 
             <section className="overflow-hidden rounded-2xl border border-border bg-card/60">
               <div className="flex flex-col gap-4 p-6 sm:p-8">
-                <h2 className="flex items-center gap-1.5 font-mono text-[0.65rem] font-semibold tracking-[0.24em] text-muted-foreground uppercase">
-                  <Link2Icon className="size-3.5 text-primary" aria-hidden />
+                <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                  <Link2Icon className="size-4 text-primary" aria-hidden />
                   Connected trackers
                 </h2>
                 <ProviderConnections />
@@ -75,8 +69,8 @@ export default async function SettingsPage() {
             */}
             <section className="overflow-hidden rounded-2xl border border-border bg-card/40">
               <div className="flex flex-col gap-3 p-6 sm:p-8">
-                <h2 className="flex items-center gap-1.5 font-mono text-[0.65rem] font-semibold tracking-[0.24em] text-muted-foreground uppercase">
-                  <SlidersHorizontalIcon className="size-3.5 text-primary" aria-hidden />
+                <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                  <SlidersHorizontalIcon className="size-4 text-primary" aria-hidden />
                   Rating scale
                 </h2>
                 <p className="text-sm leading-relaxed text-muted-foreground">
