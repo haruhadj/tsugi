@@ -1645,6 +1645,12 @@ the one you forgot. `scripts/check-db-reachable.sh` warns if a second file appea
 
 Newest first. One entry per session: what changed, what was decided, what to pick up next.
 
+### 2026-10-01 — Tracked local agent tooling
+
+At the owner's request, added the previously untracked Impeccable skill packages
+and hooks for the installed agent clients, plus the pnpm lock and workspace
+files. This changes repository tooling only; the application still uses Bun.
+
 ### 2026-10-01 — Narrowed the feed reading column
 
 Matched the owner's Reddit width reference by changing `/feed` from a
